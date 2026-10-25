@@ -57,7 +57,7 @@ final class SymSvelInstallCommand extends Command
         }
 
         $io->success('Interfaces installées : '.implode(', ', $components));
-        $io->note('Exécutez npm ci dans chaque interface avant de la démarrer.');
+        $io->note('Dépendances npm installées et builds SvelteKit terminés. Démarrez les interfaces avec npm run dev.');
         return Command::SUCCESS;
     }
 }

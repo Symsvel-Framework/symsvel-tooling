@@ -58,6 +58,19 @@ final class ComponentInstaller
                 if (!$process->isSuccessful()) {
                     throw new \RuntimeException(trim($process->getErrorOutput()) ?: 'Échec du clonage Git.');
                 }
+                foreach ([['npm', 'ci'], ['npm', 'run', 'build']] as $command) {
+                    $step = new Process($command, $target);
+                    $step->setTimeout(600);
+                    $step->run();
+                    if (!$step->isSuccessful()) {
+                        throw new \RuntimeException(sprintf(
+                            'Échec de %s dans %s : %s',
+                            implode(' ', $command),
+                            $component,
+                            trim($step->getErrorOutput()) ?: trim($step->getOutput()),
+                        ));
+                    }
+                }
             }
         } catch (\Throwable $exception) {
             foreach (array_reverse($created) as $path) {
