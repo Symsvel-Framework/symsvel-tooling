@@ -8,6 +8,7 @@ use SymSvel\Tooling\Installation\ComponentInstaller;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -23,11 +24,21 @@ final class SymSvelInstallCommand extends Command
         parent::__construct();
     }
 
+    protected function configure(): void
+    {
+        $this->addOption('components', null, InputOption::VALUE_REQUIRED, 'Interfaces à installer : bo, app, front ou all');
+    }
+
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        if (!$input->isInteractive()) {
-            $io->error('Run symsvel:install interactively to choose the components.');
+        $explicit = $input->getOption('components');
+        if ($explicit !== null && !in_array($explicit, ['bo', 'app', 'front', 'all'], true)) {
+            $io->error('Valeur --components invalide. Choisissez bo, app, front ou all.');
+            return Command::INVALID;
+        }
+        if ($explicit === null && !$input->isInteractive()) {
+            $io->error('En mode non interactif, précisez --components=bo|app|front|all.');
             return Command::INVALID;
         }
 
@@ -37,10 +48,14 @@ final class SymSvelInstallCommand extends Command
             '3' => 'Front',
             '4' => 'App + Front',
         ];
-        $question = new ChoiceQuestion('Quels composants souhaitez-vous installer ?', $choices, '1');
-        $question->setErrorMessage('Choix invalide : %s');
-        $selected = $this->getHelper('question')->ask($input, $output, $question);
-        $choice = array_search($selected, $choices, true);
+        if ($explicit !== null) {
+            $choice = ['bo' => '1', 'app' => '2', 'front' => '3', 'all' => '4'][$explicit];
+        } else {
+            $question = new ChoiceQuestion('Quels composants souhaitez-vous installer ?', $choices, '1');
+            $question->setErrorMessage('Choix invalide : %s');
+            $selected = $this->getHelper('question')->ask($input, $output, $question);
+            $choice = array_search($selected, $choices, true);
+        }
 
         try {
             $components = $this->installer->componentsForChoice((string) $choice);
