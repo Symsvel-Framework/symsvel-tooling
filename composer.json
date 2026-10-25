@@ -21,5 +21,12 @@
         "psr-4": {
             "SymSvel\\Tooling\\Tests\\": "tests/"
         }
+    },
+    "scripts": {
+        "qa": [
+            "@php -l src/Installation/ComponentInstaller.php",
+            "@php -l src/Command/SymSvelInstallCommand.php",
+            "@php vendor/bin/phpunit"
+        ]
     }
 }
