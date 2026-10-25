@@ -23,6 +23,14 @@ Choix interactifs :
 3. BO + Front
 4. BO + App + Front
 
+Pour les installations reproductibles et la CI, utilisez sans interaction :
+
+```bash
+php bin/console symsvel:install --no-interaction --components=all
+```
+
+Valeurs acceptées : `bo` (BO seul), `app` (BO + App), `front` (BO + Front), `all` (les trois). Sans option, le choix interactif reste disponible. Une valeur inconnue est refusée sans toucher aux dossiers.
+
 Le BO est toujours installé. Les dépôts privés sont clonés en SSH dans `bo/`, `app/` et `front/`. Configurer l'accès GitHub SSH et installer Node.js/npm avant l'exécution. Pour chaque interface, l'installateur exécute automatiquement `npm ci` puis `npm run build`. Les interfaces peuvent ensuite être lancées localement avec `npm run dev`.
 
 Le service `SymSvel\\Tooling\\Installation\\ComponentInstaller` centralise la sélection et l'installation. Il vérifie **toutes** les destinations avant le premier clonage, refuse les dossiers existants et annule les nouveaux dossiers créés si un clonage, une installation npm ou un build échoue. Les chemins préexistants ne sont jamais supprimés.
