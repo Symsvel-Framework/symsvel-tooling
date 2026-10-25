@@ -34,12 +34,12 @@ final class SymSvelInstallCommand extends Command
         // Symfony lives in backend/; the interfaces belong to its parent workspace.
         // Refuse ambiguous layouts instead of silently installing beside Symfony files.
         if (basename(rtrim($this->projectDir, '/')) !== 'backend') {
-            throw new \\RuntimeException('Le backend Symfony doit se trouver dans le dossier backend/ du projet.');
+            throw new \RuntimeException('Le backend Symfony doit se trouver dans le dossier backend/ du projet.');
         }
 
         $root = dirname($this->projectDir);
         if (!is_file($this->projectDir.'/composer.json') || !is_dir($root)) {
-            throw new \\RuntimeException('Arborescence SymSvel invalide : backend/composer.json introuvable.');
+            throw new \RuntimeException('Arborescence SymSvel invalide : backend/composer.json introuvable.');
         }
 
         return $root;
