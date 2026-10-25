@@ -48,7 +48,9 @@ final class ComponentInstaller
         try {
             foreach ($components as $component) {
                 $target = $projectDir.'/'.$component;
-                $progress?.__invoke($component);
+                if ($progress !== null) {
+                    $progress($component);
+                }
                 $created[] = $target;
                 $process = new Process(['git', 'clone', '--depth', '1', self::REPOSITORIES[$component], $target]);
                 $process->setTimeout(300);
