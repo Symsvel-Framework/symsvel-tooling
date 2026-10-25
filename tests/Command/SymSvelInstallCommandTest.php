@@ -12,6 +12,33 @@ use Symfony\Component\Console\Helper\QuestionHelper;
 
 final class SymSvelInstallCommandTest extends TestCase
 {
+    public function testInvalidExplicitChoiceIsRejected(): void
+    {
+        $command = new SymSvelInstallCommand(sys_get_temp_dir());
+        $tester = new CommandTester($command);
+        self::assertSame(2, $tester->execute(['--components' => 'invalid'], ['interactive' => false]));
+    }
+
+    public function testExplicitChoiceChecksExistingDestinationWithoutPrompt(): void
+    {
+        $projectDir = sys_get_temp_dir().'/symsvel-install-test-'.bin2hex(random_bytes(8));
+        mkdir($projectDir);
+        mkdir($projectDir.'/front');
+        file_put_contents($projectDir.'/front/keep.txt', 'preserved');
+        try {
+            $command = new SymSvelInstallCommand($projectDir);
+            $tester = new CommandTester($command);
+            self::assertSame(1, $tester->execute(['--components' => 'all'], ['interactive' => false]));
+            self::assertSame('preserved', file_get_contents($projectDir.'/front/keep.txt'));
+            self::assertDirectoryDoesNotExist($projectDir.'/bo');
+            self::assertDirectoryDoesNotExist($projectDir.'/app');
+        } finally {
+            unlink($projectDir.'/front/keep.txt');
+            rmdir($projectDir.'/front');
+            rmdir($projectDir);
+        }
+    }
+
     public function testNonInteractiveInstallationIsRejectedWithoutCreatingDirectories(): void
     {
         $projectDir = sys_get_temp_dir().'/symsvel-install-test-'.bin2hex(random_bytes(8));
