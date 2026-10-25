@@ -12,6 +12,19 @@ use Symfony\Component\Console\Helper\QuestionHelper;
 
 final class SymSvelInstallCommandTest extends TestCase
 {
+    public function testLegacyFlatSymfonyLayoutIsRejected(): void
+    {
+        $dir = sys_get_temp_dir().'/symsvel-flat-'.bin2hex(random_bytes(8));
+        mkdir($dir);
+        try {
+            $tester = new CommandTester(new SymSvelInstallCommand($dir));
+            self::assertSame(1, $tester->execute(['--components' => 'bo'], ['interactive' => false]));
+            self::assertDirectoryDoesNotExist($dir.'/bo');
+        } finally {
+            rmdir($dir);
+        }
+    }
+
     public function testInvalidExplicitChoiceIsRejected(): void
     {
         $command = new SymSvelInstallCommand(sys_get_temp_dir());
@@ -23,10 +36,12 @@ final class SymSvelInstallCommandTest extends TestCase
     {
         $projectDir = sys_get_temp_dir().'/symsvel-install-test-'.bin2hex(random_bytes(8));
         mkdir($projectDir);
+        mkdir($projectDir.'/backend');
+        file_put_contents($projectDir.'/backend/composer.json', '{}');
         mkdir($projectDir.'/front');
         file_put_contents($projectDir.'/front/keep.txt', 'preserved');
         try {
-            $command = new SymSvelInstallCommand($projectDir);
+            $command = new SymSvelInstallCommand($projectDir.'/backend');
             $tester = new CommandTester($command);
             self::assertSame(1, $tester->execute(['--components' => 'all'], ['interactive' => false]));
             self::assertSame('preserved', file_get_contents($projectDir.'/front/keep.txt'));
@@ -35,6 +50,8 @@ final class SymSvelInstallCommandTest extends TestCase
         } finally {
             unlink($projectDir.'/front/keep.txt');
             rmdir($projectDir.'/front');
+            unlink($projectDir.'/backend/composer.json');
+            rmdir($projectDir.'/backend');
             rmdir($projectDir);
         }
     }
@@ -43,13 +60,17 @@ final class SymSvelInstallCommandTest extends TestCase
     {
         $projectDir = sys_get_temp_dir().'/symsvel-install-test-'.bin2hex(random_bytes(8));
         mkdir($projectDir);
+        mkdir($projectDir.'/backend');
+        file_put_contents($projectDir.'/backend/composer.json', '{}');
         try {
-            $command = new SymSvelInstallCommand($projectDir);
+            $command = new SymSvelInstallCommand($projectDir.'/backend');
             $command->setHelperSet(new HelperSet(['question' => new QuestionHelper()]));
             $tester = new CommandTester($command);
             self::assertSame(2, $tester->execute([], ['interactive' => false]));
             self::assertDirectoryDoesNotExist($projectDir.'/bo');
         } finally {
+            unlink($projectDir.'/backend/composer.json');
+            rmdir($projectDir.'/backend');
             rmdir($projectDir);
         }
     }
@@ -58,10 +79,12 @@ final class SymSvelInstallCommandTest extends TestCase
     {
         $projectDir = sys_get_temp_dir().'/symsvel-install-test-'.bin2hex(random_bytes(8));
         mkdir($projectDir);
+        mkdir($projectDir.'/backend');
+        file_put_contents($projectDir.'/backend/composer.json', '{}');
         mkdir($projectDir.'/bo');
         file_put_contents($projectDir.'/bo/keep.txt', 'preserved');
         try {
-            $command = new SymSvelInstallCommand($projectDir);
+            $command = new SymSvelInstallCommand($projectDir.'/backend');
             $command->setHelperSet(new HelperSet(['question' => new QuestionHelper()]));
             $tester = new CommandTester($command);
             $tester->setInputs(['1']);
@@ -70,6 +93,8 @@ final class SymSvelInstallCommandTest extends TestCase
         } finally {
             unlink($projectDir.'/bo/keep.txt');
             rmdir($projectDir.'/bo');
+            unlink($projectDir.'/backend/composer.json');
+            rmdir($projectDir.'/backend');
             rmdir($projectDir);
         }
     }
@@ -92,10 +117,12 @@ final class SymSvelInstallCommandTest extends TestCase
     {
         $projectDir = sys_get_temp_dir().'/symsvel-install-test-'.bin2hex(random_bytes(8));
         mkdir($projectDir);
+        mkdir($projectDir.'/backend');
+        file_put_contents($projectDir.'/backend/composer.json', '{}');
         mkdir($projectDir.'/'.$component);
         file_put_contents($projectDir.'/'.$component.'/keep.txt', 'preserved');
         try {
-            $command = new SymSvelInstallCommand($projectDir);
+            $command = new SymSvelInstallCommand($projectDir.'/backend');
             $command->setHelperSet(new HelperSet(['question' => new QuestionHelper()]));
             $tester = new CommandTester($command);
             $tester->setInputs([$choice]);
@@ -105,6 +132,8 @@ final class SymSvelInstallCommandTest extends TestCase
         } finally {
             unlink($projectDir.'/'.$component.'/keep.txt');
             rmdir($projectDir.'/'.$component);
+            unlink($projectDir.'/backend/composer.json');
+            rmdir($projectDir.'/backend');
             rmdir($projectDir);
         }
     }
