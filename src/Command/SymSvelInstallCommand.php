@@ -29,6 +29,22 @@ final class SymSvelInstallCommand extends Command
         $this->addOption('components', null, InputOption::VALUE_REQUIRED, 'Interfaces à installer : bo, app, front ou all');
     }
 
+    private function resolveWorkspaceRoot(): string
+    {
+        // Symfony lives in backend/; the interfaces belong to its parent workspace.
+        // Refuse ambiguous layouts instead of silently installing beside Symfony files.
+        if (basename(rtrim($this->projectDir, '/')) !== 'backend') {
+            throw new \RuntimeException('Le backend Symfony doit se trouver dans le dossier backend/ du projet.');
+        }
+
+        $root = dirname($this->projectDir);
+        if (!is_file($this->projectDir.'/composer.json') || !is_dir($root)) {
+            throw new \RuntimeException('Arborescence SymSvel invalide : backend/composer.json introuvable.');
+        }
+
+        return $root;
+    }
+
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
@@ -60,7 +76,7 @@ final class SymSvelInstallCommand extends Command
         try {
             $components = $this->installer->componentsForChoice((string) $choice);
             $this->installer->install(
-                $this->projectDir,
+                $this->resolveWorkspaceRoot(),
                 $components,
                 static function (string $component) use ($io): void {
                     $io->text(sprintf('Installation de %s...', $component));
