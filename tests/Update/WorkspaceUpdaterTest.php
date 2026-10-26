@@ -64,6 +64,7 @@ final class WorkspaceUpdaterTest extends TestCase
         mkdir($root);
         mkdir($root.'/backend');
         file_put_contents($root.'/backend/composer.json', '{}');
+        file_put_contents($root.'/backend/composer.json', json_encode(['require' => ['symsvel-framework/core' => '^1.0', 'symsvel-framework/tooling' => '^1.0']]));
         mkdir($root.'/bo');
         mkdir($root.'/bo/.git');
         $calls = [];
