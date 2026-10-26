@@ -6,7 +6,7 @@ namespace SymSvel\Tooling\Module;
 
 final class ModuleMaker
 {
-    public function create(string $workspace, string $name, string $vendor = 'symsvel-framework', array $scopes = ['back', 'dev']): string
+    public function create(string $workspace, string $name, string $vendor = 'symsvel-framework', string $scopes = 'back'): string
     {
         if (!preg_match('/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/', $name)) {
             throw new \InvalidArgumentException('Nom de module invalide : utilisez des lettres minuscules, chiffres et tirets.');
@@ -14,12 +14,24 @@ final class ModuleMaker
         if (!preg_match('/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/', $vendor)) {
             throw new \InvalidArgumentException('Vendor Composer invalide.');
         }
-        $allowed = ['back', 'bo', 'app', 'front', 'dev', 'admin', 'user'];
-        $scopes = array_values(array_unique($scopes));
-        if (array_diff($scopes, $allowed) !== []) {
-            throw new \InvalidArgumentException('Scope inconnu : '.implode(', ', array_diff($scopes, $allowed)));
+        $profiles = [
+            'back' => ['back'],
+            'bo' => ['back', 'bo'],
+            'app' => ['back', 'bo', 'app'],
+            'front' => ['back', 'bo', 'front'],
+            'all' => ['back', 'bo', 'app', 'front'],
+        ];
+        if (!isset($profiles[$scopes])) {
+            throw new \InvalidArgumentException('Profil inconnu : '.$scopes.'. Valeurs : bo, app, front, all (back par défaut).');
         }
-        $scopes = array_values(array_unique(array_merge(['back', 'dev'], $scopes)));
+        $componentsSelected = $profiles[$scopes];
+        $docsSelected = ['dev'];
+        if (in_array('bo', $componentsSelected, true)) {
+            $docsSelected[] = 'admin';
+        }
+        if (in_array('app', $componentsSelected, true) || in_array('front', $componentsSelected, true)) {
+            $docsSelected[] = 'user';
+        }
         $root = rtrim($workspace, '/').'/modules';
         if (!is_dir($workspace)) {
             throw new \RuntimeException('Workspace introuvable.');
@@ -34,12 +46,12 @@ final class ModuleMaker
         $components = [];
         $documentation = [];
         foreach (['back', 'bo', 'app', 'front'] as $scope) {
-            if (in_array($scope, $scopes, true)) {
+            if (in_array($scope, $componentsSelected, true)) {
                 $components[$scope] = $scope;
             }
         }
         foreach (['dev', 'admin', 'user'] as $scope) {
-            if (in_array($scope, $scopes, true)) {
+            if (in_array($scope, $docsSelected, true)) {
                 $documentation[$scope] = 'docs/'.$scope;
             }
         }
@@ -72,7 +84,7 @@ final class ModuleMaker
 
         foreach (['admin', 'user'] as $scope) {
             if (isset($documentation[$scope])) {
-                $files['docs/'.$scope.'/index.md'] = '# '.$class."\\n\\nDocumentation ".$scope.".\\n";
+                $files['docs/'.$scope.'/index.md'] = '# '.$class."\n\nDocumentation ".$scope.".\n";
             }
         }
         foreach (['bo', 'app', 'front'] as $scope) {
@@ -81,8 +93,8 @@ final class ModuleMaker
                 $files[$scope.'/tests/.gitkeep'] = '';
             }
         }
-        $files['back/phpunit.xml.dist'] = '<?xml version="1.0" encoding="UTF-8"?>'."\\n".'<phpunit bootstrap="../vendor/autoload.php" colors="true"><testsuites><testsuite name="Unit"><directory>tests/Unit</directory></testsuite><testsuite name="Integration"><directory>tests/Integration</directory></testsuite><testsuite name="Functional"><directory>tests/Functional</directory></testsuite></testsuites></phpunit>'."\\n";
-        $files['.github/workflows/qa.yml'] = "name: QA\\non: [push, pull_request]\\njobs:\\n  test:\\n    runs-on: ubuntu-latest\\n    steps:\\n      - uses: actions/checkout@v4\\n      - uses: shivammathur/setup-php@v2\\n        with:\\n          php-version: '8.4'\\n      - run: composer install --no-interaction --prefer-dist\\n      - run: composer qa\\n";
+        $files['back/phpunit.xml.dist'] = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<phpunit bootstrap="../vendor/autoload.php" colors="true"><testsuites><testsuite name="Unit"><directory>tests/Unit</directory></testsuite><testsuite name="Integration"><directory>tests/Integration</directory></testsuite><testsuite name="Functional"><directory>tests/Functional</directory></testsuite></testsuites></phpunit>'."\n";
+        $files['.github/workflows/qa.yml'] = "name: QA\non: [push, pull_request]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: shivammathur/setup-php@v2\n        with:\n          php-version: '8.4'\n      - run: composer install --no-interaction --prefer-dist\n      - run: composer qa\n";
         $files['back/tests/Unit/.gitkeep'] = '';
         $files['back/tests/Integration/.gitkeep'] = '';
         $files['back/tests/Functional/.gitkeep'] = '';

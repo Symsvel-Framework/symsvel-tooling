@@ -24,7 +24,7 @@ if (count($args) === 1 && in_array($args[0], ['--help', '-h', 'help'], true)) {
     $args = [];
 }
 if ($args === []) {
-    fwrite(STDOUT, "Usage: ./symsvel make:module <nom> [--vendor=<vendor>] [--scopes=back,dev,bo,app,front,admin,user]\n");
+    fwrite(STDOUT, "Usage: ./symsvel make:module <nom> [--vendor=<vendor>] [--scopes=bo|app|front|all]\n");
     exit(0);
 }
 
@@ -36,12 +36,12 @@ if ($command !== 'make:module') {
 
 $name = null;
 $vendor = 'symsvel-framework';
-$scopes = ['back', 'dev'];
+$scopes = 'back';
 foreach ($args as $arg) {
     if (str_starts_with($arg, '--vendor=')) {
         $vendor = substr($arg, strlen('--vendor='));
     } elseif (str_starts_with($arg, '--scopes=')) {
-        $scopes = explode(',', substr($arg, strlen('--scopes=')));
+        $scopes = substr($arg, strlen('--scopes='));
     } elseif ($name === null && !str_starts_with($arg, '-')) {
         $name = $arg;
     } else {
