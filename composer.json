@@ -29,6 +29,11 @@
             "@php -l src/Update/WorkspaceUpdater.php",
             "@php -l src/Module/ModuleMaker.php",
             "@php -l src/Command/SymSvelMakeModuleCommand.php",
+            "@php -l src/Module/ModuleManifest.php",
+            "@php -l src/Module/ModuleRegistry.php",
+            "@php -l src/Module/ModulePlanner.php",
+            "@php -l src/Module/ModuleSynchronizer.php",
+            "@php -l src/Command/SymSvelModulePlanCommand.php",
             "@php vendor/bin/phpunit"
         ]
     }
