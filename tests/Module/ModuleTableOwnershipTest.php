@@ -56,7 +56,7 @@ final class ModuleTableOwnershipTest extends TestCase
             file_put_contents($root.'/modules/'.$slug.'/module.json', '{"tables":["users"]}');
         }
         try {
-            $this->expectException(\\DomainException::class);
+            $this->expectException(\DomainException::class);
             (new ModuleTableOwnership())->tables($root, ['users']);
         } finally {
             foreach (['users', 'audit'] as $slug) {
