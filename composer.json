@@ -40,6 +40,9 @@
             "@php -l src/Module/ModuleBundleMapWriter.php",
             "@php -l src/Module/ModuleRemovalPlanner.php",
             "@php -l src/Command/SymSvelModuleRemovalPlanCommand.php",
+            "@php -l src/Module/ModuleMigrationCatalog.php",
+            "@php -l src/Module/ModuleMigrationDiff.php",
+            "@php -l src/Module/ModuleMigrationRegistry.php",
             "@php vendor/bin/phpunit"
         ]
     }
