@@ -72,6 +72,7 @@ final class ModuleMaker
                 'schema' => 1,
                 'name' => $class,
                 'dependencies' => new \stdClass(),
+                'tables' => [],
                 'components' => $components,
                 'documentation' => $documentation,
                 'extensions' => [],
