@@ -72,7 +72,7 @@ final class WorkspaceUpdaterTest extends TestCase
             $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): ?string {
                 $calls[] = [$command, $cwd];
                 if ($command === ['git', 'tag', '--list', 'v[0-9]*']) {
-                    return "v1.2.0\\nv1.10.0\\nv2.0.0-beta\\nv1.9.5\\n";
+                    return implode(PHP_EOL, ['v1.2.0', 'v1.10.0', 'v2.0.0-beta', 'v1.9.5', '']);
                 }
                 return null;
             });
