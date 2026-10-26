@@ -52,15 +52,27 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
                 return Command::SUCCESS;
             }
             $execute = (bool) $input->getOption('execute');
+            if ($execute && ($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV')) === 'prod') {
+                throw new \DomainException('Exécution de migrations interdite en production.');
+            }
             // Compile every source before touching the database. The executor
             // commits receipts only when the complete batch succeeds.
             $compiled = [];
-            foreach ($changes['pending'] as $source) {
-                $migration = $this->compiler->compile($this->projectDir, [$source]);
-                if ($migration !== null) {
-                    $compiled[] = $migration;
-                    $io->text('Compilée : '.$migration['path']);
+            try {
+                foreach ($changes['pending'] as $source) {
+                    $migration = $this->compiler->compile($this->projectDir, [$source]);
+                    if ($migration !== null) {
+                        $compiled[] = $migration;
+                        $io->text('Compilée : '.$migration['path']);
+                    }
                 }
+            } catch (\Throwable $compileFailure) {
+                foreach ($compiled as $migration) {
+                    if (is_file($migration['path'])) {
+                        unlink($migration['path']);
+                    }
+                }
+                throw $compileFailure;
             }
             if ($execute) {
                 $this->executor->install($this->projectDir, (string) $workspace, $compiled, $registered, $this->registry);
