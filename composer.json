@@ -57,6 +57,7 @@
             "@php -l tests/Module/ModuleMigrationRemovalPlanTest.php",
             "@php -l src/Module/ModuleRemovalTransaction.php",
             "@php -l tests/Module/ModuleRemovalTransactionTest.php",
+            "@php -l src/Command/SymSvelModuleRemovalRecoveryStatusCommand.php",
             "@php vendor/bin/phpunit",
             "@php -l src/Command/SymSvelModuleMigrationRecoveryStatusCommand.php"
         ]
