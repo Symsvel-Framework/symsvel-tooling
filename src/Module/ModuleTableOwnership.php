@@ -57,7 +57,11 @@ final class ModuleTableOwnership
             if (!is_array($manifest)) {
                 throw new \DomainException('Manifest invalide : '.$other);
             }
-            foreach ($manifest['tables'] ?? [] as $table) {
+            $otherTables = $manifest['tables'] ?? [];
+            if (!is_array($otherTables) || !array_is_list($otherTables)) {
+                throw new \DomainException('Déclaration de tables invalide : '.$other);
+            }
+            foreach ($otherTables as $table) {
                 if (is_string($table) && isset($owned[$table])) {
                     throw new \DomainException('Table '.$table.' revendiquée par le module conservé '.$other.'.');
                 }
