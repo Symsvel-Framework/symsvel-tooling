@@ -41,10 +41,11 @@ final class WorkspaceUpdaterTest extends TestCase
             $updater->update($root.'/backend', 'core', static function (string $message) use (&$messages): void {
                 $messages[] = $message;
             });
-            self::assertSame('composer', $calls[0][0][0]);
+            self::assertSame(['git', 'status', '--porcelain'], $calls[0][0]);
+            self::assertSame('composer', $calls[1][0][0]);
             self::assertContains([['git', 'merge', '--ff-only', 'origin/main'], $root.'/bo'], $calls);
             self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
-            self::assertCount(6, $calls);
+            self::assertCount(7, $calls);
             self::assertContains('Backend : mise à jour Composer (Core + Tooling)…', $messages);
             self::assertContains('BO : build…', $messages);
             self::assertContains('APP : absent, ignoré.', $messages);
