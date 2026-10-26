@@ -68,7 +68,7 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
                 );
                 $process->run();
                 if (!$process->isSuccessful()) {
-                    throw new \\RuntimeException('Doctrine a échoué pour '.$compiled['version'].': '.$process->getErrorOutput().' '.$process->getOutput());
+                    throw new \RuntimeException('Doctrine a échoué pour '.$compiled['version'].': '.$process->getErrorOutput().' '.$process->getOutput());
                 }
                 $registered = array_merge($registered, $compiled['entries']);
                 $this->registry->write((string) $workspace, $registered);
