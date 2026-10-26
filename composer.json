@@ -26,6 +26,7 @@
         "qa": [
             "@php -l src/Installation/ComponentInstaller.php",
             "@php -l src/Command/SymSvelInstallCommand.php",
+            "@php -l src/Update/WorkspaceUpdater.php",
             "@php vendor/bin/phpunit"
         ]
     }
