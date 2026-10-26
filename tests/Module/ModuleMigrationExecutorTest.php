@@ -20,7 +20,7 @@ final class ModuleMigrationExecutorTest extends TestCase
 <?php
 $version = $argv[2] ?? '';
 $direction = $argv[3] ?? '';
-file_put_contents(__DIR__.'/calls.log', $version.' '.$direction."\n", FILE_APPEND);
+file_put_contents(dirname(__DIR__).'/calls.log', $version.' '.$direction."\n", FILE_APPEND);
 if ($version === 'DoctrineMigrations\\Version002' && $direction === '--up') {
     fwrite(STDERR, 'Simulated failure');
     exit(1);
