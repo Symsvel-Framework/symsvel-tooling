@@ -6,7 +6,7 @@ namespace SymSvel\Tooling\Module;
 
 final class ModuleMaker
 {
-    public function create(string $workspace, string $name, string $vendor = 'symsvel-framework'): string
+    public function create(string $workspace, string $name, string $vendor = 'symsvel-framework', array $scopes = ['back', 'dev']): string
     {
         if (!preg_match('/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/', $name)) {
             throw new \InvalidArgumentException('Nom de module invalide : utilisez des lettres minuscules, chiffres et tirets.');
@@ -14,6 +14,12 @@ final class ModuleMaker
         if (!preg_match('/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/', $vendor)) {
             throw new \InvalidArgumentException('Vendor Composer invalide.');
         }
+        $allowed = ['back', 'bo', 'app', 'front', 'dev', 'admin', 'user'];
+        $scopes = array_values(array_unique($scopes));
+        if (array_diff($scopes, $allowed) !== []) {
+            throw new \\InvalidArgumentException('Scope inconnu : '.implode(', ', array_diff($scopes, $allowed)));
+        }
+        $scopes = array_values(array_unique(array_merge(['back', 'dev'], $scopes)));
         $root = rtrim($workspace, '/').'/modules';
         if (!is_dir($workspace)) {
             throw new \RuntimeException('Workspace introuvable.');
@@ -25,6 +31,18 @@ final class ModuleMaker
 
         $class = implode('', array_map('ucfirst', explode('-', $name)));
         $namespace = 'SymSvel\\Module\\'.$class;
+        $components = [];
+        $documentation = [];
+        foreach (['back', 'bo', 'app', 'front'] as $scope) {
+            if (in_array($scope, $scopes, true)) {
+                $components[$scope] = $scope;
+            }
+        }
+        foreach (['dev', 'admin', 'user'] as $scope) {
+            if (in_array($scope, $scopes, true)) {
+                $documentation[$scope] = 'docs/'.$scope;
+            }
+        }
         $files = [
             'composer.json' => json_encode([
                 'name' => $vendor.'/module-'.$name,
@@ -39,8 +57,8 @@ final class ModuleMaker
                 'schema' => 1,
                 'name' => $class,
                 'dependencies' => new \stdClass(),
-                'components' => ['back' => 'back'],
-                'documentation' => ['dev' => 'docs/dev'],
+                'components' => $components,
+                'documentation' => $documentation,
                 'extensions' => [],
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n",
             'back/src/'.$class.'Bundle.php' => "<?php\n\ndeclare(strict_types=1);\n\nnamespace ".$namespace.";\n\nuse Symfony\\Component\\HttpKernel\\Bundle\\AbstractBundle;\n\nfinal class ".$class."Bundle extends AbstractBundle\n{\n}\n",
@@ -49,6 +67,25 @@ final class ModuleMaker
             '.gitignore' => "/vendor/\n/node_modules/\n/.phpunit.result.cache\n",
         ];
 
+        foreach (['admin', 'user'] as $scope) {
+            if (isset($documentation[$scope])) {
+                $files['docs/'.$scope.'/index.md'] = '# '.$class."\\n\\nDocumentation ".$scope.".\\n";
+            }
+        }
+        foreach (['bo', 'app', 'front'] as $scope) {
+            if (isset($components[$scope])) {
+                $files[$scope.'/src/lib/.gitkeep'] = '';
+                $files[$scope.'/tests/.gitkeep'] = '';
+            }
+        }
+        $files['back/tests/Unit/.gitkeep'] = '';
+        $files['back/tests/Integration/.gitkeep'] = '';
+        $files['back/tests/Functional/.gitkeep'] = '';
+        $files['back/src/Controller/.gitkeep'] = '';
+        $files['back/src/Entity/.gitkeep'] = '';
+        $files['back/src/Repository/.gitkeep'] = '';
+        $files['back/config/.gitkeep'] = '';
+        $files['Migration/.gitkeep'] = '';
         if (!is_dir($root) && !mkdir($root, 0775, true) && !is_dir($root)) {
             throw new \RuntimeException('Impossible de créer modules/.');
         }
@@ -69,6 +106,14 @@ final class ModuleMaker
         } catch (\Throwable $exception) {
             foreach (array_reverse(array_keys($files)) as $path) {
                 @unlink($destination.'/'.$path);
+            }
+            $directories = array_unique(array_map('dirname', array_keys($files)));
+            usort($directories, static fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+            foreach ($directories as $directory) {
+                while ($directory !== '.' && $directory !== '') {
+                    @rmdir($destination.'/'.$directory);
+                    $directory = dirname($directory);
+                }
             }
             foreach (['back/src', 'back', 'docs/dev', 'docs'] as $directory) {
                 @rmdir($destination.'/'.$directory);
