@@ -41,6 +41,9 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
             $workspace = (string) ($input->getOption('workspace') ?? dirname($this->projectDir));
             $plan = $this->planner->plan($workspace, (string) $input->getArgument('module'), (bool) $input->getOption('cascade'));
             $plan['tables'] = $this->ownership->tables($workspace, $plan['modules']);
+            if ($plan['tables'] === [] && $plan['versions'] !== []) {
+                throw new \DomainException('Migrations intégrées mais aucune table déclarée : suppression bloquée.');
+            }
             if ($input->getOption('json')) {
                 $output->writeln(json_encode($plan, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
             } else {
