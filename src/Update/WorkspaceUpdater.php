@@ -96,7 +96,7 @@ final class WorkspaceUpdater
             static fn (string $tag): bool => preg_match('/^v\\d+\\.\\d+\\.\\d+$/', $tag) === 1,
         );
         if ($versions === []) {
-            throw new \\RuntimeException('Aucune release stable (tag vX.Y.Z) disponible dans '.$directory);
+            throw new \RuntimeException('Aucune release stable (tag vX.Y.Z) disponible dans '.$directory);
         }
         usort($versions, static fn (string $a, string $b): int => version_compare($b, $a));
         return $versions[0];
