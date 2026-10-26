@@ -28,6 +28,7 @@ final class SymSvelMakeModuleCommand extends Command
     {
         $this->addArgument('name', InputArgument::REQUIRED, 'Module slug (e.g. documents)');
         $this->addOption('workspace', null, InputOption::VALUE_REQUIRED, 'Workspace root (defaults to parent of backend/)');
+        $this->addOption('scopes', null, InputOption::VALUE_REQUIRED, 'Comma-separated scopes', 'back,dev');
         $this->addOption('vendor', null, InputOption::VALUE_REQUIRED, 'Composer vendor', 'symsvel-framework');
     }
 
@@ -43,7 +44,7 @@ final class SymSvelMakeModuleCommand extends Command
             $workspace = dirname($this->projectDir);
         }
         try {
-            $destination = $this->maker->create((string) $workspace, (string) $input->getArgument('name'), (string) $input->getOption('vendor'));
+            $destination = $this->maker->create((string) $workspace, (string) $input->getArgument('name'), (string) $input->getOption('vendor'), explode(',', (string) $input->getOption('scopes')));
             $io->success('Module créé : '.$destination);
             return Command::SUCCESS;
         } catch (\Throwable $exception) {
