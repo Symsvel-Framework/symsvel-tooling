@@ -137,4 +137,23 @@ final class SymSvelInstallCommandTest extends TestCase
             rmdir($projectDir);
         }
     }
+    public function testExistingSelectedInterfacesAllowWorkspaceBootstrapWithoutModification(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-reinstall-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        file_put_contents($root.'/backend/composer.json', '{}');
+        mkdir($root.'/bo');
+        file_put_contents($root.'/bo/keep.txt', 'preserved');
+        try {
+            $tester = new CommandTester(new SymSvelInstallCommand($root.'/backend'));
+            self::assertSame(0, $tester->execute(['--components' => 'bo'], ['interactive' => false]));
+            self::assertSame('preserved', file_get_contents($root.'/bo/keep.txt'));
+            self::assertFileExists($root.'/dev-doc/site/index.html');
+            self::assertFileExists($root.'/secrets/.env.example');
+        } finally {
+            (new \\Symfony\\Component\\Process\\Process(['rm', '-rf', '--', $root]))->run();
+        }
+    }
+
 }
