@@ -17,6 +17,7 @@ final class SymSvelUpdateCommand extends Command
 {
     public function __construct(
         #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
+        #[Autowire('%kernel.environment%')] private readonly string $environment,
         private readonly WorkspaceUpdater $updater = new WorkspaceUpdater(),
     ) {
         parent::__construct();
@@ -26,7 +27,7 @@ final class SymSvelUpdateCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         try {
-            $this->updater->update($this->projectDir, (string) ($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? 'prod'));
+            $this->updater->update($this->projectDir, $this->environment);
         } catch (\Throwable $exception) {
             $io->error($exception->getMessage());
             return Command::FAILURE;
