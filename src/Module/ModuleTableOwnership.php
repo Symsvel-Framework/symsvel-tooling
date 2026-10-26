@@ -29,6 +29,9 @@ final class ModuleTableOwnership
                 throw new \RuntimeException('Manifest de module introuvable : '.$slug);
             }
             $manifest = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($manifest)) {
+                throw new \DomainException('Manifest invalide : '.$slug);
+            }
             $tables = $manifest['tables'] ?? null;
             if (!is_array($tables) || !array_is_list($tables)) {
                 throw new \DomainException('Propriété des tables non déclarée pour '.$slug.'. Désinstallation bloquée.');
@@ -62,7 +65,10 @@ final class ModuleTableOwnership
                 throw new \DomainException('Déclaration de tables invalide : '.$other);
             }
             foreach ($otherTables as $table) {
-                if (is_string($table) && isset($owned[$table])) {
+                if (!is_string($table) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $table)) {
+                    throw new \DomainException('Table invalide déclarée par '.$other.'.');
+                }
+                if (isset($owned[$table])) {
                     throw new \DomainException('Table '.$table.' revendiquée par le module conservé '.$other.'.');
                 }
             }
