@@ -36,6 +36,8 @@
             "@php -l src/Command/SymSvelModulePlanCommand.php",
             "@php -l src/Module/ModuleInventoryWriter.php",
             "@php -l src/Command/SymSvelModuleSyncCommand.php",
+            "@php -l src/Module/ModuleBundleResolver.php",
+            "@php -l src/Module/ModuleBundleMapWriter.php",
             "@php vendor/bin/phpunit"
         ]
     }
