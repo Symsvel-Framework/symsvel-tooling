@@ -22,6 +22,10 @@ final class ModuleMigrationRemovalPlan
      */
     public function plan(string $workspace, string $slug, bool $cascade = false): array
     {
+        $removalRecovery = rtrim($workspace, '/').'/.symsvel/module-removal-recovery.json';
+        if (file_exists($removalRecovery) || is_link($removalRecovery)) {
+            throw new \RuntimeException('Désinstallation précédente à récupérer : '.$removalRecovery);
+        }
         $recovery = rtrim($workspace, '/').'/.symsvel/migration-recovery.json';
         if (file_exists($recovery) || is_link($recovery)) {
             throw new \RuntimeException('Récupération de migration en attente : '.$recovery);
