@@ -29,31 +29,49 @@ final class WorkspaceUpdater
             throw new \RuntimeException('Le backend Symfony doit être dans backend/ avec composer.json.');
         }
         $root = dirname($backendDir);
-        $progress?.__invoke('Backend : mise à jour Composer (Core + Tooling)…');
+        if ($progress !== null) {
+            $progress('Backend : mise à jour Composer (Core + Tooling)…');
+        }
         $this->run(['composer', 'update', 'symsvel-framework/core', 'symsvel-framework/tooling', '--with-all-dependencies', '--no-interaction'], $backendDir);
         foreach (['bo', 'app', 'front'] as $component) {
             $directory = $root.'/'.$component;
             if (!is_dir($directory)) {
-                $progress?.__invoke(strtoupper($component).' : absent, ignoré.');
+                if ($progress !== null) {
+                    $progress(strtoupper($component).' : absent, ignoré.');
+                }
                 continue;
             }
             if (!is_dir($directory.'/.git')) {
                 throw new \RuntimeException('Le composant '.$component.' n’est pas un dépôt Git.');
             }
-            $progress?.__invoke(strtoupper($component).' : vérification Git…');
+            if ($progress !== null) {
+                $progress(strtoupper($component).' : vérification Git…');
+            }
             $this->run(['git', 'diff', '--quiet'], $directory);
             $this->run(['git', 'diff', '--cached', '--quiet'], $directory);
-            $progress?.__invoke(strtoupper($component).' : récupération des commits…');
+            if ($progress !== null) {
+                $progress(strtoupper($component).' : récupération des commits…');
+            }
             $this->run(['git', 'fetch', 'origin', '--tags'], $directory);
-            $progress?.__invoke(strtoupper($component).' : synchronisation main…');
+            if ($progress !== null) {
+                $progress(strtoupper($component).' : synchronisation main…');
+            }
             $this->run(['git', 'merge', '--ff-only', 'origin/main'], $directory);
-            $progress?.__invoke(strtoupper($component).' : installation npm…');
+            if ($progress !== null) {
+                $progress(strtoupper($component).' : installation npm…');
+            }
             $this->run(['npm', 'ci'], $directory);
-            $progress?.__invoke(strtoupper($component).' : build…');
+            if ($progress !== null) {
+                $progress(strtoupper($component).' : build…');
+            }
             $this->run(['npm', 'run', 'build'], $directory);
-            $progress?.__invoke(strtoupper($component).' : terminé.');
+            if ($progress !== null) {
+                $progress(strtoupper($component).' : terminé.');
+            }
         }
-        $progress?.__invoke('Tous les composants présents ont été traités.');
+        if ($progress !== null) {
+            $progress('Tous les composants présents ont été traités.');
+        }
     }
 
     /** @param list<string> $command */
