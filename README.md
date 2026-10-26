@@ -75,3 +75,14 @@ Puis créer un module directement dans `SymSvel/modules/` :
 ```
 
 Le lanceur partage `ModuleMaker` avec la commande Symfony `symsvel:make:module` et fonctionne sans backend Symfony ni XT.
+
+## Maker multi-scopes
+
+Le contrat SymSvel `schema: 1` impose les scopes `back` et `dev`. Les scopes supplémentaires `bo`, `app`, `front`, `admin` et `user` sont facultatifs.
+
+```bash
+./symsvel make:module documents --scopes=back,dev,bo,app
+php bin/console symsvel:make:module documents --workspace=/chemin/workspace --scopes=back,dev,bo
+```
+
+Le maker génère un Bundle Symfony, les répertoires de tests PHP, un fichier PHPUnit, un workflow GitHub Actions et uniquement les dossiers optionnels sélectionnés. Les interfaces BO/App/Front sont des points d'extension à compléter dans le module.
