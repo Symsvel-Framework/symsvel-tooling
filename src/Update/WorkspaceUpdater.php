@@ -21,6 +21,9 @@ final class WorkspaceUpdater
         if ($environment === 'prod') {
             throw new \RuntimeException('Mise à jour interdite en production.');
         }
+        if ($environment === 'dev') {
+            throw new \RuntimeException('Mode dev : mise à jour par releases non encore implémentée.');
+        }
         if (basename($backendDir) !== 'backend' || !is_file($backendDir.'/composer.json')) {
             throw new \RuntimeException('Le backend Symfony doit être dans backend/ avec composer.json.');
         }
@@ -37,12 +40,7 @@ final class WorkspaceUpdater
             $this->run(['git', 'diff', '--quiet'], $directory);
             $this->run(['git', 'diff', '--cached', '--quiet'], $directory);
             $this->run(['git', 'fetch', 'origin', '--tags'], $directory);
-            if ($environment === 'core') {
-                $this->run(['git', 'merge', '--ff-only', 'origin/main'], $directory);
-            } else {
-                $this->run(['git', 'fetch', 'origin', '--tags'], $directory);
-                $this->run(['git', 'merge', '--ff-only', 'origin/main'], $directory);
-            }
+            $this->run(['git', 'merge', '--ff-only', 'origin/main'], $directory);
             $this->run(['npm', 'ci'], $directory);
             $this->run(['npm', 'run', 'build'], $directory);
         }
