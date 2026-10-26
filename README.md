@@ -59,3 +59,19 @@ APP_ENV=core php bin/console symsvel:update
 ```
 
 En mode `core`, actualise Core et Tooling via Composer, puis met à jour par avance rapide (`git merge --ff-only origin/main`) les interfaces présentes et relance `npm ci` et `npm run build`. Les modifications Git non commitées empêchent la mise à jour. Les composants absents sont ignorés. Le mode `prod` est interdit. En mode `dev`, Composer doit être configuré avec des contraintes de versions stables pour Core et Tooling (et non `dev-main`) ; les interfaces présentes sont positionnées sur leur dernier tag stable `vX.Y.Z` puis reconstruites. Sans tag stable, la mise à jour échoue explicitement. Les interfaces Git sont placées en HEAD détachée sur le tag sélectionné. Commande à exécuter exclusivement en local.
+
+## Lanceur autonome du workspace
+
+Le lanceur versionné est `bin/symsvel` (exécutable). Depuis la racine du workspace SymSvel, créer une fois le lien :
+
+```bash
+ln -s framework/tools/bin/symsvel symsvel
+```
+
+Puis créer un module directement dans `SymSvel/modules/` :
+
+```bash
+./symsvel make:module documents
+```
+
+Le lanceur partage `ModuleMaker` avec la commande Symfony `symsvel:make:module` et fonctionne sans backend Symfony ni XT.
