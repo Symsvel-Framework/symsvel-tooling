@@ -17,7 +17,7 @@ final class ModuleMaker
         $allowed = ['back', 'bo', 'app', 'front', 'dev', 'admin', 'user'];
         $scopes = array_values(array_unique($scopes));
         if (array_diff($scopes, $allowed) !== []) {
-            throw new \\InvalidArgumentException('Scope inconnu : '.implode(', ', array_diff($scopes, $allowed)));
+            throw new \InvalidArgumentException('Scope inconnu : '.implode(', ', array_diff($scopes, $allowed)));
         }
         $scopes = array_values(array_unique(array_merge(['back', 'dev'], $scopes)));
         $root = rtrim($workspace, '/').'/modules';
