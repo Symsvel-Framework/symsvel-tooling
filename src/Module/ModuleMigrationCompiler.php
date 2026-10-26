@@ -36,7 +36,10 @@ final class ModuleMigrationCompiler
         $entries = [];
         foreach ($sources as $source) {
             $id = $source['module'].'/'.$source['name'];
-            $body = (string) file_get_contents($source['path']);
+            $body = file_get_contents($source['path']);
+            if ($body === false) {
+                throw new \RuntimeException('Lecture de migration impossible : '.$id);
+            }
             if (!hash_equals($source['sha256'], hash('sha256', $body))) {
                 throw new \RuntimeException('Migration source modifiée pendant la compilation : '.$id);
             }
@@ -76,7 +79,7 @@ final class {$version} extends AbstractMigration
 }
 PHP;
         $path = $directory.'/'.$version.'.php';
-        if (file_put_contents($path, $php, LOCK_EX) === false) {
+        if (is_link($path) || file_put_contents($path, $php, LOCK_EX) === false) {
             throw new \RuntimeException('Écriture migration Doctrine impossible : '.$path);
         }
         return ['version' => 'DoctrineMigrations\\'.$version, 'path' => $path, 'entries' => $entries];
