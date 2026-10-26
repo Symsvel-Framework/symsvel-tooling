@@ -43,6 +43,26 @@ final class ModuleTableOwnership
                 $owned[$table] = $slug;
             }
         }
+        // A retained module must never claim a table scheduled for deletion.
+        $moduleRoot = rtrim($workspace, '/').'/modules';
+        foreach (glob($moduleRoot.'/*/module.json') ?: [] as $path) {
+            $other = basename(dirname($path));
+            if (in_array($other, $modules, true)) {
+                continue;
+            }
+            if (is_link($path)) {
+                throw new \DomainException('Manifest symbolique interdit : '.$other);
+            }
+            $manifest = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($manifest)) {
+                throw new \DomainException('Manifest invalide : '.$other);
+            }
+            foreach ($manifest['tables'] ?? [] as $table) {
+                if (is_string($table) && isset($owned[$table])) {
+                    throw new \DomainException('Table '.$table.' revendiquée par le module conservé '.$other.'.');
+                }
+            }
+        }
         return array_keys($owned);
     }
 }
