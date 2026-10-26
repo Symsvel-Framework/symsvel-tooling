@@ -19,6 +19,7 @@ use SymSvel\Tooling\Module\ModuleSynchronizer;
 use SymSvel\Tooling\Command\SymSvelModulePlanCommand;
 use SymSvel\Tooling\Command\SymSvelModuleSyncCommand;
 use SymSvel\Tooling\Command\SymSvelModuleRemovalPlanCommand;
+use SymSvel\Tooling\Command\SymSvelModuleMigrationsCompileCommand;
 use SymSvel\Tooling\Module\ModuleInventoryWriter;
 use SymSvel\Tooling\Module\ModuleBundleResolver;
 use SymSvel\Tooling\Module\ModuleBundleMapWriter;
@@ -71,6 +72,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(ModuleInventoryWriter::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelModuleMigrationsCompileCommand::class)
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelModuleRemovalPlanCommand::class)
