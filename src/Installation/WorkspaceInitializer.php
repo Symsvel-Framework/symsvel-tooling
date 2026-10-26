@@ -20,7 +20,6 @@ final class WorkspaceInitializer
         $this->writeIfMissing($docs.'/docs/index.md', "# Documentation développeur SymSvel\n\nÀ compléter.\n");
         $this->writeIfMissing($docs.'/.gitignore', "/.venv/\n/site/\n");
         $this->writeIfMissing($secrets.'/.env.example', "# Variables privées SymSvel, à compléter selon les besoins\n");
-        $this->writeIfMissing($secrets.'/.gitignore', "*\n!.gitignore\n!.env.example\n");
         $venv = $docs.'/.venv';
         if (!is_file($venv.'/bin/mkdocs')) {
             $this->run(['python3', '-m', 'venv', $venv], $root);
