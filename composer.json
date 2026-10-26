@@ -39,6 +39,7 @@
             "@php -l src/Module/ModuleBundleResolver.php",
             "@php -l src/Module/ModuleBundleMapWriter.php",
             "@php -l src/Module/ModuleRemovalPlanner.php",
+            "@php -l src/Command/SymSvelModuleRemovalPlanCommand.php",
             "@php vendor/bin/phpunit"
         ]
     }
