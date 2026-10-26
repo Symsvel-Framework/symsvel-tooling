@@ -37,7 +37,7 @@ Le service `SymSvel\\Tooling\\Installation\\ComponentInstaller` centralise la s�
 
 ## Prochaine étape
 
-Réutiliser les mécanismes communs pour `symsvel:update`, avec des politiques de version distinctes : `APP_ENV=CORE` pour les derniers commits, `dev` pour les releases et `prod` sans mise à jour. Les mises à jour restent exclusivement locales. **Cette commande de mise à jour n'est pas encore implémentée.**
+Réutiliser les mécanismes communs pour `symsvel:update`, avec des politiques de version distinctes : `APP_ENV=core` pour les derniers commits, `dev` pour les releases et `prod` sans mise à jour. Les mises à jour restent exclusivement locales. **Cette commande de mise à jour n'est pas encore implémentée.**
 
 ## Tests
 
