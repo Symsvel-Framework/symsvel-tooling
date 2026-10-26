@@ -37,7 +37,7 @@ Le service `SymSvel\\Tooling\\Installation\\ComponentInstaller` centralise la s�
 
 ## Documentation développeur et secrets
 
-L'installation initialise également `<projet>/dev-doc/` avec MkDocs dans un environnement Python isolé (`.venv`), génère `dev-doc/site/` et crée `<projet>/secrets/.env.example`. Les dossiers existants ne sont pas écrasés. Python 3 avec `venv` et `pip` est nécessaire en local. `site/` et `.venv/` sont ignorés par Git ; les secrets réels sont ignorés également.
+L'installation initialise également `<projet>/dev-doc/` avec MkDocs dans un environnement Python isolé (`.venv`), génère `dev-doc/site/` et crée `<projet>/secrets/.env.example`. Les dossiers existants ne sont pas écrasés. Python 3 avec `venv` et `pip` est nécessaire en local. `site/` et `.venv/` sont ignorés par Git ; le dossier `secrets/` reste hors versionnement.
 
 ## Prochaine étape
 
