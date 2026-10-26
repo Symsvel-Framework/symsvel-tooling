@@ -42,6 +42,10 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
         $io = new SymfonyStyle($input, $output);
         try {
             $workspace = $input->getOption('workspace') ?? dirname($this->projectDir);
+            $journalPath = rtrim((string) $workspace, '/').'/.symsvel/migration-recovery.json';
+            if (file_exists($journalPath) || is_link($journalPath)) {
+                throw new \RuntimeException('Migration recovery pending: '.$journalPath);
+            }
             $registered = $this->registry->read((string) $workspace);
             $changes = $this->diff->compare($this->catalog->discover((string) $workspace), $registered);
             if ($changes['removed'] !== []) {
