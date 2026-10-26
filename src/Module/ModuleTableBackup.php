@@ -29,10 +29,7 @@ final class ModuleTableBackup
                 throw new \InvalidArgumentException('Nom de table invalide : '.$table);
             }
         }
-        $url = parse_url($databaseUrl);
-        if ($url === false || !isset($url['scheme'])) {
-            throw new \InvalidArgumentException('DATABASE_URL invalide.');
-        }
+        $url = $this->connection($databaseUrl);
         $driver = strtolower($url['scheme']);
         $directory = rtrim($workspace, '/').'/.symsvel';
         if (is_link($directory) || (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory))) {
@@ -89,9 +86,8 @@ final class ModuleTableBackup
         if ($driver === 'postgresql') {
             [$args, $env] = $this->postgresConnection($parts);
             $restore = ['pg_restore', '--exit-on-error', '--clean', '--if-exists', '--no-owner', '--no-acl'];
-            foreach ($backup['tables'] as $table) {
-                $restore[] = '--table='.$table;
-            }
+            // The archive already contains only selected tables. Restore all
+            // archive objects, including associated sequences and constraints.
             $this->run(array_merge($restore, $args, [$backup['path']]), $env);
         } elseif ($driver === 'mysql') {
             $this->mysqlCommand($parts, $backup['path'], true);
@@ -170,7 +166,7 @@ final class ModuleTableBackup
                 $args[] = '--defaults-extra-file='.$defaults;
             }
             if (!$restore) {
-                array_push($args, '--single-transaction', '--routines', '--triggers', '--result-file='.$path);
+                array_push($args, '--single-transaction', '--routines', '--triggers', '--add-drop-table', '--result-file='.$path);
             }
             foreach (['host' => '--host=', 'port' => '--port=', 'user' => '--user='] as $key => $flag) {
                 if (isset($parts[$key])) {
