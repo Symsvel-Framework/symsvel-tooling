@@ -43,8 +43,14 @@ final class ModuleMigrationExecutor
                 $next = array_merge($next, $migration['entries']);
             }
             $registry->write($workspace, $next);
-            unlink($journal);
+            // The receipts are the commit boundary. Never compensate a committed batch.
+            if (!unlink($journal)) {
+                throw new \RuntimeException('Migrations committed, but recovery journal cleanup failed: '.$journal);
+            }
         } catch (\Throwable $failure) {
+            if (isset($next) && $registry->read($workspace) === $next) {
+                throw new \RuntimeException('Migrations committed; journal cleanup required before new operations: '.$journal, 0, $failure);
+            }
             $this->journal($journal, 'recovering', $compiled, $completed, $inFlight);
             $errors = [];
             foreach (array_reverse($completed) as $migration) {
