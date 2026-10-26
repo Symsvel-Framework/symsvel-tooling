@@ -10,6 +10,7 @@ use SymSvel\Tooling\Module\ModuleMaker;
 use SymSvel\Tooling\Module\ModuleManifest;
 use SymSvel\Tooling\Module\ModuleRegistry;
 use SymSvel\Tooling\Module\ModulePlanner;
+use SymSvel\Tooling\Module\ModuleRemovalPlanner;
 use SymSvel\Tooling\Module\ModuleSynchronizer;
 use SymSvel\Tooling\Command\SymSvelModulePlanCommand;
 use SymSvel\Tooling\Command\SymSvelModuleSyncCommand;
@@ -35,6 +36,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(ModulePlanner::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(ModuleRemovalPlanner::class)
             ->autowire()
             ->autoconfigure()
             ->set(ModuleSynchronizer::class)
