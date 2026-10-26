@@ -30,7 +30,7 @@ final class ModuleTableOwnership
             }
             $manifest = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
             $tables = $manifest['tables'] ?? null;
-            if (!is_array($tables) || !array_is_list($tables) || $tables === []) {
+            if (!is_array($tables) || !array_is_list($tables)) {
                 throw new \DomainException('Propriété des tables non déclarée pour '.$slug.'. Désinstallation bloquée.');
             }
             foreach ($tables as $table) {
