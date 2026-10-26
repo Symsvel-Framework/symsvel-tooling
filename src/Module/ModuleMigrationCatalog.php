@@ -23,6 +23,9 @@ final class ModuleMigrationCatalog
         $result = [];
         foreach ($this->planner->plan($workspace) as $slug) {
             $directory = $modules[$slug]['path'].'/Migration';
+            if (!file_exists($directory)) {
+                continue;
+            }
             if (!is_dir($directory) || is_link($directory)) {
                 throw new \InvalidArgumentException('Répertoire Migration invalide : '.$slug);
             }
