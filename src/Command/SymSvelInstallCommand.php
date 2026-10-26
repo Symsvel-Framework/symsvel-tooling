@@ -77,13 +77,21 @@ final class SymSvelInstallCommand extends Command
         try {
             $components = $this->installer->componentsForChoice((string) $choice);
             $root = $this->resolveWorkspaceRoot();
-            $this->installer->install(
-                $root,
-                $components,
-                static function (string $component) use ($io): void {
-                    $io->text(sprintf('Installation de %s...', $component));
-                },
-            );
+            $existing = array_values(array_filter($components, static fn (string $component): bool => file_exists($root.'/'.$component) || is_link($root.'/'.$component)));
+            if ($existing !== [] && count($existing) !== count($components)) {
+                throw new \RuntimeException('Installation partielle détectée : aucun composant existant ne sera écrasé.');
+            }
+            if ($existing === []) {
+                $this->installer->install(
+                    $root,
+                    $components,
+                    static function (string $component) use ($io): void {
+                        $io->text(sprintf('Installation de %s...', $component));
+                    },
+                );
+            } else {
+                $io->text('Interfaces déjà présentes : installation npm et clonage ignorés.');
+            }
             $io->text('Initialisation de dev-doc (MkDocs) et secrets...');
             (new WorkspaceInitializer())->initialize($root);
         } catch (\Throwable $exception) {

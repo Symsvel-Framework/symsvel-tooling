@@ -75,7 +75,7 @@ final class SymSvelInstallCommandTest extends TestCase
         }
     }
 
-    public function testExistingBoDirectoryIsNotOverwritten(): void
+    public function testExistingBoDirectoryIsPreservedDuringWorkspaceBootstrap(): void
     {
         $projectDir = sys_get_temp_dir().'/symsvel-install-test-'.bin2hex(random_bytes(8));
         mkdir($projectDir);
@@ -88,9 +88,11 @@ final class SymSvelInstallCommandTest extends TestCase
             $command->setHelperSet(new HelperSet(['question' => new QuestionHelper()]));
             $tester = new CommandTester($command);
             $tester->setInputs(['1']);
-            self::assertSame(1, $tester->execute([]));
+            self::assertSame(0, $tester->execute([]));
             self::assertSame('preserved', file_get_contents($projectDir.'/bo/keep.txt'));
+            self::assertFileExists($projectDir.'/dev-doc/site/index.html');
         } finally {
+            (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $projectDir.'/dev-doc', $projectDir.'/secrets']))->run();
             unlink($projectDir.'/bo/keep.txt');
             rmdir($projectDir.'/bo');
             unlink($projectDir.'/backend/composer.json');
@@ -137,4 +139,23 @@ final class SymSvelInstallCommandTest extends TestCase
             rmdir($projectDir);
         }
     }
+    public function testExistingSelectedInterfacesAllowWorkspaceBootstrapWithoutModification(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-reinstall-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        file_put_contents($root.'/backend/composer.json', '{}');
+        mkdir($root.'/bo');
+        file_put_contents($root.'/bo/keep.txt', 'preserved');
+        try {
+            $tester = new CommandTester(new SymSvelInstallCommand($root.'/backend'));
+            self::assertSame(0, $tester->execute(['--components' => 'bo'], ['interactive' => false]));
+            self::assertSame('preserved', file_get_contents($root.'/bo/keep.txt'));
+            self::assertFileExists($root.'/dev-doc/site/index.html');
+            self::assertFileExists($root.'/secrets/.env.example');
+        } finally {
+            (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $root]))->run();
+        }
+    }
+
 }
