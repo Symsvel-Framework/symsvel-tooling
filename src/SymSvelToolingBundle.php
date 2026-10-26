@@ -11,6 +11,9 @@ use SymSvel\Tooling\Module\ModuleManifest;
 use SymSvel\Tooling\Module\ModuleRegistry;
 use SymSvel\Tooling\Module\ModulePlanner;
 use SymSvel\Tooling\Module\ModuleRemovalPlanner;
+use SymSvel\Tooling\Module\ModuleMigrationCatalog;
+use SymSvel\Tooling\Module\ModuleMigrationDiff;
+use SymSvel\Tooling\Module\ModuleMigrationRegistry;
 use SymSvel\Tooling\Module\ModuleSynchronizer;
 use SymSvel\Tooling\Command\SymSvelModulePlanCommand;
 use SymSvel\Tooling\Command\SymSvelModuleSyncCommand;
@@ -37,6 +40,15 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(ModulePlanner::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(ModuleMigrationCatalog::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(ModuleMigrationDiff::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(ModuleMigrationRegistry::class)
             ->autowire()
             ->autoconfigure()
             ->set(ModuleRemovalPlanner::class)
