@@ -50,16 +50,24 @@ final class ModuleRemovalTransaction
             ]);
             $remove();
         } catch (\Throwable $failure) {
-            // Do not assume a failed SQL statement was transactional.
-            // A recovery operator must inspect the state before any retry.
+            // The backup is the recovery boundary even if DDL was committed.
             $this->write($journal, [
                 'schema' => 1,
                 'state' => 'restore_required',
                 'backup' => $backup,
                 'sha256' => hash_file('sha256', $backup['path']),
             ]);
+            try {
+                $this->restore($workspace, $databaseUrl);
+            } catch (\Throwable $restoreFailure) {
+                throw new \RuntimeException(
+                    'Désinstallation échouée et restauration SQL incomplète : '.$restoreFailure->getMessage().'. Journal et sauvegarde conservés : '.$journal,
+                    0,
+                    $failure,
+                );
+            }
             throw new \RuntimeException(
-                'Désinstallation interrompue : sauvegarde conservée. Restauration requise : '.$journal,
+                'Désinstallation échouée : SQL restauré, vérification des fichiers et reçus encore requise : '.$journal,
                 0,
                 $failure,
             );
