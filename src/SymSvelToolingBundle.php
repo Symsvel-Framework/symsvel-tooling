@@ -21,6 +21,7 @@ use SymSvel\Tooling\Command\SymSvelModulePlanCommand;
 use SymSvel\Tooling\Command\SymSvelModuleSyncCommand;
 use SymSvel\Tooling\Command\SymSvelModuleRemovalPlanCommand;
 use SymSvel\Tooling\Command\SymSvelModuleMigrationsCompileCommand;
+use SymSvel\Tooling\Command\SymSvelModuleMigrationRecoveryStatusCommand;
 use SymSvel\Tooling\Module\ModuleInventoryWriter;
 use SymSvel\Tooling\Module\ModuleBundleResolver;
 use SymSvel\Tooling\Module\ModuleBundleMapWriter;
@@ -76,6 +77,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(ModuleInventoryWriter::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelModuleMigrationRecoveryStatusCommand::class)
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelModuleMigrationsCompileCommand::class)
