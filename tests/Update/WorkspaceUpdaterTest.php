@@ -1,0 +1,53 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SymSvel\Tooling\Tests\Update;
+
+use PHPUnit\Framework\TestCase;
+use SymSvel\Tooling\Update\WorkspaceUpdater;
+
+final class WorkspaceUpdaterTest extends TestCase
+{
+    public function testProductionAndDevCannotUpdate(): void
+    {
+        $updater = new WorkspaceUpdater(static function (): void {
+            self::fail('Aucune commande ne doit être exécutée.');
+        });
+        foreach (['prod', 'dev'] as $env) {
+            try {
+                $updater->update('/tmp/backend', $env);
+                self::fail('Mise à jour interdite attendue.');
+            } catch (\RuntimeException $exception) {
+                self::assertNotSame('', $exception->getMessage());
+            }
+        }
+    }
+
+    public function testCoreUpdatesComposerAndExistingInterfaces(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-update-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        file_put_contents($root.'/backend/composer.json', '{}');
+        mkdir($root.'/bo');
+        mkdir($root.'/bo/.git');
+        $calls = [];
+        try {
+            $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): void {
+                $calls[] = [$command, $cwd];
+            });
+            $updater->update($root.'/backend', 'core');
+            self::assertSame('composer', $calls[0][0][0]);
+            self::assertContains([['git', 'merge', '--ff-only', 'origin/main'], $root.'/bo'], $calls);
+            self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
+            self::assertCount(7, $calls);
+        } finally {
+            rmdir($root.'/bo/.git');
+            rmdir($root.'/bo');
+            unlink($root.'/backend/composer.json');
+            rmdir($root.'/backend');
+            rmdir($root);
+        }
+    }
+}

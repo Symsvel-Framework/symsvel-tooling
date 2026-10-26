@@ -51,3 +51,11 @@ composer qa
 ```
 
 Toute modification de comportement doit être accompagnée de tests et d'une mise à jour de cette documentation.
+
+## Mise à jour locale (première étape)
+
+```bash
+APP_ENV=core php bin/console symsvel:update
+```
+
+En mode `core`, actualise Core et Tooling via Composer, puis met à jour par avance rapide (`git merge --ff-only origin/main`) les interfaces présentes et relance `npm ci` et `npm run build`. Les modifications Git non commitées empêchent la mise à jour. Les composants absents sont ignorés. Le mode `prod` est interdit et le mode `dev` est temporairement refusé, en attendant la gestion des releases. Commande à exécuter exclusivement en local.

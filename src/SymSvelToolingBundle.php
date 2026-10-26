@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace SymSvel\Tooling;
 
 use SymSvel\Tooling\Command\SymSvelInstallCommand;
+use SymSvel\Tooling\Command\SymSvelUpdateCommand;
+use SymSvel\Tooling\Update\WorkspaceUpdater;
 use SymSvel\Tooling\Installation\ComponentInstaller;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -19,6 +21,12 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelInstallCommand::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(WorkspaceUpdater::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelUpdateCommand::class)
             ->autowire()
             ->autoconfigure();
     }
