@@ -102,7 +102,7 @@ final class WorkspaceUpdaterTest extends TestCase
                 $calls[] = [$command, $cwd];
                 return $command === ['git', 'status', '--porcelain'] ? ' M package.json' : null;
             });
-            $this->expectException(\\RuntimeException::class);
+            $this->expectException(\RuntimeException::class);
             $this->expectExceptionMessage('modifications locales');
             $updater->update($root.'/backend', 'core');
         } finally {
