@@ -1,0 +1,60 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use SymSvel\Tooling\Module\ModuleMaker;
+
+$workspace = realpath(__DIR__.'/../../..');
+if ($workspace === false) {
+    fwrite(STDERR, "Workspace SymSvel introuvable.\n");
+    exit(1);
+}
+
+$autoload = __DIR__.'/../vendor/autoload.php';
+if (is_file($autoload)) {
+    require_once $autoload;
+} else {
+    require_once __DIR__.'/../src/Module/ModuleMaker.php';
+}
+
+$args = $argv;
+array_shift($args);
+if (count($args) === 1 && in_array($args[0], ['--help', '-h', 'help'], true)) {
+    $args = [];
+}
+if ($args === []) {
+    fwrite(STDOUT, "Usage: ./symsvel make:module <nom> [--vendor=<vendor>]\n");
+    exit(0);
+}
+
+$command = array_shift($args);
+if ($command !== 'make:module') {
+    fwrite(STDERR, "Commande inconnue : ".$command."\n");
+    exit(2);
+}
+
+$name = null;
+$vendor = 'symsvel-framework';
+foreach ($args as $arg) {
+    if (str_starts_with($arg, '--vendor=')) {
+        $vendor = substr($arg, strlen('--vendor='));
+    } elseif ($name === null && !str_starts_with($arg, '-')) {
+        $name = $arg;
+    } else {
+        fwrite(STDERR, "Argument inconnu : ".$arg."\n");
+        exit(2);
+    }
+}
+if ($name === null) {
+    fwrite(STDERR, "Nom de module requis. Usage: ./symsvel make:module <nom>\n");
+    exit(2);
+}
+
+try {
+    $path = (new ModuleMaker())->create($workspace, $name, $vendor);
+    fwrite(STDOUT, "Module créé : ".$path."\n");
+} catch (Throwable $exception) {
+    fwrite(STDERR, $exception->getMessage()."\n");
+    exit(1);
+}
