@@ -12,6 +12,8 @@ use SymSvel\Tooling\Module\ModuleRegistry;
 use SymSvel\Tooling\Module\ModulePlanner;
 use SymSvel\Tooling\Module\ModuleSynchronizer;
 use SymSvel\Tooling\Command\SymSvelModulePlanCommand;
+use SymSvel\Tooling\Command\SymSvelModuleSyncCommand;
+use SymSvel\Tooling\Module\ModuleInventoryWriter;
 use SymSvel\Tooling\Command\SymSvelUpdateCommand;
 use SymSvel\Tooling\Update\WorkspaceUpdater;
 use SymSvel\Tooling\Installation\ComponentInstaller;
@@ -37,6 +39,12 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelModulePlanCommand::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(ModuleInventoryWriter::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelModuleSyncCommand::class)
             ->autowire()
             ->autoconfigure()
             ->set(ModuleMaker::class)
