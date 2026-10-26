@@ -49,6 +49,20 @@ final class ModuleMigrationRemovalPlan
         if (array_diff($expected, $sources) !== []) {
             throw new \DomainException('Sources de migration intégrées manquantes : '.implode(', ', array_diff($expected, $sources)));
         }
+        // A compiled Doctrine version must never be shared with a module
+        // that survives the removal. Otherwise a down() would remove both.
+        $ownership = [];
+        foreach ($receipts as $key => $entry) {
+            $ownership[$entry['doctrine']][] = explode('/', $key, 2)[0];
+        }
+        foreach ($sources as $key) {
+            $version = $receipts[$key]['doctrine'];
+            foreach ($ownership[$version] as $owner) {
+                if (!isset($selected[$owner])) {
+                    throw new \DomainException('Migration Doctrine partagée avec un module conservé : '.$version.' ('.$owner.').');
+                }
+            }
+        }
         $versions = [];
         foreach (array_reverse($sources) as $key) {
             $version = $receipts[$key]['doctrine'];
