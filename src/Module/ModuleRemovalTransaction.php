@@ -28,12 +28,16 @@ final class ModuleRemovalTransaction
             throw new \RuntimeException('Récupération en attente : désinstallation bloquée.');
         }
         $backup = $this->backups->create($workspace, $databaseUrl, $tables);
+        $digest = hash_file('sha256', $backup['path']);
+        if (!is_string($digest)) {
+            throw new \RuntimeException('Empreinte de sauvegarde indisponible.');
+        }
         try {
             $this->write($journal, [
                 'schema' => 1,
                 'state' => 'prepared',
                 'backup' => $backup,
-                'sha256' => hash_file('sha256', $backup['path']),
+                'sha256' => $digest,
             ]);
         } catch (\Throwable $failure) {
             // Nothing has touched the database yet.
@@ -46,7 +50,7 @@ final class ModuleRemovalTransaction
                 'schema' => 1,
                 'state' => 'removing',
                 'backup' => $backup,
-                'sha256' => hash_file('sha256', $backup['path']),
+                'sha256' => $digest,
             ]);
             $remove();
         } catch (\Throwable $failure) {
@@ -55,7 +59,7 @@ final class ModuleRemovalTransaction
                 'schema' => 1,
                 'state' => 'restore_required',
                 'backup' => $backup,
-                'sha256' => hash_file('sha256', $backup['path']),
+                'sha256' => $digest,
             ]);
             try {
                 $this->restore($workspace, $databaseUrl);
@@ -79,7 +83,7 @@ final class ModuleRemovalTransaction
             'schema' => 1,
             'state' => 'committed',
             'backup' => $backup,
-            'sha256' => hash_file('sha256', $backup['path']),
+            'sha256' => $digest,
         ]);
         if (!unlink($journal)) {
             throw new \RuntimeException('Désinstallation terminée, nettoyage du journal impossible.');
