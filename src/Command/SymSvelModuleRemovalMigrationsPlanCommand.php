@@ -50,6 +50,8 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
                 $io->warning('Destructive removal plan. Module order: '.implode(' -> ', $plan['modules']));
                 $io->text('Doctrine down order: '.implode(' -> ', $plan['versions']));
                 $io->text('Owned tables: '.($plan['tables'] === [] ? '(none)' : implode(', ', $plan['tables'])));
+                $io->text('SQL backup required: '.($plan['tables'] === [] ? 'no' : 'yes'));
+                $io->text('Execution remains disabled: this command is a preflight only.');
                 $io->text('No data has been modified.');
             }
             return Command::SUCCESS;
