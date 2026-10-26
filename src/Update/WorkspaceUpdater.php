@@ -35,6 +35,20 @@ final class WorkspaceUpdater
             }
         }
         $root = dirname($backendDir);
+        // Validate all present interfaces before changing Composer dependencies.
+        foreach (['bo', 'app', 'front'] as $component) {
+            $directory = $root.'/'.$component;
+            if (!is_dir($directory)) {
+                continue;
+            }
+            if (!is_dir($directory.'/.git')) {
+                throw new \RuntimeException('Le composant '.$component.' n’est pas un dépôt Git.');
+            }
+            $status = trim($this->output(['git', 'status', '--porcelain'], $directory));
+            if ($status !== '') {
+                throw new \RuntimeException('Le composant '.$component.' contient des modifications locales : mise à jour annulée avant Composer.');
+            }
+        }
         if ($progress !== null) {
             $progress('Backend : mise à jour Composer (Core + Tooling)…');
         }
@@ -47,14 +61,9 @@ final class WorkspaceUpdater
                 }
                 continue;
             }
-            if (!is_dir($directory.'/.git')) {
-                throw new \RuntimeException('Le composant '.$component.' n’est pas un dépôt Git.');
-            }
             if ($progress !== null) {
-                $progress(strtoupper($component).' : vérification Git…');
+                $progress(strtoupper($component).' : dépôt Git propre, vérifié avant Composer.');
             }
-            $this->run(['git', 'diff', '--quiet'], $directory);
-            $this->run(['git', 'diff', '--cached', '--quiet'], $directory);
             if ($progress !== null) {
                 $progress(strtoupper($component).' : récupération des commits…');
             }

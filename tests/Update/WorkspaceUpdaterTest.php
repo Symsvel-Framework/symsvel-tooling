@@ -41,10 +41,11 @@ final class WorkspaceUpdaterTest extends TestCase
             $updater->update($root.'/backend', 'core', static function (string $message) use (&$messages): void {
                 $messages[] = $message;
             });
-            self::assertSame('composer', $calls[0][0][0]);
+            self::assertSame(['git', 'status', '--porcelain'], $calls[0][0]);
+            self::assertSame('composer', $calls[1][0][0]);
             self::assertContains([['git', 'merge', '--ff-only', 'origin/main'], $root.'/bo'], $calls);
             self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
-            self::assertCount(7, $calls);
+            self::assertCount(6, $calls);
             self::assertContains('Backend : mise à jour Composer (Core + Tooling)…', $messages);
             self::assertContains('BO : build…', $messages);
             self::assertContains('APP : absent, ignoré.', $messages);
@@ -80,6 +81,34 @@ final class WorkspaceUpdaterTest extends TestCase
             self::assertContains([['git', 'checkout', '--detach', 'v1.10.0'], $root.'/bo'], $calls);
             self::assertNotContains([['git', 'merge', '--ff-only', 'origin/main'], $root.'/bo'], $calls);
         } finally {
+            rmdir($root.'/bo/.git');
+            rmdir($root.'/bo');
+            unlink($root.'/backend/composer.json');
+            rmdir($root.'/backend');
+            rmdir($root);
+        }
+    }
+
+    public function testDirtyInterfaceStopsBeforeComposer(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-dirty-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        file_put_contents($root.'/backend/composer.json', '{}');
+        mkdir($root.'/bo');
+        mkdir($root.'/bo/.git');
+        $calls = [];
+        try {
+            $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): ?string {
+                $calls[] = [$command, $cwd];
+                return $command === ['git', 'status', '--porcelain'] ? ' M package.json' : null;
+            });
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('modifications locales');
+            $updater->update($root.'/backend', 'core');
+        } finally {
+            self::assertCount(1, $calls);
+            self::assertSame('git', $calls[0][0][0]);
             rmdir($root.'/bo/.git');
             rmdir($root.'/bo');
             unlink($root.'/backend/composer.json');
