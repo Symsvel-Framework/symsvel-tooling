@@ -75,6 +75,8 @@ final class ModuleMigrationRemovalPlan
             }
         }
 
+        // A compiled migration is executable only when its Doctrine class is
+        // still present in the backend. Source receipts alone are insufficient.
         return ['modules' => $removal, 'versions' => $versions, 'sources' => array_reverse($sources)];
     }
 }
