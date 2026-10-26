@@ -8,13 +8,13 @@ use SymSvel\Tooling\Module\ModuleMigrationCatalog;
 use SymSvel\Tooling\Module\ModuleMigrationCompiler;
 use SymSvel\Tooling\Module\ModuleMigrationDiff;
 use SymSvel\Tooling\Module\ModuleMigrationRegistry;
+use SymSvel\Tooling\Module\ModuleMigrationExecutor;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Process\Process;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 #[AsCommand(name: 'symsvel:module:migrations:compile', description: 'Compile new module sources into Doctrine migrations without executing them')]
@@ -26,6 +26,7 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
         private readonly ModuleMigrationDiff $diff = new ModuleMigrationDiff(),
         private readonly ModuleMigrationRegistry $registry = new ModuleMigrationRegistry(),
         private readonly ModuleMigrationCompiler $compiler = new ModuleMigrationCompiler(),
+        private readonly ModuleMigrationExecutor $executor = new ModuleMigrationExecutor(),
     ) {
         parent::__construct();
     }
@@ -51,28 +52,18 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
                 return Command::SUCCESS;
             }
             $execute = (bool) $input->getOption('execute');
-            // Compile one source per Doctrine version. This preserves independent
-            // rollback and module ownership, even when sources share a release.
+            // Compile every source before touching the database. The executor
+            // commits receipts only when the complete batch succeeds.
+            $compiled = [];
             foreach ($changes['pending'] as $source) {
-                $compiled = $this->compiler->compile($this->projectDir, [$source]);
-                if ($compiled === null) {
-                    continue;
+                $migration = $this->compiler->compile($this->projectDir, [$source]);
+                if ($migration !== null) {
+                    $compiled[] = $migration;
+                    $io->text('Compilée : '.$migration['path']);
                 }
-                if (!$execute) {
-                    $io->text('Compilée : '.$compiled['path'].' (non exécutée).');
-                    continue;
-                }
-                $process = new Process(
-                    [PHP_BINARY, 'bin/console', 'doctrine:migrations:execute', $compiled['version'], '--up', '--no-interaction'],
-                    $this->projectDir,
-                );
-                $process->run();
-                if (!$process->isSuccessful()) {
-                    throw new \RuntimeException('Doctrine a échoué pour '.$compiled['version'].': '.$process->getErrorOutput().' '.$process->getOutput());
-                }
-                $registered = array_merge($registered, $compiled['entries']);
-                $this->registry->write((string) $workspace, $registered);
-                $io->text('Exécutée et enregistrée : '.$compiled['version']);
+            }
+            if ($execute) {
+                $this->executor->install($this->projectDir, (string) $workspace, $compiled, $registered, $this->registry);
             }
             $io->success($execute ? 'Migrations exécutées.' : 'Compilation terminée. Utilisez --execute pour exécuter et enregistrer.');
             return Command::SUCCESS;
