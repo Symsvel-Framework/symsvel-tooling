@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace SymSvel\Tooling;
 
 use SymSvel\Tooling\Command\SymSvelInstallCommand;
+use SymSvel\Tooling\Command\SymSvelMakeModuleCommand;
+use SymSvel\Tooling\Module\ModuleMaker;
 use SymSvel\Tooling\Command\SymSvelUpdateCommand;
 use SymSvel\Tooling\Update\WorkspaceUpdater;
 use SymSvel\Tooling\Installation\ComponentInstaller;
@@ -17,6 +19,12 @@ final class SymSvelToolingBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
         $container->services()
+            ->set(ModuleMaker::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelMakeModuleCommand::class)
+            ->autowire()
+            ->autoconfigure()
             ->set(ComponentInstaller::class)
             ->autowire()
             ->autoconfigure()
