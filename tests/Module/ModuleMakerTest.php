@@ -42,6 +42,41 @@ final class ModuleMakerTest extends TestCase
         }
     }
 
+    public function testProfilesAndDocumentation(): void
+    {
+        foreach ([
+            'back' => [['back'], ['dev']],
+            'bo' => [['back', 'bo'], ['dev', 'admin']],
+            'app' => [['back', 'bo', 'app'], ['dev', 'admin', 'user']],
+            'front' => [['back', 'bo', 'front'], ['dev', 'admin', 'user']],
+            'all' => [['back', 'bo', 'app', 'front'], ['dev', 'admin', 'user']],
+        ] as $profile => [$components, $docs]) {
+            $workspace = sys_get_temp_dir().'/symsvel-profiles-'.bin2hex(random_bytes(6));
+            mkdir($workspace);
+            $path = (new ModuleMaker())->create($workspace, 'test-profile', 'symsvel-framework', $profile);
+            $manifest = json_decode((string) file_get_contents($path.'/module.json'), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame($components, array_keys($manifest['components']));
+            self::assertSame($docs, array_keys($manifest['documentation']));
+            foreach ($docs as $doc) {
+                self::assertFileExists($path.'/docs/'.$doc.'/index.md');
+            }
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($workspace, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($iterator as $item) {
+                $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+            }
+            rmdir($workspace);
+        }
+    }
+
+    public function testRejectsUnknownProfile(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        (new ModuleMaker())->create(sys_get_temp_dir(), 'test-profile', 'symsvel-framework', 'back,bo');
+    }
+
     public function testRejectsUnsafeNames(): void
     {
         $this->expectException(\InvalidArgumentException::class);
