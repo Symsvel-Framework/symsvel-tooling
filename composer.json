@@ -27,6 +27,8 @@
             "@php -l src/Installation/ComponentInstaller.php",
             "@php -l src/Command/SymSvelInstallCommand.php",
             "@php -l src/Update/WorkspaceUpdater.php",
+            "@php -l src/Module/ModuleMaker.php",
+            "@php -l src/Command/SymSvelMakeModuleCommand.php",
             "@php vendor/bin/phpunit"
         ]
     }
