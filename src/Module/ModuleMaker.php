@@ -51,6 +51,9 @@ final class ModuleMaker
                 'license' => 'proprietary',
                 'require' => ['php' => '>=8.4', 'symfony/framework-bundle' => '^8.1'],
                 'autoload' => ['psr-4' => [$namespace.'\\' => 'back/src/']],
+                'autoload-dev' => ['psr-4' => [$namespace.'\\Tests\\' => 'back/tests/']],
+                'require-dev' => ['phpunit/phpunit' => '^13.4'],
+                'scripts' => ['test' => 'phpunit -c back/phpunit.xml.dist', 'qa' => ['@test']],
                 'extra' => ['symsvel-module' => ['manifest' => 'module.json']],
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n",
             'module.json' => json_encode([
@@ -78,6 +81,8 @@ final class ModuleMaker
                 $files[$scope.'/tests/.gitkeep'] = '';
             }
         }
+        $files['back/phpunit.xml.dist'] = '<?xml version="1.0" encoding="UTF-8"?>'."\\n".'<phpunit bootstrap="../vendor/autoload.php" colors="true"><testsuites><testsuite name="Unit"><directory>tests/Unit</directory></testsuite><testsuite name="Integration"><directory>tests/Integration</directory></testsuite><testsuite name="Functional"><directory>tests/Functional</directory></testsuite></testsuites></phpunit>'."\\n";
+        $files['.github/workflows/qa.yml'] = "name: QA\\non: [push, pull_request]\\njobs:\\n  test:\\n    runs-on: ubuntu-latest\\n    steps:\\n      - uses: actions/checkout@v4\\n      - uses: shivammathur/setup-php@v2\\n        with:\\n          php-version: '8.4'\\n      - run: composer install --no-interaction --prefer-dist\\n      - run: composer qa\\n";
         $files['back/tests/Unit/.gitkeep'] = '';
         $files['back/tests/Integration/.gitkeep'] = '';
         $files['back/tests/Functional/.gitkeep'] = '';
