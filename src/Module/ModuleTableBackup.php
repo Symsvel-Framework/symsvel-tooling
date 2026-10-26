@@ -65,53 +65,136 @@ final class ModuleTableBackup
         }
     }
 
+    /**
+     * Restore a previously created backup. Never delete the backup here:
+     * only the transaction coordinator may discard it after verification.
+     *
+     * @param array{driver: string, path: string, tables: list<string>} $backup
+     */
+    public function restore(string $databaseUrl, array $backup): void
+    {
+        if (!is_file($backup['path']) || is_link($backup['path']) || filesize($backup['path']) === 0) {
+            throw new \RuntimeException('Sauvegarde absente ou invalide : restauration bloquée.');
+        }
+        $parts = $this->connection($databaseUrl);
+        $driver = strtolower($parts['scheme']);
+        if (in_array($driver, ['postgres', 'pgsql'], true)) {
+            $driver = 'postgresql';
+        } elseif ($driver === 'mariadb') {
+            $driver = 'mysql';
+        }
+        if ($driver !== $backup['driver']) {
+            throw new \DomainException('Moteur SQL différent de celui de la sauvegarde.');
+        }
+        if ($driver === 'postgresql') {
+            [$args, $env] = $this->postgresConnection($parts);
+            $restore = ['pg_restore', '--exit-on-error', '--clean', '--if-exists', '--no-owner', '--no-acl'];
+            foreach ($backup['tables'] as $table) {
+                $restore[] = '--table='.$table;
+            }
+            $this->run(array_merge($restore, $args, [$backup['path']]), $env);
+        } elseif ($driver === 'mysql') {
+            $this->mysqlCommand($parts, $backup['path'], true);
+        } elseif ($driver === 'sqlite') {
+            $database = $this->sqlitePath($parts);
+            $this->run(['sqlite3', $database, '.restore '. $backup['path']]);
+        } else {
+            throw new \DomainException('Moteur SQL non pris en charge.');
+        }
+    }
+
     /** @param list<string> $tables */
     private function postgresBackup(string $url, array $tables, string $path): void
     {
-        $args = ['pg_dump', '--format=custom', '--no-owner', '--no-acl', '--file='.$path];
+        [$args, $env] = $this->postgresConnection($this->connection($url));
+        $command = ['pg_dump', '--format=custom', '--no-owner', '--no-acl', '--file='.$path];
         foreach ($tables as $table) {
-            $args[] = '--table='.$table;
+            $command[] = '--table='.$table;
         }
-        $args[] = $url;
-        $this->run($args);
+        $this->run(array_merge($command, $args), $env);
+    }
+
+    /** @param array<string, mixed> $parts
+     * @return array{list<string>, array<string, string>}
+     */
+    private function postgresConnection(array $parts): array
+    {
+        $args = [];
+        $env = [];
+        foreach (['host' => '--host=', 'port' => '--port=', 'user' => '--username='] as $key => $flag) {
+            if (isset($parts[$key])) {
+                $args[] = $flag.rawurldecode((string) $parts[$key]);
+            }
+        }
+        $database = ltrim(rawurldecode((string) ($parts['path'] ?? '')), '/');
+        if ($database === '' || !preg_match('/^[A-Za-z0-9_-]+$/D', $database)) {
+            throw new \InvalidArgumentException('Nom de base PostgreSQL invalide.');
+        }
+        $args[] = '--dbname='.$database;
+        if (isset($parts['pass'])) {
+            $env['PGPASSWORD'] = rawurldecode((string) $parts['pass']);
+        }
+        return [$args, $env];
     }
 
     /** @param list<string> $tables */
     private function mysqlBackup(string $url, array $tables, string $path): void
     {
-        $parts = parse_url($url);
-        if ($parts === false || !isset($parts['path'])) {
-            throw new \InvalidArgumentException('Base MySQL manquante.');
-        }
-        $database = ltrim($parts['path'], '/');
+        $this->mysqlCommand($this->connection($url), $path, false, $tables);
+    }
+
+    /**
+     * @param array<string, mixed> $parts
+     * @param list<string> $tables
+     */
+    private function mysqlCommand(array $parts, string $path, bool $restore, array $tables = []): void
+    {
+        $database = ltrim(rawurldecode((string) ($parts['path'] ?? '')), '/');
         if (!preg_match('/^[A-Za-z0-9_]+$/D', $database)) {
-            throw new \InvalidArgumentException('Nom de base invalide.');
+            throw new \InvalidArgumentException('Nom de base MySQL invalide.');
         }
-        $args = ['mysqldump', '--single-transaction', '--routines', '--triggers', '--result-file='.$path];
-        if (isset($parts['host'])) {
-            $args[] = '--host='.$parts['host'];
-        }
-        if (isset($parts['port'])) {
-            $args[] = '--port='.$parts['port'];
-        }
-        if (isset($parts['user'])) {
-            $args[] = '--user='.rawurldecode($parts['user']);
-        }
-        // Never put credentials in process arguments or diagnostic output.
         $defaults = null;
         try {
+            $args = [$restore ? 'mysql' : 'mysqldump'];
             if (isset($parts['pass'])) {
                 $defaults = tempnam(dirname($path), '.mysql-auth-');
                 if ($defaults === false) {
                     throw new \RuntimeException('Fichier authentification indisponible.');
                 }
                 chmod($defaults, 0600);
-                file_put_contents($defaults, "[client]\npassword=\"".addcslashes(rawurldecode($parts['pass']), "\\\"")."\"\n");
-                array_splice($args, 1, 0, ['--defaults-extra-file='.$defaults]);
+                $password = rawurldecode((string) $parts['pass']);
+                if (str_contains($password, "\\n") || str_contains($password, "\\r")) {
+                    throw new \InvalidArgumentException('Mot de passe MySQL incompatible avec le fichier de configuration.');
+                }
+                file_put_contents($defaults, "[client]\\npassword=\\\"".addcslashes($password, "\\\\\\\"")."\\\"\\n");
+                $args[] = '--defaults-extra-file='.$defaults;
+            }
+            if (!$restore) {
+                array_push($args, '--single-transaction', '--routines', '--triggers', '--result-file='.$path);
+            }
+            foreach (['host' => '--host=', 'port' => '--port=', 'user' => '--user='] as $key => $flag) {
+                if (isset($parts[$key])) {
+                    $args[] = $flag.rawurldecode((string) $parts[$key]);
+                }
             }
             $args[] = $database;
-            array_push($args, ...$tables);
-            $this->run($args);
+            if (!$restore) {
+                array_push($args, ...$tables);
+            }
+            $input = null;
+            if ($restore) {
+                $input = fopen($path, 'rb');
+                if ($input === false) {
+                    throw new \RuntimeException('Impossible de lire le dump MySQL.');
+                }
+            }
+            try {
+                $this->run($args, [], $input);
+            } finally {
+                if (is_resource($input)) {
+                    fclose($input);
+                }
+            }
         } finally {
             if ($defaults !== null) {
                 @unlink($defaults);
@@ -122,18 +205,36 @@ final class ModuleTableBackup
     /** @param array<string, mixed> $url */
     private function sqliteBackup(array $url, string $path): void
     {
-        $database = rawurldecode($url['path'] ?? '');
-        if ($database === '' || $database === '/:memory:') {
+        $this->run(['sqlite3', $this->sqlitePath($url), '.backup '. $path]);
+    }
+
+    /** @param array<string, mixed> $url */
+    private function sqlitePath(array $url): string
+    {
+        $database = rawurldecode((string) ($url['path'] ?? ''));
+        if ($database === '' || $database === '/:memory:' || $database === ':memory:') {
             throw new \DomainException('SQLite en mémoire non sauvegardable.');
         }
-        // SQLite uses a consistent full-file backup, not a partial table dump.
-        $this->run(['sqlite3', $database, '.backup '. $path]);
+        return $database;
+    }
+
+    /** @return array<string, mixed> */
+    private function connection(string $url): array
+    {
+        $parts = parse_url($url);
+        if ($parts === false || !isset($parts['scheme'])) {
+            throw new \InvalidArgumentException('DATABASE_URL invalide.');
+        }
+        return $parts;
     }
 
     /** @param list<string> $arguments */
-    private function run(array $arguments): void
+    private function run(array $arguments, array $env = [], mixed $input = null): void
     {
-        $process = new Process($arguments);
+        $process = new Process($arguments, null, $env);
+        if ($input !== null) {
+            $process->setInput($input);
+        }
         $process->run();
         if (!$process->isSuccessful()) {
             throw new \RuntimeException('Sauvegarde SQL échouée (code '.$process->getExitCode().').');
