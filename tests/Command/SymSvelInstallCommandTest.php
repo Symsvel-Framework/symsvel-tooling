@@ -152,7 +152,7 @@ final class SymSvelInstallCommandTest extends TestCase
             self::assertFileExists($root.'/dev-doc/site/index.html');
             self::assertFileExists($root.'/secrets/.env.example');
         } finally {
-            (new \\Symfony\\Component\\Process\\Process(['rm', '-rf', '--', $root]))->run();
+            (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $root]))->run();
         }
     }
 
