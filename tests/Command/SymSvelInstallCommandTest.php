@@ -75,7 +75,7 @@ final class SymSvelInstallCommandTest extends TestCase
         }
     }
 
-    public function testExistingBoDirectoryIsNotOverwritten(): void
+    public function testExistingBoDirectoryIsPreservedDuringWorkspaceBootstrap(): void
     {
         $projectDir = sys_get_temp_dir().'/symsvel-install-test-'.bin2hex(random_bytes(8));
         mkdir($projectDir);
@@ -88,9 +88,11 @@ final class SymSvelInstallCommandTest extends TestCase
             $command->setHelperSet(new HelperSet(['question' => new QuestionHelper()]));
             $tester = new CommandTester($command);
             $tester->setInputs(['1']);
-            self::assertSame(1, $tester->execute([]));
+            self::assertSame(0, $tester->execute([]));
             self::assertSame('preserved', file_get_contents($projectDir.'/bo/keep.txt'));
+            self::assertFileExists($projectDir.'/dev-doc/site/index.html');
         } finally {
+            (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $projectDir.'/dev-doc', $projectDir.'/secrets']))->run();
             unlink($projectDir.'/bo/keep.txt');
             rmdir($projectDir.'/bo');
             unlink($projectDir.'/backend/composer.json');
