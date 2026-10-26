@@ -22,9 +22,6 @@ final class WorkspaceUpdater
         if ($environment === 'prod') {
             throw new \RuntimeException('Mise à jour interdite en production.');
         }
-        if ($environment === 'dev') {
-            throw new \RuntimeException('Mode dev : mise à jour par releases non encore implémentée.');
-        }
         if (basename($backendDir) !== 'backend' || !is_file($backendDir.'/composer.json')) {
             throw new \RuntimeException('Le backend Symfony doit être dans backend/ avec composer.json.');
         }
@@ -54,9 +51,17 @@ final class WorkspaceUpdater
             }
             $this->run(['git', 'fetch', 'origin', '--tags'], $directory);
             if ($progress !== null) {
-                $progress(strtoupper($component).' : synchronisation main…');
+                $progress(strtoupper($component).($environment === 'core' ? ' : synchronisation main…' : ' : sélection de la dernière release…'));
             }
-            $this->run(['git', 'merge', '--ff-only', 'origin/main'], $directory);
+            if ($environment === 'core') {
+                $this->run(['git', 'merge', '--ff-only', 'origin/main'], $directory);
+            } else {
+                $tag = $this->latestReleaseTag($directory);
+                $this->run(['git', 'checkout', '--detach', $tag], $directory);
+                if ($progress !== null) {
+                    $progress(strtoupper($component).' : release '.$tag.' sélectionnée.');
+                }
+            }
             if ($progress !== null) {
                 $progress(strtoupper($component).' : installation npm…');
             }
@@ -72,6 +77,32 @@ final class WorkspaceUpdater
         if ($progress !== null) {
             $progress('Tous les composants présents ont été traités.');
         }
+    }
+
+    private function latestReleaseTag(string $directory): string
+    {
+        $tags = $this->output(['git', 'tag', '--list', 'v[0-9]*'], $directory);
+        $versions = array_filter(
+            preg_split('/\\R/', trim($tags)) ?: [],
+            static fn (string $tag): bool => preg_match('/^v\\d+\\.\\d+\\.\\d+$/', $tag) === 1,
+        );
+        if ($versions === []) {
+            throw new \\RuntimeException('Aucune release stable (tag vX.Y.Z) disponible dans '.$directory);
+        }
+        usort($versions, static fn (string $a, string $b): int => version_compare($b, $a));
+        return $versions[0];
+    }
+
+    /** @param list<string> $command */
+    private function output(array $command, string $cwd): string
+    {
+        if ($this->runner !== null) {
+            $result = ($this->runner)($command, $cwd);
+            return is_string($result) ? $result : '';
+        }
+        $process = new Process($command, $cwd);
+        $process->mustRun();
+        return $process->getOutput();
     }
 
     /** @param list<string> $command */
