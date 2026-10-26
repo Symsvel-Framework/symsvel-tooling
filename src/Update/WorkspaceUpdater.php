@@ -25,6 +25,15 @@ final class WorkspaceUpdater
         if (basename($backendDir) !== 'backend' || !is_file($backendDir.'/composer.json')) {
             throw new \RuntimeException('Le backend Symfony doit être dans backend/ avec composer.json.');
         }
+        if ($environment === 'dev') {
+            $manifest = json_decode((string) file_get_contents($backendDir.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+            foreach (['symsvel-framework/core', 'symsvel-framework/tooling'] as $package) {
+                $constraint = $manifest['require'][$package] ?? null;
+                if (!is_string($constraint) || str_contains($constraint, 'dev-') || str_contains($constraint, '@dev')) {
+                    throw new \RuntimeException('Mode dev : '.$package.' doit utiliser une contrainte de release stable dans composer.json (actuellement '.($constraint ?? 'absente').').');
+                }
+            }
+        }
         $root = dirname($backendDir);
         if ($progress !== null) {
             $progress('Backend : mise à jour Composer (Core + Tooling)…');
