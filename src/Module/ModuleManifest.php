@@ -39,6 +39,19 @@ final class ModuleManifest
             throw new \InvalidArgumentException('Dépendances ou extensions invalides.');
         }
 
+        if (array_key_exists('tables', $data)) {
+            if (!is_array($data['tables']) || !array_is_list($data['tables'])) {
+                throw new \InvalidArgumentException('Liste des tables invalide.');
+            }
+            $seen = [];
+            foreach ($data['tables'] as $table) {
+                if (!is_string($table) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $table) || isset($seen[$table])) {
+                    throw new \InvalidArgumentException('Table déclarée invalide ou dupliquée.');
+                }
+                $seen[$table] = true;
+            }
+        }
+
         return $data;
     }
 }
