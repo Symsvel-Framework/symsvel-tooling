@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Module\ModuleMigrationRemovalPlan;
+use SymSvel\Tooling\Module\ModuleTableOwnership;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -20,6 +21,7 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
     public function __construct(
         #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
         private readonly ModuleMigrationRemovalPlan $planner = new ModuleMigrationRemovalPlan(),
+        private readonly ModuleTableOwnership $ownership = new ModuleTableOwnership(),
     ) {
         parent::__construct();
     }
@@ -38,11 +40,13 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
         try {
             $workspace = (string) ($input->getOption('workspace') ?? dirname($this->projectDir));
             $plan = $this->planner->plan($workspace, (string) $input->getArgument('module'), (bool) $input->getOption('cascade'));
+            $plan['tables'] = $this->ownership->tables($workspace, $plan['modules']);
             if ($input->getOption('json')) {
                 $output->writeln(json_encode($plan, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
             } else {
                 $io->warning('Destructive removal plan. Module order: '.implode(' -> ', $plan['modules']));
                 $io->text('Doctrine down order: '.implode(' -> ', $plan['versions']));
+                $io->text('Owned tables: '.($plan['tables'] === [] ? '(none)' : implode(', ', $plan['tables'])));
                 $io->text('No data has been modified.');
             }
             return Command::SUCCESS;
