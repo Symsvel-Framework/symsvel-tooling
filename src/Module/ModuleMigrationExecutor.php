@@ -85,11 +85,11 @@ final class ModuleMigrationExecutor
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $temporary = tempnam(dirname($path), '.recovery-');
         if ($temporary === false) {
-            throw new \\RuntimeException('Impossible de créer le journal de récupération.');
+            throw new \RuntimeException('Impossible de créer le journal de récupération.');
         }
         try {
-            if (file_put_contents($temporary, $payload."\\n") === false || !rename($temporary, $path)) {
-                throw new \\RuntimeException('Impossible de publier le journal de récupération.');
+            if (file_put_contents($temporary, $payload."\n") === false || !rename($temporary, $path)) {
+                throw new \RuntimeException('Impossible de publier le journal de récupération.');
             }
         } finally {
             if (is_file($temporary)) {
