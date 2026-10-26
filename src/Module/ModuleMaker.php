@@ -34,7 +34,7 @@ final class ModuleMaker
                 'require' => ['php' => '>=8.4', 'symfony/framework-bundle' => '^8.1'],
                 'autoload' => ['psr-4' => [$namespace.'\\' => 'back/src/']],
                 'extra' => ['symsvel-module' => ['manifest' => 'module.json']],
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).'\n',
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n",
             'module.json' => json_encode([
                 'schema' => 1,
                 'name' => $class,
@@ -42,7 +42,7 @@ final class ModuleMaker
                 'components' => ['back' => 'back'],
                 'documentation' => ['dev' => 'docs/dev'],
                 'extensions' => [],
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).'\n',
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n",
             'back/src/'.$class.'Bundle.php' => "<?php\n\ndeclare(strict_types=1);\n\nnamespace ".$namespace.";\n\nuse Symfony\\Component\\HttpKernel\\Bundle\\AbstractBundle;\n\nfinal class ".$class."Bundle extends AbstractBundle\n{\n}\n",
             'README.md' => '# '.$class."\n\nModule SymSvel (manifest schema 1).\n",
             'docs/dev/index.md' => '# '.$class."\n\nDocumentation développeur.\n",
