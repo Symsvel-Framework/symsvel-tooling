@@ -163,10 +163,10 @@ final class ModuleTableBackup
                 }
                 chmod($defaults, 0600);
                 $password = rawurldecode((string) $parts['pass']);
-                if (str_contains($password, "\\n") || str_contains($password, "\\r")) {
+                if (str_contains($password, "\n") || str_contains($password, "\r")) {
                     throw new \InvalidArgumentException('Mot de passe MySQL incompatible avec le fichier de configuration.');
                 }
-                file_put_contents($defaults, "[client]\\npassword=\\\"".addcslashes($password, "\\\\\\\"")."\\\"\\n");
+                file_put_contents($defaults, "[client]\npassword=\"".addcslashes($password, "\\\"")."\"\n");
                 $args[] = '--defaults-extra-file='.$defaults;
             }
             if (!$restore) {
