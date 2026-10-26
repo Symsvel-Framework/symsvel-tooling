@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Module\ModuleInventoryWriter;
+use SymSvel\Tooling\Module\ModuleBundleMapWriter;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -19,6 +20,7 @@ final class SymSvelModuleSyncCommand extends Command
     public function __construct(
         #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
         private readonly ModuleInventoryWriter $writer = new ModuleInventoryWriter(),
+        private readonly ModuleBundleMapWriter $bundleWriter = new ModuleBundleMapWriter(),
     ) {
         parent::__construct();
     }
@@ -40,8 +42,9 @@ final class SymSvelModuleSyncCommand extends Command
             $workspace = dirname($this->projectDir);
         }
         try {
+            $this->bundleWriter->write((string) $workspace);
             $path = $this->writer->write((string) $workspace);
-            $io->success('Inventaire des modules publié : '.$path);
+            $io->success('Inventaire et carte des Bundles publiés : '.$path);
             return Command::SUCCESS;
         } catch (\Throwable $exception) {
             $io->error($exception->getMessage());
