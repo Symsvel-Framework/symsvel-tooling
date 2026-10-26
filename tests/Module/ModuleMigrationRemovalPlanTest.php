@@ -10,6 +10,22 @@ use SymSvel\Tooling\Module\ModuleMigrationRegistry;
 
 final class ModuleMigrationRemovalPlanTest extends TestCase
 {
+    public function testPendingRemovalRecoveryBlocksPlanningBeforeModuleDiscovery(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-removal-pending-'.bin2hex(random_bytes(6));
+        mkdir($root.'/.symsvel', 0700, true);
+        file_put_contents($root.'/.symsvel/module-removal-recovery.json', '{"state":"restore_required"}');
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Désinstallation précédente à récupérer');
+            (new ModuleMigrationRemovalPlan())->plan($root, 'users', true);
+        } finally {
+            unlink($root.'/.symsvel/module-removal-recovery.json');
+            rmdir($root.'/.symsvel');
+            rmdir($root);
+        }
+    }
+
     public function testCascadeReversesDependenciesAndRejectsTamperedMigrations(): void
     {
         $root = sys_get_temp_dir().'/symsvel-removal-'.bin2hex(random_bytes(6));
