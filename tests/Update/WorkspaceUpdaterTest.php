@@ -9,12 +9,12 @@ use SymSvel\Tooling\Update\WorkspaceUpdater;
 
 final class WorkspaceUpdaterTest extends TestCase
 {
-    public function testProductionAndDevCannotUpdate(): void
+    public function testProductionCannotUpdate(): void
     {
         $updater = new WorkspaceUpdater(static function (): void {
             self::fail('Aucune commande ne doit être exécutée.');
         });
-        foreach (['prod', 'dev'] as $env) {
+        foreach (['prod'] as $env) {
             try {
                 $updater->update('/tmp/backend', $env);
                 self::fail('Mise à jour interdite attendue.');
@@ -58,4 +58,34 @@ final class WorkspaceUpdaterTest extends TestCase
             rmdir($root);
         }
     }
+    public function testDevSelectsLatestStableTag(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-dev-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        file_put_contents($root.'/backend/composer.json', '{}');
+        file_put_contents($root.'/backend/composer.json', json_encode(['require' => ['symsvel-framework/core' => '^1.0', 'symsvel-framework/tooling' => '^1.0']]));
+        mkdir($root.'/bo');
+        mkdir($root.'/bo/.git');
+        $calls = [];
+        try {
+            $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): ?string {
+                $calls[] = [$command, $cwd];
+                if ($command === ['git', 'tag', '--list', 'v[0-9]*']) {
+                    return implode(PHP_EOL, ['v1.2.0', 'v1.10.0', 'v2.0.0-beta', 'v1.9.5', '']);
+                }
+                return null;
+            });
+            $updater->update($root.'/backend', 'dev');
+            self::assertContains([['git', 'checkout', '--detach', 'v1.10.0'], $root.'/bo'], $calls);
+            self::assertNotContains([['git', 'merge', '--ff-only', 'origin/main'], $root.'/bo'], $calls);
+        } finally {
+            rmdir($root.'/bo/.git');
+            rmdir($root.'/bo');
+            unlink($root.'/backend/composer.json');
+            rmdir($root.'/backend');
+            rmdir($root);
+        }
+    }
+
 }
