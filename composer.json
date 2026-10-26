@@ -46,6 +46,7 @@
             "@php -l src/Module/ModuleMigrationCompiler.php",
             "@php -l src/Command/SymSvelModuleMigrationsCompileCommand.php",
             "@php -l src/Module/ModuleMigrationExecutor.php",
+            "@php -l tests/Module/ModuleMigrationExecutorTest.php",
             "@php vendor/bin/phpunit",
             "@php -l src/Command/SymSvelModuleMigrationRecoveryStatusCommand.php"
         ]
