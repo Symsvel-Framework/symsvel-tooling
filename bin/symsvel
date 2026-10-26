@@ -24,7 +24,7 @@ if (count($args) === 1 && in_array($args[0], ['--help', '-h', 'help'], true)) {
     $args = [];
 }
 if ($args === []) {
-    fwrite(STDOUT, "Usage: ./symsvel make:module <nom> [--vendor=<vendor>]\n");
+    fwrite(STDOUT, "Usage: ./symsvel make:module <nom> [--vendor=<vendor>] [--scopes=back,dev,bo,app,front,admin,user]\n");
     exit(0);
 }
 
@@ -36,9 +36,12 @@ if ($command !== 'make:module') {
 
 $name = null;
 $vendor = 'symsvel-framework';
+$scopes = ['back', 'dev'];
 foreach ($args as $arg) {
     if (str_starts_with($arg, '--vendor=')) {
         $vendor = substr($arg, strlen('--vendor='));
+    } elseif (str_starts_with($arg, '--scopes=')) {
+        $scopes = explode(',', substr($arg, strlen('--scopes=')));
     } elseif ($name === null && !str_starts_with($arg, '-')) {
         $name = $arg;
     } else {
@@ -52,7 +55,7 @@ if ($name === null) {
 }
 
 try {
-    $path = (new ModuleMaker())->create($workspace, $name, $vendor);
+    $path = (new ModuleMaker())->create($workspace, $name, $vendor, $scopes);
     fwrite(STDOUT, "Module créé : ".$path."\n");
 } catch (Throwable $exception) {
     fwrite(STDERR, $exception->getMessage()."\n");
