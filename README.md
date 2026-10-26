@@ -35,6 +35,10 @@ Le BO est toujours installé. Symfony doit résider dans `<projet>/backend/`. Le
 
 Le service `SymSvel\\Tooling\\Installation\\ComponentInstaller` centralise la sélection et l'installation. Il vérifie **toutes** les destinations avant le premier clonage, refuse les dossiers existants et annule les nouveaux dossiers créés si un clonage, une installation npm ou un build échoue. Les chemins préexistants ne sont jamais supprimés.
 
+## Documentation développeur et secrets
+
+L'installation initialise également `<projet>/dev-doc/` avec MkDocs dans un environnement Python isolé (`.venv`), génère `dev-doc/site/` et crée `<projet>/secrets/.env.example`. Les dossiers existants ne sont pas écrasés. Python 3 avec `venv` et `pip` est nécessaire en local. `site/` et `.venv/` sont ignorés par Git ; le dossier `secrets/` reste hors versionnement.
+
 ## Prochaine étape
 
 Réutiliser les mécanismes communs pour `symsvel:update`, avec des politiques de version distinctes : `APP_ENV=core` pour les derniers commits, `dev` pour les releases et `prod` sans mise à jour. Les mises à jour restent exclusivement locales. **Cette commande de mise à jour n'est pas encore implémentée.**

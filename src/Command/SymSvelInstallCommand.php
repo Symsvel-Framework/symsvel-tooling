@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Installation\ComponentInstaller;
+use SymSvel\Tooling\Installation\WorkspaceInitializer;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -75,20 +76,23 @@ final class SymSvelInstallCommand extends Command
 
         try {
             $components = $this->installer->componentsForChoice((string) $choice);
+            $root = $this->resolveWorkspaceRoot();
             $this->installer->install(
-                $this->resolveWorkspaceRoot(),
+                $root,
                 $components,
                 static function (string $component) use ($io): void {
                     $io->text(sprintf('Installation de %s...', $component));
                 },
             );
+            $io->text('Initialisation de dev-doc (MkDocs) et secrets...');
+            (new WorkspaceInitializer())->initialize($root);
         } catch (\Throwable $exception) {
             $io->error($exception->getMessage());
             return Command::FAILURE;
         }
 
         $io->success('Interfaces installées : '.implode(', ', $components));
-        $io->note('Dépendances npm installées et builds SvelteKit terminés. Démarrez les interfaces avec npm run dev.');
+        $io->note('Builds SvelteKit et MkDocs terminés. Documentation dans dev-doc/site/.');
         return Command::SUCCESS;
     }
 }
