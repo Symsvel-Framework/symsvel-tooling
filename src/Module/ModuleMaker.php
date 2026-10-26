@@ -22,7 +22,7 @@ final class ModuleMaker
             'all' => ['back', 'bo', 'app', 'front'],
         ];
         if (!isset($profiles[$scopes])) {
-            throw new \InvalidArgumentException('Profil inconnu : '.$scopes.'. Valeurs : bo, app, front, all (ou back par défaut).');
+            throw new \InvalidArgumentException('Profil inconnu : '.$scopes.'. Valeurs : bo, app, front, all (back par défaut).');
         }
         $componentsSelected = $profiles[$scopes];
         $docsSelected = ['dev'];
@@ -51,7 +51,7 @@ final class ModuleMaker
             }
         }
         foreach (['dev', 'admin', 'user'] as $scope) {
-            if (in_array($scope, $scopes, true)) {
+            if (in_array($scope, $docsSelected, true)) {
                 $documentation[$scope] = 'docs/'.$scope;
             }
         }
