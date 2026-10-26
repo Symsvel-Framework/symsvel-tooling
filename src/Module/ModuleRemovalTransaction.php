@@ -93,7 +93,7 @@ final class ModuleRemovalTransaction
         }
         $data = json_decode((string) file_get_contents($journal), true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($data) || ($data['schema'] ?? null) !== 1
-            || ($data['state'] ?? null) !== 'restore_required'
+            || !in_array($data['state'] ?? null, ['restore_required', 'restoring'], true)
             || !is_array($data['backup'] ?? null)
             || !is_string($data['sha256'] ?? null)
             || !preg_match('/^[a-f0-9]{64}$/D', $data['sha256'])) {
