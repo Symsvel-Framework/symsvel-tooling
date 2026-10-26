@@ -33,15 +33,23 @@ final class WorkspaceUpdaterTest extends TestCase
         mkdir($root.'/bo');
         mkdir($root.'/bo/.git');
         $calls = [];
+        $messages = [];
         try {
             $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): void {
                 $calls[] = [$command, $cwd];
             });
-            $updater->update($root.'/backend', 'core');
+            $updater->update($root.'/backend', 'core', static function (string $message) use (&$messages): void {
+                $messages[] = $message;
+            });
             self::assertSame('composer', $calls[0][0][0]);
             self::assertContains([['git', 'merge', '--ff-only', 'origin/main'], $root.'/bo'], $calls);
             self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
             self::assertCount(7, $calls);
+            self::assertContains('Backend : mise à jour Composer (Core + Tooling)…', $messages);
+            self::assertContains('BO : build…', $messages);
+            self::assertContains('APP : absent, ignoré.', $messages);
+            self::assertContains('FRONT : absent, ignoré.', $messages);
+            self::assertSame('Tous les composants présents ont été traités.', end($messages));
         } finally {
             rmdir($root.'/bo/.git');
             rmdir($root.'/bo');
