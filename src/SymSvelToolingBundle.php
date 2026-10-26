@@ -16,6 +16,7 @@ use SymSvel\Tooling\Module\ModuleMigrationCompiler;
 use SymSvel\Tooling\Module\ModuleMigrationExecutor;
 use SymSvel\Tooling\Module\ModuleMigrationRecovery;
 use SymSvel\Tooling\Module\ModuleMigrationRemovalPlan;
+use SymSvel\Tooling\Module\ModuleTableBackup;
 use SymSvel\Tooling\Command\SymSvelModuleRemovalMigrationsPlanCommand;
 use SymSvel\Tooling\Module\ModuleMigrationDiff;
 use SymSvel\Tooling\Module\ModuleMigrationRegistry;
@@ -48,6 +49,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(ModulePlanner::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(ModuleTableBackup::class)
             ->autowire()
             ->autoconfigure()
             ->set(ModuleMigrationRemovalPlan::class)
