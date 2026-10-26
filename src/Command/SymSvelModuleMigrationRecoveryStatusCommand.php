@@ -46,6 +46,8 @@ final class SymSvelModuleMigrationRecoveryStatusCommand extends Command
                 || !in_array($data['state'] ?? null, ['running', 'recovering'], true)
                 || !is_array($data['planned'] ?? null) || !is_array($data['completed'] ?? null)
                 || !array_is_list($data['planned']) || !array_is_list($data['completed'])
+                || !is_array($data['rolled_back'] ?? []) || !array_is_list($data['rolled_back'] ?? [])
+                || array_filter($data['rolled_back'] ?? [], static fn (mixed $v): bool => !is_string($v)) !== []
                 || array_filter($data['planned'], static fn (mixed $v): bool => !is_string($v)) !== []
                 || array_filter($data['completed'], static fn (mixed $v): bool => !is_string($v)) !== []
                 || (!is_null($data['in_flight'] ?? null) && !is_string($data['in_flight']))) {
@@ -57,6 +59,7 @@ final class SymSvelModuleMigrationRecoveryStatusCommand extends Command
                 $io->warning('Récupération requise : '.$data['state']);
                 $io->text('Versions terminées : '.implode(', ', $data['completed']));
                 $io->text('Version interrompue : '.($data['in_flight'] ?? 'aucune'));
+                $io->text('Compensations confirmées : '.implode(', ', $data['rolled_back'] ?? []));
                 $io->text('Ne supprimez pas le journal avant vérification des versions Doctrine et de la base.');
             }
             return Command::FAILURE;
