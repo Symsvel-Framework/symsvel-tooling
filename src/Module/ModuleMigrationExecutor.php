@@ -20,6 +20,7 @@ final class ModuleMigrationExecutor
     {
         $completed = [];
         $inFlight = null;
+        $rolledBack = [];
         $journal = rtrim($workspace, '/').'/.symsvel/migration-recovery.json';
         if (is_file($journal) || is_link($journal)) {
             throw new \RuntimeException('Récupération de migration en attente : '.$journal);
@@ -28,11 +29,11 @@ final class ModuleMigrationExecutor
         if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
             throw new \RuntimeException('Répertoire de récupération inaccessible.');
         }
-        $this->journal($journal, 'running', $compiled, $completed, null);
+        $this->journal($journal, 'running', $compiled, $completed, null, $rolledBack);
         try {
             foreach ($compiled as $migration) {
                 $inFlight = $migration['version'];
-                $this->journal($journal, 'running', $compiled, $completed, $inFlight);
+                $this->journal($journal, 'running', $compiled, $completed, $inFlight, $rolledBack);
                 $this->execute($backend, $migration['version'], 'up');
                 $completed[] = $migration;
                 $inFlight = null;
@@ -51,11 +52,13 @@ final class ModuleMigrationExecutor
             if (isset($next) && $registry->read($workspace) === $next) {
                 throw new \RuntimeException('Migrations committed; journal cleanup required before new operations: '.$journal, 0, $failure);
             }
-            $this->journal($journal, 'recovering', $compiled, $completed, $inFlight);
+            $this->journal($journal, 'recovering', $compiled, $completed, $inFlight, $rolledBack);
             $errors = [];
             foreach (array_reverse($completed) as $migration) {
                 try {
                     $this->execute($backend, $migration['version'], 'down');
+                    $rolledBack[] = $migration['version'];
+                    $this->journal($journal, 'recovering', $compiled, $completed, $inFlight, $rolledBack);
                 } catch (\Throwable $rollbackFailure) {
                     $errors[] = $migration['version'].': '.$rollbackFailure->getMessage();
                 }
@@ -80,13 +83,14 @@ final class ModuleMigrationExecutor
      * @param list<array{version: string, path: string, entries: array<string, array{sha256: string, doctrine: string}>}> $compiled
      * @param list<array{version: string, path: string, entries: array<string, array{sha256: string, doctrine: string}>}> $completed
      */
-    private function journal(string $path, string $state, array $compiled, array $completed, ?string $inFlight): void
+    private function journal(string $path, string $state, array $compiled, array $completed, ?string $inFlight, array $rolledBack = []): void
     {
         $payload = json_encode([
             'schema' => 1,
             'state' => $state,
             'planned' => array_column($compiled, 'version'),
             'completed' => array_column($completed, 'version'),
+            'rolled_back' => $rolledBack,
             'in_flight' => $inFlight,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $temporary = tempnam(dirname($path), '.recovery-');
