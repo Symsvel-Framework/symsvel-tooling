@@ -26,13 +26,17 @@ final class SymSvelUpdateCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+        $started = microtime(true);
+        $io->title('Mise à jour SymSvel');
         try {
-            $this->updater->update($this->projectDir, $this->environment);
+            $this->updater->update($this->projectDir, $this->environment, static function (string $message) use ($io): void {
+                $io->writeln('  '.$message);
+            });
         } catch (\Throwable $exception) {
             $io->error($exception->getMessage());
             return Command::FAILURE;
         }
-        $io->success('Mise à jour locale terminée.');
+        $io->success(sprintf('Mise à jour locale terminée en %.1f s.', microtime(true) - $started));
         return Command::SUCCESS;
     }
 }
