@@ -22,13 +22,18 @@ final class ModuleMakerTest extends TestCase
             self::assertSame('MyDocuments', $manifest['name']);
             self::assertSame('symsvel-framework/module-my-documents', $composer['name']);
             self::assertFileExists($path.'/back/src/MyDocumentsBundle.php');
+            self::assertFileExists($path.'/back/phpunit.xml.dist');
+            self::assertFileExists($path.'/.github/workflows/qa.yml');
             $this->expectException(\RuntimeException::class);
             (new ModuleMaker())->create($workspace, 'my-documents');
         } finally {
+            foreach (['back/phpunit.xml.dist', '.github/workflows/qa.yml', 'back/tests/Unit/.gitkeep', 'back/tests/Integration/.gitkeep', 'back/tests/Functional/.gitkeep', 'back/src/Controller/.gitkeep', 'back/src/Entity/.gitkeep', 'back/src/Repository/.gitkeep', 'back/config/.gitkeep', 'Migration/.gitkeep'] as $file) {
+                @unlink($workspace.'/modules/my-documents/'.$file);
+            }
             foreach (['composer.json', 'module.json', 'back/src/MyDocumentsBundle.php', 'README.md', 'docs/dev/index.md', '.gitignore'] as $file) {
                 @unlink($workspace.'/modules/my-documents/'.$file);
             }
-            foreach (['back/src', 'back', 'docs/dev', 'docs'] as $dir) {
+            foreach (['back/tests/Unit', 'back/tests/Integration', 'back/tests/Functional', 'back/tests', 'back/src/Controller', 'back/src/Entity', 'back/src/Repository', 'back/config', 'Migration', '.github/workflows', '.github', 'back/src', 'back', 'docs/dev', 'docs'] as $dir) {
                 @rmdir($workspace.'/modules/my-documents/'.$dir);
             }
             @rmdir($workspace.'/modules/my-documents');
