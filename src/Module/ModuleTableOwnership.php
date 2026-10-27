@@ -32,9 +32,9 @@ final class ModuleTableOwnership
             if (!is_array($manifest)) {
                 throw new \DomainException('Manifest invalide : '.$slug);
             }
-            $tables = $manifest['tables'] ?? null;
+            $tables = $manifest['tables'] ?? [];
             if (!is_array($tables) || !array_is_list($tables)) {
-                throw new \DomainException('Propriété des tables non déclarée pour '.$slug.'. Désinstallation bloquée.');
+                throw new \DomainException('Déclaration de tables invalide pour '.$slug.'. Désinstallation bloquée.');
             }
             foreach ($tables as $table) {
                 if (!is_string($table) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $table)) {
@@ -60,9 +60,9 @@ final class ModuleTableOwnership
             if (!is_array($manifest)) {
                 throw new \DomainException('Manifest invalide : '.$other);
             }
-            $otherTables = $manifest['tables'] ?? null;
+            $otherTables = $manifest['tables'] ?? [];
             if (!is_array($otherTables) || !array_is_list($otherTables)) {
-                throw new \DomainException('Propriété des tables non déclarée ou invalide pour le module conservé '.$other.'. Suppression bloquée.');
+                throw new \DomainException('Déclaration de tables invalide pour le module conservé '.$other.'. Suppression bloquée.');
             }
             foreach ($otherTables as $table) {
                 if (!is_string($table) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $table)) {
