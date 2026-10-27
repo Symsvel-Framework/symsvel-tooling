@@ -124,6 +124,13 @@ final class ModuleRemovalTransaction
             throw new \RuntimeException('Journal invalide ou restauration non autorisée.');
         }
         $backup = $data['backup'];
+        // A recovery journal is data, not authority to read arbitrary files.
+        // Only dumps created inside this workspace's recovery directory qualify.
+        if (!is_string($backup['path'] ?? null)
+            || !preg_match('/^\\.module-backup-[A-Za-z0-9]+$/D', basename($backup['path']))
+            || realpath(dirname($backup['path'])) !== realpath($directory)) {
+            throw new \RuntimeException('Chemin de sauvegarde hors du répertoire de récupération.');
+        }
         if (!isset($backup['path'], $backup['driver'], $backup['tables'])
             || !is_string($backup['path']) || !is_string($backup['driver']) || !is_array($backup['tables'])
             || !is_file($backup['path']) || is_link($backup['path'])
