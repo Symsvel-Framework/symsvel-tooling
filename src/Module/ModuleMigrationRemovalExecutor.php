@@ -30,11 +30,22 @@ final class ModuleMigrationRemovalExecutor
         if ($plan['tables'] === []) {
             throw new \DomainException('Désinstallation SQL sans tables déclarées non prise en charge.');
         }
-        $this->transaction->run($workspace, $databaseUrl, $plan['tables'], function () use ($backend, $workspace, $plan): void {
+        $previousReceipts = $this->registry->read($workspace);
+        $this->transaction->run($workspace, $databaseUrl, $plan['tables'], function () use ($backend, $workspace, $plan, $previousReceipts): void {
             foreach ($plan['versions'] as $version) {
                 $this->migrations->execute($backend, $version, 'down');
             }
-            $this->registry->write($workspace, $plan['remaining']);
+            // A failed receipt write must not leave SQL restored with removed receipts.
+            try {
+                $this->registry->write($workspace, $plan['remaining']);
+            } catch (\Throwable $failure) {
+                try {
+                    $this->registry->write($workspace, $previousReceipts);
+                } catch (\Throwable $restoreFailure) {
+                    throw new \RuntimeException('Reçus non restaurés après échec : '.$restoreFailure->getMessage(), 0, $failure);
+                }
+                throw $failure;
+            }
         });
     }
 }
