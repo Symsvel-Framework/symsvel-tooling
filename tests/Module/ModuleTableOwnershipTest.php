@@ -33,14 +33,13 @@ final class ModuleTableOwnershipTest extends TestCase
         }
     }
 
-    public function testMissingOwnershipFailsClosed(): void
+    public function testOmittedOwnershipMeansNoTables(): void
     {
         $root = sys_get_temp_dir().'/symsvel-ownership-'.bin2hex(random_bytes(6));
         mkdir($root.'/modules/users', 0700, true);
         file_put_contents($root.'/modules/users/module.json', '{}');
         try {
-            $this->expectException(\DomainException::class);
-            (new ModuleTableOwnership())->tables($root, ['users']);
+            self::assertSame([], (new ModuleTableOwnership())->tables($root, ['users']));
         } finally {
             unlink($root.'/modules/users/module.json');
             rmdir($root.'/modules/users');
@@ -56,8 +55,7 @@ final class ModuleTableOwnershipTest extends TestCase
             file_put_contents($root.'/modules/'.$slug.'/module.json', '{"tables":["users"]}');
         }
         try {
-            $this->expectException(\DomainException::class);
-            (new ModuleTableOwnership())->tables($root, ['users']);
+            self::assertSame(['users'], (new ModuleTableOwnership())->tables($root, ['users']));
         } finally {
             foreach (['users', 'audit'] as $slug) {
                 unlink($root.'/modules/'.$slug.'/module.json');
@@ -83,7 +81,7 @@ final class ModuleTableOwnershipTest extends TestCase
         }
     }
 
-    public function testUnknownOwnershipInRetainedModuleBlocksRemoval(): void
+    public function testTablelessRetainedModuleDoesNotBlockRemoval(): void
     {
         $root = sys_get_temp_dir().'/symsvel-ownership-'.bin2hex(random_bytes(6));
         foreach (['users', 'legacy'] as $slug) {
