@@ -87,4 +87,27 @@ final class ModuleMigrationRemovalPlanTest extends TestCase
         }
     }
 
+    public function testReceiptRemovalPreviewPreservesOtherModulesAndDoesNotWrite(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-receipt-preview-'.bin2hex(random_bytes(6));
+        mkdir($root, 0700);
+        $registry = new ModuleMigrationRegistry();
+        $entries = [
+            'users/001.php' => ['sha256' => str_repeat('a', 64), 'doctrine' => 'DoctrineMigrations\\Version1'],
+            'audit/001.php' => ['sha256' => str_repeat('b', 64), 'doctrine' => 'DoctrineMigrations\\Version2'],
+        ];
+        try {
+            $registry->write($root, $entries);
+            $next = $registry->withoutSources($root, ['users/001.php']);
+            self::assertSame(['audit/001.php' => $entries['audit/001.php']], $next);
+            self::assertSame($entries, $registry->read($root));
+            $this->expectException(\DomainException::class);
+            $registry->withoutSources($root, ['missing/001.php']);
+        } finally {
+            unlink($root.'/.symsvel/migrations.json');
+            rmdir($root.'/.symsvel');
+            rmdir($root);
+        }
+    }
+
 }
