@@ -30,7 +30,7 @@ final class SymSvelModuleMigrationsRecoveryFinalizeCommand extends Command
     protected function configure(): void
     {
         $this->addOption('workspace', null, InputOption::VALUE_REQUIRED, 'Workspace root');
-        $this->addOption('version', null, InputOption::VALUE_REQUIRED, 'Exact interrupted Doctrine version to acknowledge');
+        $this->addOption('migration', null, InputOption::VALUE_REQUIRED, 'Exact interrupted Doctrine version to acknowledge');
         $this->addOption('verified-db', null, InputOption::VALUE_NONE, 'Confirm that the database was manually inspected and has no partial changes');
     }
 
@@ -57,8 +57,8 @@ final class SymSvelModuleMigrationsRecoveryFinalizeCommand extends Command
             }
             $inFlight = $data['in_flight'] ?? null;
             if (!is_string($inFlight) || !preg_match('/^DoctrineMigrations\\\\Version[A-Za-z0-9_]+$/', $inFlight)
-                || $input->getOption('version') !== $inFlight) {
-                throw new \DomainException('Indiquez la version interrompue exacte avec --version.');
+                || $input->getOption('migration') !== $inFlight) {
+                throw new \DomainException('Indiquez la version interrompue exacte avec --migration.');
             }
             foreach (['planned', 'completed', 'rolled_back'] as $field) {
                 foreach ($data[$field] as $version) {
