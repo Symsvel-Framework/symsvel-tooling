@@ -67,7 +67,7 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
                 $io->text('Remaining migration receipts: '.$plan['remaining_receipt_count']);
                 $io->text('Confirmation fingerprint: '.$plan['confirmation']);
                 $io->text('SQL backup required: '.($plan['tables'] === [] ? 'no' : 'yes'));
-                $io->text('Execution remains disabled: this command is a preflight only.');
+                $io->text('Preflight only. Execute separately with symsvel:module:remove:migrations:execute <module> --confirm=<fingerprint>.');
                 $io->text('No data has been modified.');
             }
             return Command::SUCCESS;
