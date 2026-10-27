@@ -60,6 +60,11 @@
             "@php -l src/Command/SymSvelModuleRemovalRecoveryStatusCommand.php",
             "@php -l src/Module/ModuleTableOwnership.php",
             "@php -l tests/Module/ModuleTableOwnershipTest.php",
+            "@php -l src/Module/ModuleRemovalConfirmation.php",
+            "@php -l src/Module/ModuleRemovalExecutionGate.php",
+            "@php -l src/Module/ModuleMigrationRemovalExecutor.php",
+            "@php -l tests/Module/ModuleRemovalConfirmationTest.php",
+            "@php -l tests/Module/ModuleRemovalExecutionGateTest.php",
             "@php vendor/bin/phpunit",
             "@php -l src/Command/SymSvelModuleMigrationRecoveryStatusCommand.php"
         ]
