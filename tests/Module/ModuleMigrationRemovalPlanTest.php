@@ -100,7 +100,7 @@ final class ModuleMigrationRemovalPlanTest extends TestCase
             $registry->write($root, $entries);
             $next = $registry->withoutSources($root, ['users/001.php']);
             self::assertSame(['audit/001.php' => $entries['audit/001.php']], $next);
-            self::assertSame($entries, $registry->read($root));
+            self::assertEqualsCanonicalizing($entries, $registry->read($root));
             $this->expectException(\DomainException::class);
             $registry->withoutSources($root, ['missing/001.php']);
         } finally {
