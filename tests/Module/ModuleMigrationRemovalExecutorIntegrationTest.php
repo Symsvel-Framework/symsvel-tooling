@@ -110,7 +110,7 @@ final class ModuleMigrationRemovalExecutorIntegrationTest extends TestCase
             mkdir($root.'/migrations');
             file_put_contents($root.'/migrations/Version202610270001.php', '<?php // compiled migration');
             mkdir($root.'/bin');
-            file_put_contents($root.'/bin/console', "<?php passthru('sqlite3 '.escapeshellarg(__DIR__.'/../database.sqlite').' '.escapeshellarg('DROP TABLE users;'), \\$status); exit(\\$status);\n");
+            file_put_contents($root.'/bin/console', "<?php passthru('sqlite3 '.escapeshellarg(__DIR__.'/../database.sqlite').' '.escapeshellarg('DROP TABLE users;'), \$status); exit(\$status);\n");
 
             $db = $root.'/database.sqlite';
             $url = 'sqlite://'.$db;
