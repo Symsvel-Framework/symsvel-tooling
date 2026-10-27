@@ -22,6 +22,9 @@ final class ModuleRemovalTransaction
     public function run(string $workspace, string $databaseUrl, array $tables, callable $remove): void
     {
         $directory = rtrim($workspace, '/').'/.symsvel';
+        if (is_link($directory)) {
+            throw new \RuntimeException('Répertoire de récupération symbolique interdit.');
+        }
         $journal = $directory.'/module-removal-recovery.json';
         if (file_exists($journal) || is_link($journal)
             || file_exists($directory.'/migration-recovery.json') || is_link($directory.'/migration-recovery.json')) {
