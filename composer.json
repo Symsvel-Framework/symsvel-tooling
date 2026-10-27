@@ -69,6 +69,8 @@
             "@php -l src/Module/ModuleCompiledMigrationGuard.php",
             "@php -l tests/Module/ModuleCompiledMigrationGuardTest.php",
             "@php -l tests/Module/ModuleRemovalSqliteIntegrationTest.php",
+            "@php -l src/Module/ComposerModuleRegistry.php",
+            "@php -l tests/Module/ComposerModuleRegistryTest.php",
             "@php vendor/bin/phpunit",
             "@php -l src/Command/SymSvelModuleMigrationRecoveryStatusCommand.php"
         ]
