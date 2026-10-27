@@ -7,6 +7,7 @@ namespace SymSvel\Tooling\Command;
 use SymSvel\Tooling\Module\ModuleInventoryWriter;
 use SymSvel\Tooling\Module\ComposerModuleSynchronizer;
 use SymSvel\Tooling\Module\ComposerModuleInventoryWriter;
+use SymSvel\Tooling\Module\ComposerModuleBundleMapWriter;
 use SymSvel\Tooling\Module\ModuleBundleMapWriter;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -25,6 +26,7 @@ final class SymSvelModuleSyncCommand extends Command
         private readonly ModuleBundleMapWriter $bundleWriter = new ModuleBundleMapWriter(),
         private readonly ComposerModuleSynchronizer $composerSynchronizer = new ComposerModuleSynchronizer(),
         private readonly ComposerModuleInventoryWriter $composerWriter = new ComposerModuleInventoryWriter(),
+        private readonly ComposerModuleBundleMapWriter $composerBundleWriter = new ComposerModuleBundleMapWriter(),
     ) {
         parent::__construct();
     }
@@ -45,8 +47,9 @@ final class SymSvelModuleSyncCommand extends Command
         }
         if ($source === 'composer') {
             try {
+                $this->composerBundleWriter->write($this->projectDir);
                 $path = $this->composerWriter->write($this->projectDir);
-                $io->success('Inventaire Composer publié : '.$path.'. Aucun Bundle activé.');
+                $io->success('Inventaire Composer et carte des Bundles publiés : '.$path.'. Aucun Bundle activé.');
                 return Command::SUCCESS;
             } catch (\Throwable $exception) {
                 $io->error($exception->getMessage());
