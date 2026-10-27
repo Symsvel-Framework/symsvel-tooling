@@ -41,9 +41,11 @@ final class ComposerModuleRegistry
             if (!is_string($relative) || $relative === '') {
                 throw new \InvalidArgumentException('Chemin Composer invalide : '.$slug);
             }
+            // Composer path repositories may be symlinks to local module sources.
+            // Validate the vendor entry, not the resolved symlink destination.
+            $entry = $backend.'/vendor/symsvel-framework/module-'.$slug;
             $path = realpath($backend.'/vendor/composer/'.$relative);
-            $vendor = realpath($backend.'/vendor/symsvel-framework');
-            if ($path === false || $vendor === false || !str_starts_with($path, $vendor.'/')) {
+            if (!file_exists($entry) || $path === false || realpath($entry) !== $path) {
                 throw new \InvalidArgumentException('Module hors du répertoire vendor autorisé : '.$slug);
             }
             $manifest = $this->reader->read($path);
