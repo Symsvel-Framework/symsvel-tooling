@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Module\ModuleMigrationRemovalPlan;
+use SymSvel\Tooling\Module\ModuleCompiledMigrationGuard;
 use SymSvel\Tooling\Module\ModuleMigrationRegistry;
 use SymSvel\Tooling\Module\ModuleRemovalConfirmation;
 use SymSvel\Tooling\Module\ModuleTableOwnership;
@@ -26,6 +27,7 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
         private readonly ModuleTableOwnership $ownership = new ModuleTableOwnership(),
         private readonly ModuleMigrationRegistry $receipts = new ModuleMigrationRegistry(),
         private readonly ModuleRemovalConfirmation $confirmation = new ModuleRemovalConfirmation(),
+        private readonly ModuleCompiledMigrationGuard $compiledGuard = new ModuleCompiledMigrationGuard(),
     ) {
         parent::__construct();
     }
@@ -46,20 +48,8 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
             $plan = $this->planner->plan($workspace, (string) $input->getArgument('module'), (bool) $input->getOption('cascade'));
             // A receipt alone cannot guarantee that Doctrine can execute down().
             // Refuse a plan if its compiled migration file is missing or unsafe.
-            $migrationDirectory = rtrim($this->projectDir, '/').'/migrations';
-            if (is_link($migrationDirectory)) {
-                throw new \DomainException('Répertoire Doctrine compilé symbolique interdit.');
-            }
-            foreach ($plan['versions'] as $version) {
-                if (!preg_match('/^DoctrineMigrations\\\\(Version[0-9]+)$/D', $version, $matches)) {
-                    throw new \DomainException('Version Doctrine compilée invalide : '.$version);
-                }
-                $compiled = rtrim($this->projectDir, '/').'/migrations/'.$matches[1].'.php';
-                if (!is_file($compiled) || is_link($compiled)) {
-                    throw new \DomainException('Migration Doctrine compilée absente ou invalide : '.$version);
-                }
-            }
-            $plan['tables'] = $this->ownership->tables($workspace, $plan['modules']);
+                $this->compiledGuard->assertAvailable($this->projectDir, $plan['versions']);
+        $plan['tables'] = $this->ownership->tables($workspace, $plan['modules']);
             if ($plan['tables'] === [] && $plan['versions'] !== []) {
                 throw new \DomainException('Migrations intégrées mais aucune table déclarée : suppression bloquée.');
             }
