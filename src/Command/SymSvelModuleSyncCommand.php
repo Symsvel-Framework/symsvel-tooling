@@ -36,14 +36,6 @@ final class SymSvelModuleSyncCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $workspace = $input->getOption('workspace');
-        if ($workspace === null) {
-            if (basename(rtrim($this->projectDir, '/')) !== 'backend') {
-                $io->error('Indiquez --workspace ou lancez depuis backend/.');
-                return Command::INVALID;
-            }
-            $workspace = dirname($this->projectDir);
-        }
         $source = $input->getOption('source');
         if (!in_array($source, ['local', 'composer'], true)) {
             $io->error('Source invalide : utilisez local ou composer.');
@@ -58,6 +50,14 @@ final class SymSvelModuleSyncCommand extends Command
                 $io->error($exception->getMessage());
                 return Command::FAILURE;
             }
+        }
+        $workspace = $input->getOption('workspace');
+        if ($workspace === null) {
+            if (basename(rtrim($this->projectDir, '/')) !== 'backend') {
+                $io->error('Indiquez --workspace ou lancez depuis backend/.');
+                return Command::INVALID;
+            }
+            $workspace = dirname($this->projectDir);
         }
         try {
             $this->bundleWriter->write((string) $workspace);
