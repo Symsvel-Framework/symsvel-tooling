@@ -217,6 +217,10 @@ final class ModuleTableBackup
     /** @return array<string, mixed> */
     private function connection(string $url): array
     {
+        // PHP parse_url() rejects the valid Doctrine sqlite:///absolute/path form.
+        if (str_starts_with($url, 'sqlite:///')) {
+            return ['scheme' => 'sqlite', 'path' => substr($url, strlen('sqlite://'))];
+        }
         $parts = parse_url($url);
         if ($parts === false || !isset($parts['scheme'])) {
             throw new \InvalidArgumentException('DATABASE_URL invalide.');
