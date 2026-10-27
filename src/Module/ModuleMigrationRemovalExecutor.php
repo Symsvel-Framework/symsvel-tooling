@@ -58,15 +58,15 @@ final class ModuleMigrationRemovalExecutor
         // Doctrine files belonging to the confirmed removal plan.
         foreach ($plan['versions'] as $version) {
             if (!preg_match('/^DoctrineMigrations\\\\Version[A-Za-z0-9_]+$/D', $version)) {
-                throw new \\RuntimeException('Version Doctrine invalide pour le nettoyage : '.$version);
+                throw new \RuntimeException('Version Doctrine invalide pour le nettoyage : '.$version);
             }
             $filename = substr($version, strlen('DoctrineMigrations\\\\')).'.php';
             $path = rtrim($backend, '/').'/migrations/'.$filename;
             if (is_link($path)) {
-                throw new \\RuntimeException('Migration symbolique interdite : '.$path);
+                throw new \RuntimeException('Migration symbolique interdite : '.$path);
             }
             if (is_file($path) && !unlink($path)) {
-                throw new \\RuntimeException('Désinstallation SQL terminée, nettoyage manuel requis : '.$path);
+                throw new \RuntimeException('Désinstallation SQL terminée, nettoyage manuel requis : '.$path);
             }
         }
     }
