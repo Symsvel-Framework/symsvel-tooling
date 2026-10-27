@@ -57,15 +57,17 @@ final class ModuleMigrationRemovalExecutor
         // The SQL transaction and receipt commit have succeeded. Only remove
         // Doctrine files belonging to the confirmed removal plan.
         foreach ($plan['versions'] as $version) {
-            if (!preg_match('/^DoctrineMigrations\\\\Version[A-Za-z0-9_]+$/D', $version)) {
+            if (!preg_match('/^DoctrineMigrations\\\\(Version[A-Za-z0-9_]+)$/D', $version, $matches)) {
                 throw new \RuntimeException('Version Doctrine invalide pour le nettoyage : '.$version);
             }
-            $filename = substr($version, strlen('DoctrineMigrations\\\\')).'.php';
-            $path = rtrim($backend, '/').'/migrations/'.$filename;
+            $path = rtrim($backend, '/').'/migrations/'.$matches[1].'.php';
             if (is_link($path)) {
                 throw new \RuntimeException('Migration symbolique interdite : '.$path);
             }
-            if (is_file($path) && !unlink($path)) {
+            if (!is_file($path)) {
+                throw new \RuntimeException('Désinstallation SQL terminée, fichier de migration introuvable : '.$path);
+            }
+            if (!unlink($path)) {
                 throw new \RuntimeException('Désinstallation SQL terminée, nettoyage manuel requis : '.$path);
             }
         }
