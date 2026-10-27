@@ -83,4 +83,25 @@ final class ModuleTableOwnershipTest extends TestCase
         }
     }
 
+    public function testUnknownOwnershipInRetainedModuleBlocksRemoval(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-ownership-'.bin2hex(random_bytes(6));
+        foreach (['users', 'legacy'] as $slug) {
+            mkdir($root.'/modules/'.$slug, 0700, true);
+        }
+        file_put_contents($root.'/modules/users/module.json', '{"tables":["users"]}');
+        file_put_contents($root.'/modules/legacy/module.json', '{}');
+        try {
+            $this->expectException(\DomainException::class);
+            (new ModuleTableOwnership())->tables($root, ['users']);
+        } finally {
+            foreach (['users', 'legacy'] as $slug) {
+                unlink($root.'/modules/'.$slug.'/module.json');
+                rmdir($root.'/modules/'.$slug);
+            }
+            rmdir($root.'/modules');
+            rmdir($root);
+        }
+    }
+
 }
