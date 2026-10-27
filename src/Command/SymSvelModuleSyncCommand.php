@@ -47,6 +47,11 @@ final class SymSvelModuleSyncCommand extends Command
         }
         if ($source === 'composer') {
             try {
+                // Validate both outputs before publishing either one.
+                $this->composerSynchronizer->prepare($this->projectDir);
+                (new \SymSvel\Tooling\Module\ModuleBundleResolver())->resolve(
+                    (new \SymSvel\Tooling\Module\ComposerModuleRegistry())->discover($this->projectDir),
+                );
                 $this->composerBundleWriter->write($this->projectDir);
                 $path = $this->composerWriter->write($this->projectDir);
                 $io->success('Inventaire Composer et carte des Bundles publiés : '.$path.'. Aucun Bundle activé.');
