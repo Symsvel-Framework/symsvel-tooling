@@ -73,4 +73,25 @@ PHP;
             rmdir($root);
         }
     }
+    public function testSymlinkedRecoveryDirectoryPreventsDoctrineExecution(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-executor-link-'.bin2hex(random_bytes(6));
+        mkdir($root, 0700);
+        mkdir($root.'/outside', 0700);
+        if (!symlink($root.'/outside', $root.'/.symsvel')) {
+            rmdir($root.'/outside');
+            rmdir($root);
+            self::markTestSkipped('Symlinks unavailable.');
+        }
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('symbolique interdit');
+            (new ModuleMigrationExecutor())->install($root, $root, [], [], new ModuleMigrationRegistry());
+        } finally {
+            unlink($root.'/.symsvel');
+            rmdir($root.'/outside');
+            rmdir($root);
+        }
+    }
+
 }
