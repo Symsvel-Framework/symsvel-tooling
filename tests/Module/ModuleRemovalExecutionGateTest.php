@@ -16,7 +16,7 @@ final class ModuleRemovalExecutionGateTest extends TestCase
         try {
             $this->expectException(\InvalidArgumentException::class);
             $this->expectExceptionMessage('Module introuvable');
-            (new ModuleRemovalExecutionGate())->authorize($root, 'missing', false, str_repeat('a', 64));
+            (new ModuleRemovalExecutionGate())->authorize($root, $root, 'missing', false, str_repeat('a', 64));
         } finally {
             rmdir($root);
         }
@@ -30,7 +30,7 @@ final class ModuleRemovalExecutionGateTest extends TestCase
         try {
             $this->expectException(\RuntimeException::class);
             $this->expectExceptionMessage('Désinstallation précédente');
-            (new ModuleRemovalExecutionGate())->authorize($root, 'users', false, str_repeat('a', 64));
+            (new ModuleRemovalExecutionGate())->authorize($root, $root, 'users', false, str_repeat('a', 64));
         } finally {
             unlink($root.'/.symsvel/module-removal-recovery.json');
             rmdir($root.'/.symsvel');
