@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Tests\Module;
 
 use PHPUnit\Framework\TestCase;
 use SymSvel\Tooling\Module\ModuleRemovalTransaction;
+use SymSvel\Tooling\Module\ModuleMigrationRegistry;
 use Symfony\Component\Process\Process;
 
 final class ModuleRemovalSqliteIntegrationTest extends TestCase
@@ -117,6 +118,36 @@ final class ModuleRemovalSqliteIntegrationTest extends TestCase
 
         self::assertSame('original', trim($this->sql('SELECT name FROM users LIMIT 1;')));
         self::assertSame('keep', trim($this->sql('SELECT value FROM settings LIMIT 1;')));
+    }
+
+    public function testReceiptChangesRequireExplicitRecoveryAfterSqlRollback(): void
+    {
+        $registry = new ModuleMigrationRegistry();
+        $original = [
+            'users/001.php' => ['sha256' => str_repeat('a', 64), 'doctrine' => 'DoctrineMigrations\\Version202610270001'],
+            'audit/001.php' => ['sha256' => str_repeat('b', 64), 'doctrine' => 'DoctrineMigrations\\Version202610270002'],
+        ];
+        $registry->write($this->root, $original);
+
+        try {
+            (new ModuleRemovalTransaction())->run($this->root, $this->url, ['users'], function () use ($registry): void {
+                $this->sql('DROP TABLE users;');
+                $registry->write($this->root, $registry->withoutSources($this->root, ['users/001.php']));
+                throw new \RuntimeException('simulated failure after receipt write');
+            });
+            self::fail('Expected removal failure.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('SQL restauré', $exception->getMessage());
+        }
+
+        self::assertSame('original', trim($this->sql('SELECT name FROM users LIMIT 1;')));
+        self::assertSame(['audit/001.php'], array_keys($registry->read($this->root)));
+        $journal = json_decode((string) file_get_contents($this->root.'/.symsvel/module-removal-recovery.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('sql_restored', $journal['state']);
+        // The transaction only restores SQL. The higher-level removal executor
+        // must restore receipts after confirming this journal state.
+        $registry->write($this->root, $original);
+        self::assertSame($original, $registry->read($this->root));
     }
 
     private function sql(string $statement): string
