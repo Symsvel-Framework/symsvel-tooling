@@ -22,7 +22,10 @@ final class ModuleMigrationExecutor
         $inFlight = null;
         $rolledBack = [];
         $journal = rtrim($workspace, '/').'/.symsvel/migration-recovery.json';
-        if (is_file($journal) || is_link($journal)) {
+        if (is_link(dirname($journal))) {
+            throw new \RuntimeException('Répertoire de récupération symbolique interdit.');
+        }
+        if (file_exists($journal) || is_link($journal)) {
             throw new \RuntimeException('Récupération de migration en attente : '.$journal);
         }
         $directory = dirname($journal);
