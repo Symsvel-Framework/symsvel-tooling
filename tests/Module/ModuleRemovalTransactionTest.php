@@ -116,4 +116,36 @@ final class ModuleRemovalTransactionTest extends TestCase
         }
     }
 
+    public function testCommittedRemovalCannotBeRestored(): void
+    {
+        $this->assertRestoreBlockedForState('committed');
+    }
+
+    public function testAlreadyRestoredRemovalCannotBeRestoredAgain(): void
+    {
+        $this->assertRestoreBlockedForState('sql_restored');
+    }
+
+    private function assertRestoreBlockedForState(string $state): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-restore-state-'.bin2hex(random_bytes(6));
+        mkdir($root.'/.symsvel', 0700, true);
+        $journal = $root.'/.symsvel/module-removal-recovery.json';
+        file_put_contents($journal, json_encode([
+            'schema' => 1,
+            'state' => $state,
+            'backup' => ['path' => $root.'/.symsvel/.module-backup-example', 'driver' => 'sqlite', 'tables' => ['users']],
+            'sha256' => str_repeat('a', 64),
+        ], JSON_THROW_ON_ERROR));
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('restauration non autorisée');
+            (new ModuleRemovalTransaction())->restore($root, 'sqlite:///tmp/unused.sqlite');
+        } finally {
+            unlink($journal);
+            rmdir($root.'/.symsvel');
+            rmdir($root);
+        }
+    }
+
 }
