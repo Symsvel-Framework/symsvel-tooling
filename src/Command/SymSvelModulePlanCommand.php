@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Module\ModuleSynchronizer;
+use SymSvel\Tooling\Module\ComposerModuleSynchronizer;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -19,6 +20,7 @@ final class SymSvelModulePlanCommand extends Command
     public function __construct(
         #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
         private readonly ModuleSynchronizer $synchronizer = new ModuleSynchronizer(),
+        private readonly ComposerModuleSynchronizer $composerSynchronizer = new ComposerModuleSynchronizer(),
     ) {
         parent::__construct();
     }
@@ -27,6 +29,7 @@ final class SymSvelModulePlanCommand extends Command
     {
         $this->addOption('workspace', null, InputOption::VALUE_REQUIRED, 'SymSvel workspace root');
         $this->addOption('json', null, InputOption::VALUE_NONE, 'Output the plan as JSON');
+        $this->addOption('source', null, InputOption::VALUE_REQUIRED, 'Module source: local or composer', 'local');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -44,8 +47,15 @@ final class SymSvelModulePlanCommand extends Command
             $io->error('Workspace introuvable.');
             return Command::INVALID;
         }
+        $source = $input->getOption('source');
+        if (!in_array($source, ['local', 'composer'], true)) {
+            $io->error('Source invalide : utilisez local ou composer.');
+            return Command::INVALID;
+        }
         try {
-            $plan = $this->synchronizer->prepare((string) $workspace);
+            $plan = $source === 'composer'
+                ? $this->composerSynchronizer->prepare($this->projectDir)
+                : $this->synchronizer->prepare((string) $workspace);
         } catch (\Throwable $exception) {
             $io->error($exception->getMessage());
             return Command::FAILURE;
@@ -55,7 +65,7 @@ final class SymSvelModulePlanCommand extends Command
             return Command::SUCCESS;
         }
         if ($plan === []) {
-            $io->note('Aucun module local détecté.');
+            $io->note('undefined.');
             return Command::SUCCESS;
         }
         foreach ($plan as $step) {
