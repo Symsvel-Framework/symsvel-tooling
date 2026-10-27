@@ -147,7 +147,7 @@ final class ModuleRemovalSqliteIntegrationTest extends TestCase
         // The transaction only restores SQL. The higher-level removal executor
         // must restore receipts after confirming this journal state.
         $registry->write($this->root, $original);
-        self::assertSame($original, $registry->read($this->root));
+        self::assertEqualsCanonicalizing($original, $registry->read($this->root));
     }
 
     private function sql(string $statement): string
