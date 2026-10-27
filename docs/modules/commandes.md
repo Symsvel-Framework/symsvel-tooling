@@ -8,7 +8,7 @@ Exécuter depuis `backend/` avec `php bin/console`, sauf le maker autonome `./sy
 | --- | --- | --- |
 | `symsvel:make:module <name>` | Génère un module local | `--workspace=...`, `--scopes=back\|bo\|app\|front\|all` (défaut back), `--vendor=...` (défaut symsvel-framework) |
 | `symsvel:module:plan` | Vérifie et prévisualise le plan des modules | `--workspace=...`, `--json`, `--source=local|composer` (défaut `local`) |
-| `symsvel:module:sync` | Publie l'inventaire et la carte des Bundles, **sans les activer** | `--workspace=...` |
+| `symsvel:module:sync` | Publie l'inventaire et la carte des Bundles, **sans les activer** | `--workspace=...`, `--source=local|composer` (défaut `local`) |
 | `symsvel:module:migrations:compile` | Compile les migrations sources non enregistrées | `--workspace=...`, `--execute` (exécute et enregistre les migrations) |
 | `symsvel:module:migrations:recovery:status` | Consulte une récupération SQL en attente, sans modifier la base | `--workspace=...`, `--json` |
 | `symsvel:module:migrations:recover` | Reprend les compensations possibles après incident SQL | `--workspace=...` |
@@ -24,6 +24,7 @@ Exécuter depuis `backend/` avec `php bin/console`, sauf le maker autonome `./sy
 php bin/console symsvel:module:plan --json
 php bin/console symsvel:module:plan --source=composer --json
 php bin/console symsvel:module:sync
+php bin/console symsvel:module:sync --source=composer # validation uniquement, sans publication
 php bin/console symsvel:module:migrations:compile
 php bin/console symsvel:module:migrations:compile --execute
 php bin/console symsvel:module:migrations:recovery:status
@@ -43,3 +44,5 @@ php bin/console symsvel:module:remove:migrations:execute documents --confirm=<em
 ## Évolution prévue
 
 Lorsque les modules seront installés par Composer et intégrés via Symfony Flex, mettre à jour cette référence pour distinguer clairement commandes Composer, recettes Flex et commandes SymSvel. Ne pas présenter l'activation Composer/Flex comme déjà opérationnelle.
+
+**Attention :** `module:sync --source=composer` valide actuellement le plan sans publier de fichiers ni activer de Bundle. La publication Composer/Flex reste une étape distincte.
