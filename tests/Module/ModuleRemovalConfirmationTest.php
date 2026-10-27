@@ -94,4 +94,33 @@ final class ModuleRemovalConfirmationTest extends TestCase
         }
     }
 
+    public function testChangedMigrationSourceInvalidatesApproval(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-confirm-source-'.bin2hex(random_bytes(6));
+        mkdir($root.'/modules/users', 0700, true);
+        $manifest = $root.'/modules/users/module.json';
+        $source = $root.'/modules/users/Version001.php';
+        file_put_contents($manifest, '{}');
+        file_put_contents($source, '<?php // original');
+        try {
+            $plan = [
+                'modules' => ['users'],
+                'versions' => ['DoctrineMigrations\\Version001'],
+                'sources' => ['users/Version001.php'],
+                'tables' => ['users'],
+            ];
+            $confirmation = new ModuleRemovalConfirmation();
+            $fingerprint = $confirmation->fingerprint($root, $plan);
+            file_put_contents($source, '<?php // modified');
+            $this->expectException(\DomainException::class);
+            $confirmation->assertMatches($root, $plan, $fingerprint);
+        } finally {
+            unlink($source);
+            unlink($manifest);
+            rmdir($root.'/modules/users');
+            rmdir($root.'/modules');
+            rmdir($root);
+        }
+    }
+
 }
