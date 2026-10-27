@@ -14,6 +14,8 @@ final class ModuleRemovalConfirmationTest extends TestCase
     {
         $root = sys_get_temp_dir().'/symsvel-confirm-'.bin2hex(random_bytes(6));
         mkdir($root, 0700);
+        mkdir($root.'/modules/users', 0700, true);
+        file_put_contents($root.'/modules/users/module.json', '{}');
         $registry = new ModuleMigrationRegistry();
         $confirmation = new ModuleRemovalConfirmation();
         $plan = ['modules' => ['users'], 'versions' => [], 'sources' => [], 'tables' => ['users']];
@@ -30,13 +32,17 @@ final class ModuleRemovalConfirmationTest extends TestCase
         } finally {
             unlink($root.'/.symsvel/migrations.json');
             rmdir($root.'/.symsvel');
+            unlink($root.'/modules/users/module.json');
+            rmdir($root.'/modules/users');
+            rmdir($root.'/modules');
             rmdir($root);
         }
     }
     public function testChangedDestructiveScopeInvalidatesApproval(): void
     {
         $root = sys_get_temp_dir().'/symsvel-confirm-scope-'.bin2hex(random_bytes(6));
-        mkdir($root, 0700);
+        mkdir($root.'/modules/users', 0700, true);
+        file_put_contents($root.'/modules/users/module.json', '{}');
         try {
             $confirmation = new ModuleRemovalConfirmation();
             $plan = ['modules' => ['users'], 'versions' => [], 'sources' => [], 'tables' => ['users']];
@@ -46,6 +52,9 @@ final class ModuleRemovalConfirmationTest extends TestCase
             $this->expectException(\DomainException::class);
             $confirmation->assertMatches($root, $plan, $fingerprint);
         } finally {
+            unlink($root.'/modules/users/module.json');
+            rmdir($root.'/modules/users');
+            rmdir($root.'/modules');
             rmdir($root);
         }
     }
