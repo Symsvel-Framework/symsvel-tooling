@@ -14,11 +14,11 @@ final class ModuleMigrationRegistry
     public function read(string $workspace): array
     {
         $path = rtrim($workspace, '/').'/.symsvel/migrations.json';
+        if (is_link(dirname($path)) || is_link($path)) {
+            throw new \RuntimeException('Registre ou répertoire symbolique interdit.');
+        }
         if (!is_file($path)) {
             return [];
-        }
-        if (is_link($path)) {
-            throw new \RuntimeException('Registre symbolique interdit.');
         }
         $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($data) || ($data['schema'] ?? null) !== 1 || !is_array($data['entries'] ?? null)) {
