@@ -39,9 +39,9 @@ Le service `SymSvel\\Tooling\\Installation\\ComponentInstaller` centralise la s�
 
 L'installation initialise également `<projet>/dev-doc/` avec MkDocs dans un environnement Python isolé (`.venv`), génère `dev-doc/site/` et crée `<projet>/secrets/.env.example`. Les dossiers existants ne sont pas écrasés. Python 3 avec `venv` et `pip` est nécessaire en local. `site/` et `.venv/` sont ignorés par Git ; le dossier `secrets/` reste hors versionnement.
 
-## Prochaine étape
+## Mise à jour
 
-Réutiliser les mécanismes communs pour `symsvel:update`, avec des politiques de version distinctes : `APP_ENV=core` pour les derniers commits, `dev` pour les releases et `prod` sans mise à jour. Les mises à jour restent exclusivement locales. **Cette commande de mise à jour n'est pas encore implémentée.**
+La commande `symsvel:update` est implémentée pour les environnements locaux `core` et `dev`. Son exécution en production est interdite. Voir les modalités ci-dessous.
 
 ## Tests
 
@@ -94,3 +94,11 @@ php bin/console symsvel:make:module documents --scopes=all
 ```
 
 Les anciens scopes séparés ou combinés ne sont plus acceptés. Le maker génère les points d'extension des composants, la configuration PHPUnit et le workflow QA.
+
+## Contrat architectural des modules PHP (intégration à venir)
+
+- Le code métier spécifique reste dans les répertoires habituels de Symfony et SvelteKit. Un module est destiné à une fonctionnalité réutilisable ou à l'extension d'un module existant.
+- Les modules PHP sont des packages Composer `symsvel-framework/module-*` installés dans `backend/vendor/symsvel-framework/`. En développement local, Composer peut les référencer par un dépôt `path`.
+- L'enregistrement des Bundles repose sur les mécanismes standards de Symfony et de Symfony Flex, plutôt que sur un chargeur de Bundles spécifique au Core. Les recettes et leur mode de distribution restent à préciser avant implémentation.
+- Les migrations existantes sont découvertes, ordonnées selon les dépendances, compilées et exécutées par le tooling. La migration du registre local `modules/` vers les packages Composer doit préserver cet ordre et les garanties de récupération.
+- **État actuel :** `ModuleRegistry` découvre encore les modules dans `<workspace>/modules/` et `symsvel:module:sync` publie un inventaire et une carte de Bundles sans les activer. L'intégration Composer/Flex n'est pas encore opérationnelle.
