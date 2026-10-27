@@ -9,6 +9,7 @@ use SymSvel\Tooling\Module\ComposerModulePlanner;
 use SymSvel\Tooling\Module\ComposerModuleRegistry;
 use SymSvel\Tooling\Module\ComposerModuleSynchronizer;
 use SymSvel\Tooling\Module\ComposerModuleInventoryWriter;
+use SymSvel\Tooling\Module\ComposerModuleBundleMapWriter;
 use SymSvel\Tooling\Module\ModuleMaker;
 
 final class ComposerModulePlannerTest extends TestCase
@@ -103,6 +104,25 @@ final class ComposerModulePlannerTest extends TestCase
         } catch (\InvalidArgumentException $exception) {
             self::assertStringContainsString('introuvable', $exception->getMessage());
         }
+        self::assertSame($before, file_get_contents($target));
+    }
+
+    public function testComposerBundleMapContainsInstalledModuleClasses(): void
+    {
+        $this->module('my-base');
+        $this->module('my-feature', ['my-base' => '^1.0']);
+        $this->installed(['my-feature', 'my-base']);
+
+        $writer = new ComposerModuleBundleMapWriter();
+        $target = $writer->write($this->workspace);
+        self::assertSame($this->workspace.'/.symsvel/bundles.php', $target);
+        $classes = require $target;
+        self::assertSame([
+            'SymSvel\\Module\\MyBase\\MyBaseBundle',
+            'SymSvel\\Module\\MyFeature\\MyFeatureBundle',
+        ], $classes);
+        $before = file_get_contents($target);
+        self::assertSame($target, $writer->write($this->workspace));
         self::assertSame($before, file_get_contents($target));
     }
 
