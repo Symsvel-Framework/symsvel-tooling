@@ -20,6 +20,7 @@ use SymSvel\Tooling\Module\ModuleTableBackup;
 use SymSvel\Tooling\Module\ModuleTableOwnership;
 use SymSvel\Tooling\Module\ModuleRemovalTransaction;
 use SymSvel\Tooling\Command\SymSvelModuleRemovalMigrationsPlanCommand;
+use SymSvel\Tooling\Command\SymSvelModuleRemovalMigrationsExecuteCommand;
 use SymSvel\Tooling\Command\SymSvelModuleRemovalRecoveryStatusCommand;
 use SymSvel\Tooling\Module\ModuleMigrationDiff;
 use SymSvel\Tooling\Module\ModuleMigrationRegistry;
@@ -67,6 +68,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelModuleRemovalRecoveryStatusCommand::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelModuleRemovalMigrationsExecuteCommand::class)
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelModuleRemovalMigrationsPlanCommand::class)
