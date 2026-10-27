@@ -54,6 +54,7 @@
             "@php -l src/Module/ModuleTableBackup.php",
             "@php -l tests/Module/ModuleTableBackupTest.php",
             "@php -l src/Command/SymSvelModuleRemovalMigrationsPlanCommand.php",
+            "@php -l src/Command/SymSvelModuleRemovalMigrationsExecuteCommand.php",
             "@php -l tests/Module/ModuleMigrationRemovalPlanTest.php",
             "@php -l src/Module/ModuleRemovalTransaction.php",
             "@php -l tests/Module/ModuleRemovalTransactionTest.php",
