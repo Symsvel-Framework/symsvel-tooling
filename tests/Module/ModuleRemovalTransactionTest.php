@@ -91,4 +91,29 @@ final class ModuleRemovalTransactionTest extends TestCase
         }
     }
 
+    public function testRecoveryRejectsBackupOutsideWorkspace(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-restore-path-'.bin2hex(random_bytes(6));
+        mkdir($root.'/.symsvel', 0700, true);
+        $external = $root.'/external.sql';
+        file_put_contents($external, 'do not restore');
+        $journal = $root.'/.symsvel/module-removal-recovery.json';
+        file_put_contents($journal, json_encode([
+            'schema' => 1,
+            'state' => 'restore_required',
+            'backup' => ['path' => $external, 'driver' => 'mysql', 'tables' => ['users']],
+            'sha256' => hash_file('sha256', $external),
+        ], JSON_THROW_ON_ERROR));
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('hors du répertoire');
+            (new ModuleRemovalTransaction())->restore($root, 'mysql://localhost/example');
+        } finally {
+            unlink($journal);
+            unlink($external);
+            rmdir($root.'/.symsvel');
+            rmdir($root);
+        }
+    }
+
 }
