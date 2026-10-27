@@ -99,7 +99,8 @@ final class ModuleRemovalConfirmationTest extends TestCase
         $root = sys_get_temp_dir().'/symsvel-confirm-source-'.bin2hex(random_bytes(6));
         mkdir($root.'/modules/users', 0700, true);
         $manifest = $root.'/modules/users/module.json';
-        $source = $root.'/modules/users/Version001.php';
+        mkdir($root.'/modules/users/Migration', 0700);
+        $source = $root.'/modules/users/Migration/Version001.php';
         file_put_contents($manifest, '{}');
         file_put_contents($source, '<?php // original');
         try {
@@ -116,6 +117,7 @@ final class ModuleRemovalConfirmationTest extends TestCase
             $confirmation->assertMatches($root, $plan, $fingerprint);
         } finally {
             unlink($source);
+            rmdir($root.'/modules/users/Migration');
             unlink($manifest);
             rmdir($root.'/modules/users');
             rmdir($root.'/modules');
