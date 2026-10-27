@@ -28,7 +28,7 @@ final class ModuleRemovalTransaction
             throw new \RuntimeException('Récupération en attente : désinstallation bloquée.');
         }
         if ($tables === []) {
-            throw new \DomainException('Transaction SQL sans tables : utiliser la suppression non SQL après vérification des dépendances.');
+            throw new \InvalidArgumentException('Transaction SQL sans tables : utiliser la suppression non SQL après vérification des dépendances.');
         }
         $backup = $this->backups->create($workspace, $databaseUrl, $tables);
         $digest = hash_file('sha256', $backup['path']);
