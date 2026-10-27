@@ -46,4 +46,32 @@ final class ModuleRemovalTransactionTest extends TestCase
             rmdir($root);
         }
     }
+    public function testSymlinkedRecoveryDirectoryBlocksRemoval(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-removal-link-'.bin2hex(random_bytes(6));
+        mkdir($root, 0700);
+        $target = $root.'/outside';
+        mkdir($target, 0700);
+        if (!symlink($target, $root.'/.symsvel')) {
+            rmdir($target);
+            rmdir($root);
+            self::markTestSkipped('Symlinks unavailable.');
+        }
+        $called = false;
+        try {
+            $this->expectException(\RuntimeException::class);
+            (new ModuleRemovalTransaction())->run(
+                $root,
+                'postgresql://localhost/example',
+                ['users'],
+                static function () use (&$called): void { $called = true; },
+            );
+        } finally {
+            self::assertFalse($called);
+            unlink($root.'/.symsvel');
+            rmdir($target);
+            rmdir($root);
+        }
+    }
+
 }
