@@ -24,7 +24,7 @@ Exécuter depuis `backend/` avec `php bin/console`, sauf le maker autonome `./sy
 php bin/console symsvel:module:plan --json
 php bin/console symsvel:module:plan --source=composer --json
 php bin/console symsvel:module:sync
-php bin/console symsvel:module:sync --source=composer # validation uniquement, sans publication
+php bin/console symsvel:module:sync --source=composer # publie backend/.symsvel/modules.json, sans activation de Bundle
 php bin/console symsvel:module:migrations:compile
 php bin/console symsvel:module:migrations:compile --execute
 php bin/console symsvel:module:migrations:recovery:status
@@ -45,4 +45,4 @@ php bin/console symsvel:module:remove:migrations:execute documents --confirm=<em
 
 Lorsque les modules seront installés par Composer et intégrés via Symfony Flex, mettre à jour cette référence pour distinguer clairement commandes Composer, recettes Flex et commandes SymSvel. Ne pas présenter l'activation Composer/Flex comme déjà opérationnelle.
 
-**Attention :** `module:sync --source=composer` valide actuellement le plan sans publier de fichiers ni activer de Bundle. La publication Composer/Flex reste une étape distincte.
+**Attention :** `module:sync --source=composer` publie l'inventaire dans `backend/.symsvel/modules.json` sans activer de Bundle. L'intégration Symfony/Flex reste une étape distincte.
