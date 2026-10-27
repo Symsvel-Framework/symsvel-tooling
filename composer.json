@@ -73,6 +73,7 @@
             "@php -l tests/Module/ComposerModuleRegistryTest.php",
             "@php -l src/Module/ComposerModulePlanner.php",
             "@php -l src/Module/ComposerModuleSynchronizer.php",
+            "@php -l tests/Module/ComposerModulePlannerTest.php",
             "@php vendor/bin/phpunit",
             "@php -l src/Command/SymSvelModuleMigrationRecoveryStatusCommand.php"
         ]
