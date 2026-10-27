@@ -44,11 +44,11 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
             // Refuse a plan if its compiled migration file is missing or unsafe.
             foreach ($plan['versions'] as $version) {
                 if (!preg_match('/^DoctrineMigrations\\\\(Version[0-9]+)$/D', $version, $matches)) {
-                    throw new \\DomainException('Version Doctrine compilée invalide : '.$version);
+                    throw new \DomainException('Version Doctrine compilée invalide : '.$version);
                 }
                 $compiled = rtrim($this->projectDir, '/').'/migrations/'.$matches[1].'.php';
                 if (!is_file($compiled) || is_link($compiled)) {
-                    throw new \\DomainException('Migration Doctrine compilée absente ou invalide : '.$version);
+                    throw new \DomainException('Migration Doctrine compilée absente ou invalide : '.$version);
                 }
             }
             $plan['tables'] = $this->ownership->tables($workspace, $plan['modules']);
