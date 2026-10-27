@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SymSvel\Tooling\Command;
+
+use SymSvel\Tooling\Module\ModuleMigrationCatalog;
+use SymSvel\Tooling\Module\ModuleMigrationCompiler;
+use SymSvel\Tooling\Module\ModuleMigrationDiff;
+use SymSvel\Tooling\Module\ModuleMigrationRegistry;
+use SymSvel\Tooling\Module\ModuleMigrationExecutor;
+use Symfony\Component\Console\Attribute\AsCommand;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+
+#[AsCommand(name: 'symsvel:module:migrations:compile', description: 'Compile new module sources into Doctrine migrations without executing them')]
+final class SymSvelModuleMigrationsCompileCommand extends Command
+{
+    public function __construct(
+        #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
+        private readonly ModuleMigrationCatalog $catalog = new ModuleMigrationCatalog(),
+        private readonly ModuleMigrationDiff $diff = new ModuleMigrationDiff(),
+        private readonly ModuleMigrationRegistry $registry = new ModuleMigrationRegistry(),
+        private readonly ModuleMigrationCompiler $compiler = new ModuleMigrationCompiler(),
+        private readonly ModuleMigrationExecutor $executor = new ModuleMigrationExecutor(),
+    ) {
+        parent::__construct();
+    }
+
+    protected function configure(): void
+    {
+        $this->addOption('workspace', null, InputOption::VALUE_REQUIRED, 'Workspace root');
+        $this->addOption('execute', null, InputOption::VALUE_NONE, 'Execute compiled migrations using Doctrine and record receipts');
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $io = new SymfonyStyle($input, $output);
+        try {
+            $workspace = $input->getOption('workspace') ?? dirname($this->projectDir);
+            $journalPath = rtrim((string) $workspace, '/').'/.symsvel/migration-recovery.json';
+            if (file_exists($journalPath) || is_link($journalPath)) {
+                throw new \RuntimeException('Migration recovery pending: '.$journalPath);
+            }
+            $registered = $this->registry->read((string) $workspace);
+            $changes = $this->diff->compare($this->catalog->discover((string) $workspace), $registered);
+            if ($changes['removed'] !== []) {
+                throw new \DomainException('Sources intégrées absentes : '.implode(', ', $changes['removed']).'. Utilisez le cycle de désinstallation.');
+            }
+            if ($changes['pending'] === []) {
+                $io->success('Aucune nouvelle migration.');
+                return Command::SUCCESS;
+            }
+            $execute = (bool) $input->getOption('execute');
+            if ($execute && ($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV')) === 'prod') {
+                throw new \DomainException('Exécution de migrations interdite en production.');
+            }
+            // Compile every source before touching the database. The executor
+            // commits receipts only when the complete batch succeeds.
+            $compiled = [];
+            try {
+                foreach ($changes['pending'] as $source) {
+                    $migration = $this->compiler->compile($this->projectDir, [$source]);
+                    if ($migration !== null) {
+                        $compiled[] = $migration;
+                        $io->text('Compilée : '.$migration['path']);
+                    }
+                }
+            } catch (\Throwable $compileFailure) {
+                foreach ($compiled as $migration) {
+                    if (is_file($migration['path'])) {
+                        unlink($migration['path']);
+                    }
+                }
+                throw $compileFailure;
+            }
+            if ($execute) {
+                $this->executor->install($this->projectDir, (string) $workspace, $compiled, $registered, $this->registry);
+            }
+            $io->success($execute ? 'Migrations exécutées.' : 'Compilation terminée. Utilisez --execute pour exécuter et enregistrer.');
+            return Command::SUCCESS;
+        } catch (\Throwable $exception) {
+            $io->error($exception->getMessage());
+            return Command::FAILURE;
+        }
+    }
+}
