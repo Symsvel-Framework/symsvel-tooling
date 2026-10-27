@@ -126,6 +126,34 @@ final class ModuleRemovalTransactionTest extends TestCase
         $this->assertRestoreBlockedForState('sql_restored');
     }
 
+
+    public function testModifiedBackupIsRejectedBeforeRestoration(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-digest-'.bin2hex(random_bytes(6));
+        mkdir($root.'/.symsvel', 0700, true);
+        $backup = tempnam($root.'/.symsvel', '.module-backup-');
+        self::assertIsString($backup);
+        file_put_contents($backup, 'original');
+        $journal = $root.'/.symsvel/module-removal-recovery.json';
+        file_put_contents($journal, json_encode([
+            'schema' => 1,
+            'state' => 'restore_required',
+            'backup' => ['path' => $backup, 'driver' => 'mysql', 'tables' => ['users']],
+            'sha256' => hash_file('sha256', $backup),
+        ], JSON_THROW_ON_ERROR));
+        file_put_contents($backup, 'modified');
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('altérée');
+            (new ModuleRemovalTransaction())->restore($root, 'mysql://localhost/example');
+        } finally {
+            unlink($journal);
+            unlink($backup);
+            rmdir($root.'/.symsvel');
+            rmdir($root);
+        }
+    }
+
     private function assertRestoreBlockedForState(string $state): void
     {
         $root = sys_get_temp_dir().'/symsvel-restore-state-'.bin2hex(random_bytes(6));
