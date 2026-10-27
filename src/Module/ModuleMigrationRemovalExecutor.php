@@ -31,21 +31,27 @@ final class ModuleMigrationRemovalExecutor
             throw new \DomainException('Désinstallation SQL sans tables déclarées non prise en charge.');
         }
         $previousReceipts = $this->registry->read($workspace);
-        $this->transaction->run($workspace, $databaseUrl, $plan['tables'], function () use ($backend, $workspace, $plan, $previousReceipts): void {
-            foreach ($plan['versions'] as $version) {
-                $this->migrations->execute($backend, $version, 'down');
-            }
-            // A failed receipt write must not leave SQL restored with removed receipts.
-            try {
-                $this->registry->write($workspace, $plan['remaining']);
-            } catch (\Throwable $failure) {
-                try {
-                    $this->registry->write($workspace, $previousReceipts);
-                } catch (\Throwable $restoreFailure) {
-                    throw new \RuntimeException('Reçus non restaurés après échec : '.$restoreFailure->getMessage(), 0, $failure);
+        try {
+            $this->transaction->run($workspace, $databaseUrl, $plan['tables'], function () use ($backend, $workspace, $plan): void {
+                foreach ($plan['versions'] as $version) {
+                    $this->migrations->execute($backend, $version, 'down');
                 }
-                throw $failure;
+                $this->registry->write($workspace, $plan['remaining']);
+            });
+        } catch (\Throwable $failure) {
+            // Do not revert committed receipts when only backup cleanup failed.
+            $journal = rtrim($workspace, '/').'/.symsvel/module-removal-recovery.json';
+            if (is_file($journal) && !is_link($journal)) {
+                $data = json_decode((string) file_get_contents($journal), true);
+                if (is_array($data) && ($data['state'] ?? null) === 'sql_restored') {
+                    try {
+                        $this->registry->write($workspace, $previousReceipts);
+                    } catch (\Throwable $receiptFailure) {
+                        throw new \RuntimeException('SQL restauré mais reçus non restaurés : '.$receiptFailure->getMessage(), 0, $failure);
+                    }
+                }
             }
-        });
+            throw $failure;
+        }
     }
 }
