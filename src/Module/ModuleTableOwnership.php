@@ -60,9 +60,9 @@ final class ModuleTableOwnership
             if (!is_array($manifest)) {
                 throw new \DomainException('Manifest invalide : '.$other);
             }
-            $otherTables = $manifest['tables'] ?? [];
+            $otherTables = $manifest['tables'] ?? null;
             if (!is_array($otherTables) || !array_is_list($otherTables)) {
-                throw new \DomainException('Déclaration de tables invalide : '.$other);
+                throw new \DomainException('Propriété des tables non déclarée ou invalide pour le module conservé '.$other.'. Suppression bloquée.');
             }
             foreach ($otherTables as $table) {
                 if (!is_string($table) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $table)) {
