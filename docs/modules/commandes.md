@@ -7,7 +7,7 @@ Exécuter depuis `backend/` avec `php bin/console`, sauf le maker autonome `./sy
 | Commande (préfixe `php bin/console`) | Rôle | Arguments et options propres |
 | --- | --- | --- |
 | `symsvel:make:module <name>` | Génère un module local | `--workspace=...`, `--scopes=back\|bo\|app\|front\|all` (défaut back), `--vendor=...` (défaut symsvel-framework) |
-| `symsvel:module:plan` | Vérifie et prévisualise le plan des modules | `--workspace=...`, `--json` |
+| `symsvel:module:plan` | Vérifie et prévisualise le plan des modules | `--workspace=...`, `--json`, `--source=local|composer` (défaut `local`) |
 | `symsvel:module:sync` | Publie l'inventaire et la carte des Bundles, **sans les activer** | `--workspace=...` |
 | `symsvel:module:migrations:compile` | Compile les migrations sources non enregistrées | `--workspace=...`, `--execute` (exécute et enregistre les migrations) |
 | `symsvel:module:migrations:recovery:status` | Consulte une récupération SQL en attente, sans modifier la base | `--workspace=...`, `--json` |
@@ -22,6 +22,7 @@ Exécuter depuis `backend/` avec `php bin/console`, sauf le maker autonome `./sy
 ```bash
 ./symsvel make:module documents --scopes=all
 php bin/console symsvel:module:plan --json
+php bin/console symsvel:module:plan --source=composer --json
 php bin/console symsvel:module:sync
 php bin/console symsvel:module:migrations:compile
 php bin/console symsvel:module:migrations:compile --execute
