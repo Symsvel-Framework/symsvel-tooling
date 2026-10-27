@@ -40,6 +40,17 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
         try {
             $workspace = (string) ($input->getOption('workspace') ?? dirname($this->projectDir));
             $plan = $this->planner->plan($workspace, (string) $input->getArgument('module'), (bool) $input->getOption('cascade'));
+            // A receipt alone cannot guarantee that Doctrine can execute down().
+            // Refuse a plan if its compiled migration file is missing or unsafe.
+            foreach ($plan['versions'] as $version) {
+                if (!preg_match('/^DoctrineMigrations\\\\(Version[0-9]+)$/D', $version, $matches)) {
+                    throw new \\DomainException('Version Doctrine compilée invalide : '.$version);
+                }
+                $compiled = rtrim($this->projectDir, '/').'/migrations/'.$matches[1].'.php';
+                if (!is_file($compiled) || is_link($compiled)) {
+                    throw new \\DomainException('Migration Doctrine compilée absente ou invalide : '.$version);
+                }
+            }
             $plan['tables'] = $this->ownership->tables($workspace, $plan['modules']);
             if ($plan['tables'] === [] && $plan['versions'] !== []) {
                 throw new \DomainException('Migrations intégrées mais aucune table déclarée : suppression bloquée.');
