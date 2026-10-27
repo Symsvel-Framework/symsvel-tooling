@@ -65,6 +65,8 @@
             "@php -l src/Module/ModuleMigrationRemovalExecutor.php",
             "@php -l tests/Module/ModuleRemovalConfirmationTest.php",
             "@php -l tests/Module/ModuleRemovalExecutionGateTest.php",
+            "@php -l src/Module/ModuleCompiledMigrationGuard.php",
+            "@php -l tests/Module/ModuleCompiledMigrationGuardTest.php",
             "@php vendor/bin/phpunit",
             "@php -l src/Command/SymSvelModuleMigrationRecoveryStatusCommand.php"
         ]
