@@ -110,4 +110,25 @@ final class ModuleMigrationRemovalPlanTest extends TestCase
         }
     }
 
+    public function testSymlinkedStateDirectoryBlocksPlanningBeforeDiscovery(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-plan-link-'.bin2hex(random_bytes(6));
+        mkdir($root, 0700);
+        mkdir($root.'/outside', 0700);
+        if (!symlink($root.'/outside', $root.'/.symsvel')) {
+            rmdir($root.'/outside');
+            rmdir($root);
+            self::markTestSkipped('Symlinks unavailable.');
+        }
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('symbolique interdit');
+            (new ModuleMigrationRemovalPlan())->plan($root, 'users');
+        } finally {
+            unlink($root.'/.symsvel');
+            rmdir($root.'/outside');
+            rmdir($root);
+        }
+    }
+
 }
