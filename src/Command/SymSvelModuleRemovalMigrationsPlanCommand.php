@@ -63,6 +63,15 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
             }
             // Validate the exact receipt delta before any destructive operation.
             $plan['remaining_receipt_count'] = count($this->receipts->withoutSources($workspace, $plan['sources']));
+            // Stable confirmation token for the exact destructive scope.
+            // A later executor must recompute and compare it before touching SQL.
+            $plan['confirmation'] = hash('sha256', json_encode([
+                'modules' => $plan['modules'],
+                'versions' => $plan['versions'],
+                'sources' => $plan['sources'],
+                'tables' => $plan['tables'],
+                'receipts' => $this->receipts->read($workspace),
+            ], JSON_THROW_ON_ERROR));
             if ($input->getOption('json')) {
                 $output->writeln(json_encode($plan, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
             } else {
@@ -70,6 +79,7 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
                 $io->text('Doctrine down order: '.implode(' -> ', $plan['versions']));
                 $io->text('Owned tables: '.($plan['tables'] === [] ? '(none)' : implode(', ', $plan['tables'])));
                 $io->text('Remaining migration receipts: '.$plan['remaining_receipt_count']);
+                $io->text('Confirmation fingerprint: '.$plan['confirmation']);
                 $io->text('SQL backup required: '.($plan['tables'] === [] ? 'no' : 'yes'));
                 $io->text('Execution remains disabled: this command is a preflight only.');
                 $io->text('No data has been modified.');
