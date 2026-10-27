@@ -60,9 +60,9 @@ final class SymSvelModulePlanCommandTest extends TestCase
             self::assertSame(realpath($source), $plan[0]['path']);
             self::assertFileDoesNotExist($workspace.'/.symsvel/modules.json');
         } finally {
-            $iterator = new \\RecursiveIteratorIterator(
-                new \\RecursiveDirectoryIterator($workspace, \\FilesystemIterator::SKIP_DOTS),
-                \\RecursiveIteratorIterator::CHILD_FIRST,
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($workspace, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
             );
             foreach ($iterator as $item) {
                 if ($item->isLink() || $item->isFile()) {
