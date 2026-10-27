@@ -35,6 +35,31 @@ final class ModuleMigrationRegistry
         return $data['entries'];
     }
 
+    /**
+     * Build the next receipt set without writing it. Only exact source keys
+     * confirmed by the removal plan may disappear.
+     *
+     * @param list<string> $sources
+     * @return array<string, array{sha256: string, doctrine: string}>
+     */
+    public function withoutSources(string $workspace, array $sources): array
+    {
+        $entries = $this->read($workspace);
+        if (count($sources) !== count(array_unique($sources))) {
+            throw new \InvalidArgumentException('Sources de migration dupliquées.');
+        }
+        foreach ($sources as $source) {
+            if (!is_string($source) || !isset($entries[$source])) {
+                throw new \DomainException('Reçu de migration absent : '.(string) $source);
+            }
+        }
+        foreach ($sources as $source) {
+            unset($entries[$source]);
+        }
+
+        return $entries;
+    }
+
     /** @param array<string, array{sha256: string, doctrine: string}> $entries */
     public function write(string $workspace, array $entries): void
     {
