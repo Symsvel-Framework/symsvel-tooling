@@ -15,6 +15,7 @@ final class ModuleRemovalExecutionGate
         private readonly ModuleTableOwnership $ownership = new ModuleTableOwnership(),
         private readonly ModuleMigrationRegistry $registry = new ModuleMigrationRegistry(),
         private readonly ModuleRemovalConfirmation $confirmation = new ModuleRemovalConfirmation(),
+        private readonly ModuleCompiledMigrationGuard $compiledGuard = new ModuleCompiledMigrationGuard(),
     ) {
     }
 
@@ -24,19 +25,7 @@ final class ModuleRemovalExecutionGate
     public function authorize(string $workspace, string $backend, string $module, bool $cascade, string $fingerprint): array
     {
         $plan = $this->planner->plan($workspace, $module, $cascade);
-        $migrationDirectory = rtrim($backend, '/').'/migrations';
-        if (is_link($migrationDirectory)) {
-            throw new \DomainException('Répertoire Doctrine compilé symbolique interdit.');
-        }
-        foreach ($plan['versions'] as $version) {
-            if (!preg_match('/^DoctrineMigrations\\\\(Version[0-9]+)$/D', $version, $matches)) {
-                throw new \DomainException('Version Doctrine compilée invalide : '.$version);
-            }
-            $compiled = $migrationDirectory.'/'.$matches[1].'.php';
-            if (!is_file($compiled) || is_link($compiled)) {
-                throw new \DomainException('Migration Doctrine compilée absente ou invalide : '.$version);
-            }
-        }
+        $this->compiledGuard->assertAvailable($backend, $plan['versions']);
         $plan['tables'] = $this->ownership->tables($workspace, $plan['modules']);
         if ($plan['versions'] !== [] && $plan['tables'] === []) {
             throw new \DomainException('Migrations intégrées sans tables déclarées : désinstallation bloquée.');
