@@ -73,4 +73,25 @@ final class ModuleRemovalConfirmationTest extends TestCase
         }
     }
 
+    public function testChangedManifestInvalidatesApproval(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-confirm-manifest-'.bin2hex(random_bytes(6));
+        mkdir($root.'/modules/users', 0700, true);
+        $manifest = $root.'/modules/users/module.json';
+        file_put_contents($manifest, '{"tables":["users"]}');
+        try {
+            $plan = ['modules' => ['users'], 'versions' => [], 'sources' => [], 'tables' => ['users']];
+            $confirmation = new ModuleRemovalConfirmation();
+            $fingerprint = $confirmation->fingerprint($root, $plan);
+            file_put_contents($manifest, '{"tables":["users"],"changed":true}');
+            $this->expectException(\DomainException::class);
+            $confirmation->assertMatches($root, $plan, $fingerprint);
+        } finally {
+            unlink($manifest);
+            rmdir($root.'/modules/users');
+            rmdir($root.'/modules');
+            rmdir($root);
+        }
+    }
+
 }
