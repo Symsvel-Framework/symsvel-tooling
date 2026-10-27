@@ -107,7 +107,11 @@ final class ModuleRemovalTransaction
      */
     public function restore(string $workspace, string $databaseUrl): void
     {
-        $journal = rtrim($workspace, '/').'/.symsvel/module-removal-recovery.json';
+        $directory = rtrim($workspace, '/').'/.symsvel';
+        if (is_link($directory)) {
+            throw new \RuntimeException('Répertoire de récupération symbolique interdit.');
+        }
+        $journal = $directory.'/module-removal-recovery.json';
         if (!is_file($journal) || is_link($journal)) {
             throw new \RuntimeException('Journal de désinstallation introuvable.');
         }
