@@ -38,14 +38,16 @@ final class ModuleRemovalSqliteIntegrationTest extends TestCase
         if (!isset($this->root)) {
             return;
         }
-        foreach (glob($this->root.'/.symsvel/*') ?: [] as $file) {
-            unlink($file);
-        }
-        if (is_dir($this->root.'/.symsvel')) {
-            rmdir($this->root.'/.symsvel');
-        }
-        if (is_file($this->database)) {
-            unlink($this->database);
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($this->root, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($iterator as $item) {
+            if ($item->isDir() && !$item->isLink()) {
+                rmdir($item->getPathname());
+            } else {
+                unlink($item->getPathname());
+            }
         }
         rmdir($this->root);
     }
