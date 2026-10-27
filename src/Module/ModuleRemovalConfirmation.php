@@ -18,12 +18,32 @@ final class ModuleRemovalConfirmation
      */
     public function fingerprint(string $workspace, array $plan): string
     {
+        $files = [];
+        foreach ($plan['modules'] as $module) {
+            $files[] = 'modules/'.$module.'/module.json';
+        }
+        foreach ($plan['sources'] as $source) {
+            $files[] = 'modules/'.$source;
+        }
+        $digests = [];
+        foreach ($files as $relative) {
+            $path = rtrim($workspace, '/').'/'.$relative;
+            if (is_link($path) || !is_file($path)) {
+                throw new \DomainException('Fichier de module absent ou symbolique : '.$relative);
+            }
+            $digest = hash_file('sha256', $path);
+            if (!is_string($digest)) {
+                throw new \RuntimeException('Empreinte du fichier indisponible : '.$relative);
+            }
+            $digests[$relative] = $digest;
+        }
         return hash('sha256', json_encode([
             'modules' => $plan['modules'],
             'versions' => $plan['versions'],
             'sources' => $plan['sources'],
             'tables' => $plan['tables'],
             'receipts' => $this->registry->read($workspace),
+            'files' => $digests,
         ], JSON_THROW_ON_ERROR));
     }
 
