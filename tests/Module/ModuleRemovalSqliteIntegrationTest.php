@@ -78,6 +78,30 @@ final class ModuleRemovalSqliteIntegrationTest extends TestCase
         self::assertFileExists($state['backup']['path']);
     }
 
+    public function testPendingRecoveryPreventsSecondRemoval(): void
+    {
+        try {
+            (new ModuleRemovalTransaction())->run($this->root, $this->url, ['users'], function (): void {
+                $this->sql('DROP TABLE users;');
+                throw new \RuntimeException('simulated failure');
+            });
+        } catch (\RuntimeException $failure) {
+            self::assertStringContainsString('SQL restauré', $failure->getMessage());
+        }
+
+        $called = false;
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Récupération en attente');
+            (new ModuleRemovalTransaction())->run($this->root, $this->url, ['users'], static function () use (&$called): void {
+                $called = true;
+            });
+        } finally {
+            self::assertFalse($called);
+            self::assertSame('original', trim($this->sql('SELECT name FROM users LIMIT 1;')));
+        }
+    }
+
     private function sql(string $statement): string
     {
         $process = new Process(['sqlite3', $this->database, $statement]);
