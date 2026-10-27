@@ -126,6 +126,29 @@ final class ComposerModulePlannerTest extends TestCase
         self::assertSame($before, file_get_contents($target));
     }
 
+    public function testMissingBundleDoesNotOverwritePreviouslyPublishedFiles(): void
+    {
+        $this->module('my-base');
+        $this->installed(['my-base']);
+        $inventoryWriter = new ComposerModuleInventoryWriter();
+        $bundleWriter = new ComposerModuleBundleMapWriter();
+        $inventory = $inventoryWriter->write($this->workspace);
+        $bundleMap = $bundleWriter->write($this->workspace);
+        $previousInventory = (string) file_get_contents($inventory);
+        $previousMap = (string) file_get_contents($bundleMap);
+
+        unlink($this->workspace.'/modules/my-base/back/src/MyBaseBundle.php');
+
+        try {
+            $bundleWriter->write($this->workspace);
+            self::fail('Missing bundle must prevent publication.');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertStringContainsString('Bundle manquant', $exception->getMessage());
+        }
+        self::assertSame($previousInventory, file_get_contents($inventory));
+        self::assertSame($previousMap, file_get_contents($bundleMap));
+    }
+
     /** @param array<string, string> $dependencies */
     private function module(string $slug, array $dependencies = []): void
     {
