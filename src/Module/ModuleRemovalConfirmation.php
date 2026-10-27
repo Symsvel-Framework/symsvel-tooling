@@ -23,7 +23,7 @@ final class ModuleRemovalConfirmation
             $files[] = 'modules/'.$module.'/module.json';
         }
         foreach ($plan['sources'] as $source) {
-            $files[] = 'modules/'.$source;
+            $files[] = 'modules/'.explode('/', $source, 2)[0].'/Migration/'.explode('/', $source, 2)[1];
         }
         $digests = [];
         foreach ($files as $relative) {
