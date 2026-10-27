@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Module\ModuleMigrationRemovalPlan;
 use SymSvel\Tooling\Module\ModuleMigrationRegistry;
+use SymSvel\Tooling\Module\ModuleRemovalConfirmation;
 use SymSvel\Tooling\Module\ModuleTableOwnership;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -24,6 +25,7 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
         private readonly ModuleMigrationRemovalPlan $planner = new ModuleMigrationRemovalPlan(),
         private readonly ModuleTableOwnership $ownership = new ModuleTableOwnership(),
         private readonly ModuleMigrationRegistry $receipts = new ModuleMigrationRegistry(),
+        private readonly ModuleRemovalConfirmation $confirmation = new ModuleRemovalConfirmation(),
     ) {
         parent::__construct();
     }
@@ -65,13 +67,7 @@ final class SymSvelModuleRemovalMigrationsPlanCommand extends Command
             $plan['remaining_receipt_count'] = count($this->receipts->withoutSources($workspace, $plan['sources']));
             // Stable confirmation token for the exact destructive scope.
             // A later executor must recompute and compare it before touching SQL.
-            $plan['confirmation'] = hash('sha256', json_encode([
-                'modules' => $plan['modules'],
-                'versions' => $plan['versions'],
-                'sources' => $plan['sources'],
-                'tables' => $plan['tables'],
-                'receipts' => $this->receipts->read($workspace),
-            ], JSON_THROW_ON_ERROR));
+            $plan['confirmation'] = $this->confirmation->fingerprint($workspace, $plan);
             if ($input->getOption('json')) {
                 $output->writeln(json_encode($plan, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
             } else {
