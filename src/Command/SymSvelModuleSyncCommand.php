@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Module\ModuleInventoryWriter;
+use SymSvel\Tooling\Module\ComposerModuleSynchronizer;
 use SymSvel\Tooling\Module\ModuleBundleMapWriter;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -21,6 +22,7 @@ final class SymSvelModuleSyncCommand extends Command
         #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
         private readonly ModuleInventoryWriter $writer = new ModuleInventoryWriter(),
         private readonly ModuleBundleMapWriter $bundleWriter = new ModuleBundleMapWriter(),
+        private readonly ComposerModuleSynchronizer $composerSynchronizer = new ComposerModuleSynchronizer(),
     ) {
         parent::__construct();
     }
@@ -28,6 +30,7 @@ final class SymSvelModuleSyncCommand extends Command
     protected function configure(): void
     {
         $this->addOption('workspace', null, InputOption::VALUE_REQUIRED, 'SymSvel workspace root');
+        $this->addOption('source', null, InputOption::VALUE_REQUIRED, 'Module source: local or composer', 'local');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -40,6 +43,21 @@ final class SymSvelModuleSyncCommand extends Command
                 return Command::INVALID;
             }
             $workspace = dirname($this->projectDir);
+        }
+        $source = $input->getOption('source');
+        if (!in_array($source, ['local', 'composer'], true)) {
+            $io->error('Source invalide : utilisez local ou composer.');
+            return Command::INVALID;
+        }
+        if ($source === 'composer') {
+            try {
+                $plan = $this->composerSynchronizer->prepare($this->projectDir);
+                $io->success(count($plan).' module(s) Composer validé(s). Aucune modification effectuée : publication non encore prise en charge.');
+                return Command::SUCCESS;
+            } catch (\Throwable $exception) {
+                $io->error($exception->getMessage());
+                return Command::FAILURE;
+            }
         }
         try {
             $this->bundleWriter->write((string) $workspace);
