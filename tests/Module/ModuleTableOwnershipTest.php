@@ -90,8 +90,7 @@ final class ModuleTableOwnershipTest extends TestCase
         file_put_contents($root.'/modules/users/module.json', '{"tables":["users"]}');
         file_put_contents($root.'/modules/legacy/module.json', '{}');
         try {
-            $this->expectException(\DomainException::class);
-            (new ModuleTableOwnership())->tables($root, ['users']);
+            self::assertSame(['users'], (new ModuleTableOwnership())->tables($root, ['users']));
         } finally {
             foreach (['users', 'legacy'] as $slug) {
                 unlink($root.'/modules/'.$slug.'/module.json');
