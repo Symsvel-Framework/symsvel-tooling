@@ -102,6 +102,23 @@ final class ModuleRemovalSqliteIntegrationTest extends TestCase
         }
     }
 
+    public function testFailedRemovalRestoresOtherTablesAsWell(): void
+    {
+        $this->sql('CREATE TABLE settings (value TEXT); INSERT INTO settings VALUES ("keep");');
+        try {
+            (new ModuleRemovalTransaction())->run($this->root, $this->url, ['users'], function (): void {
+                $this->sql('DROP TABLE users; UPDATE settings SET value = "changed";');
+                throw new \RuntimeException('simulated failure');
+            });
+            self::fail('Expected removal failure.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('SQL restauré', $exception->getMessage());
+        }
+
+        self::assertSame('original', trim($this->sql('SELECT name FROM users LIMIT 1;')));
+        self::assertSame('keep', trim($this->sql('SELECT value FROM settings LIMIT 1;')));
+    }
+
     private function sql(string $statement): string
     {
         $process = new Process(['sqlite3', $this->database, $statement]);
