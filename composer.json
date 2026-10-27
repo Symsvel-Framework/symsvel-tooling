@@ -71,6 +71,8 @@
             "@php -l tests/Module/ModuleRemovalSqliteIntegrationTest.php",
             "@php -l src/Module/ComposerModuleRegistry.php",
             "@php -l tests/Module/ComposerModuleRegistryTest.php",
+            "@php -l src/Module/ComposerModulePlanner.php",
+            "@php -l src/Module/ComposerModuleSynchronizer.php",
             "@php vendor/bin/phpunit",
             "@php -l src/Command/SymSvelModuleMigrationRecoveryStatusCommand.php"
         ]
