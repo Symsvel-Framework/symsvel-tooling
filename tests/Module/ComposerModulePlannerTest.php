@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use SymSvel\Tooling\Module\ComposerModulePlanner;
 use SymSvel\Tooling\Module\ComposerModuleRegistry;
 use SymSvel\Tooling\Module\ComposerModuleSynchronizer;
+use SymSvel\Tooling\Module\ComposerModuleInventoryWriter;
 use SymSvel\Tooling\Module\ModuleMaker;
 
 final class ComposerModulePlannerTest extends TestCase
@@ -67,6 +68,42 @@ final class ComposerModulePlannerTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Dépendance circulaire');
         (new ComposerModulePlanner())->plan($this->workspace);
+    }
+
+    public function testComposerInventoryIsPublishedAtomicallyAndIdempotently(): void
+    {
+        $this->module('my-base');
+        $this->module('my-feature', ['my-base' => '^1.0']);
+        $this->installed(['my-feature', 'my-base']);
+
+        $writer = new ComposerModuleInventoryWriter();
+        $target = $writer->write($this->workspace);
+        self::assertSame($this->workspace.'/.symsvel/modules.json', $target);
+        $content = (string) file_get_contents($target);
+        $inventory = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(1, $inventory['schema']);
+        self::assertSame(['my-base', 'my-feature'], array_column($inventory['modules'], 'module'));
+        self::assertSame($target, $writer->write($this->workspace));
+        self::assertSame($content, file_get_contents($target));
+    }
+
+    public function testInvalidComposerDependenciesDoNotOverwritePublishedInventory(): void
+    {
+        $this->module('my-base');
+        $this->installed(['my-base']);
+        $writer = new ComposerModuleInventoryWriter();
+        $target = $writer->write($this->workspace);
+        $before = (string) file_get_contents($target);
+        $this->module('my-feature', ['missing-module' => '^1.0']);
+        $this->installed(['my-base', 'my-feature']);
+
+        try {
+            $writer->write($this->workspace);
+            self::fail('Missing Composer dependency should reject publication.');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertStringContainsString('introuvable', $exception->getMessage());
+        }
+        self::assertSame($before, file_get_contents($target));
     }
 
     /** @param array<string, string> $dependencies */
