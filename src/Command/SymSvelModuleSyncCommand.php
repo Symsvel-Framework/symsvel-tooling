@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Module\ModuleInventoryWriter;
 use SymSvel\Tooling\Module\ComposerModuleSynchronizer;
+use SymSvel\Tooling\Module\ComposerModuleInventoryWriter;
 use SymSvel\Tooling\Module\ModuleBundleMapWriter;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -23,6 +24,7 @@ final class SymSvelModuleSyncCommand extends Command
         private readonly ModuleInventoryWriter $writer = new ModuleInventoryWriter(),
         private readonly ModuleBundleMapWriter $bundleWriter = new ModuleBundleMapWriter(),
         private readonly ComposerModuleSynchronizer $composerSynchronizer = new ComposerModuleSynchronizer(),
+        private readonly ComposerModuleInventoryWriter $composerWriter = new ComposerModuleInventoryWriter(),
     ) {
         parent::__construct();
     }
@@ -43,8 +45,8 @@ final class SymSvelModuleSyncCommand extends Command
         }
         if ($source === 'composer') {
             try {
-                $plan = $this->composerSynchronizer->prepare($this->projectDir);
-                $io->success(count($plan).' module(s) Composer validé(s). Aucune modification effectuée : publication non encore prise en charge.');
+                $path = $this->composerWriter->write($this->projectDir);
+                $io->success('Inventaire Composer publié : '.$path.'. Aucun Bundle activé.');
                 return Command::SUCCESS;
             } catch (\Throwable $exception) {
                 $io->error($exception->getMessage());
