@@ -12,7 +12,7 @@ final class RecoveryFinalizeRegistrationTest extends TestCase
 {
     public function testFinalizeCommandIsExplicitlyRegistered(): void
     {
-        $source = file_get_contents(dirname(__DIR__, 3).'/src/SymSvelToolingBundle.php');
+        $source = file_get_contents(dirname(__DIR__, 2).'/src/SymSvelToolingBundle.php');
         self::assertIsString($source);
         self::assertStringContainsString(
             '->set(SymSvelModuleMigrationsRecoveryFinalizeCommand::class)',
