@@ -33,4 +33,35 @@ final class ModuleRemovalConfirmationTest extends TestCase
             rmdir($root);
         }
     }
+    public function testChangedDestructiveScopeInvalidatesApproval(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-confirm-scope-'.bin2hex(random_bytes(6));
+        mkdir($root, 0700);
+        try {
+            $confirmation = new ModuleRemovalConfirmation();
+            $plan = ['modules' => ['users'], 'versions' => [], 'sources' => [], 'tables' => ['users']];
+            $fingerprint = $confirmation->fingerprint($root, $plan);
+            $confirmation->assertMatches($root, $plan, $fingerprint);
+            $plan['tables'][] = 'user_profiles';
+            $this->expectException(\DomainException::class);
+            $confirmation->assertMatches($root, $plan, $fingerprint);
+        } finally {
+            rmdir($root);
+        }
+    }
+
+    public function testMalformedApprovalIsRejected(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-confirm-invalid-'.bin2hex(random_bytes(6));
+        mkdir($root, 0700);
+        try {
+            $this->expectException(\DomainException::class);
+            (new ModuleRemovalConfirmation())->assertMatches($root, [
+                'modules' => ['users'], 'versions' => [], 'sources' => [], 'tables' => [],
+            ], 'invalid-token');
+        } finally {
+            rmdir($root);
+        }
+    }
+
 }
