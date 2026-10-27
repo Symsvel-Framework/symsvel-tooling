@@ -88,11 +88,13 @@ final class ModuleRemovalTransaction
             'backup' => $backup,
             'sha256' => $digest,
         ]);
+        // Keep the committed journal if backup cleanup fails: otherwise a
+        // leftover sensitive SQL dump becomes invisible to recovery tooling.
+        if (!unlink($backup['path'])) {
+            throw new \RuntimeException('Désinstallation terminée, nettoyage de la sauvegarde impossible. Journal conservé : '.$journal);
+        }
         if (!unlink($journal)) {
             throw new \RuntimeException('Désinstallation terminée, nettoyage du journal impossible.');
-        }
-        if (!unlink($backup['path'])) {
-            throw new \RuntimeException('Désinstallation terminée, nettoyage de la sauvegarde impossible.');
         }
     }
 
