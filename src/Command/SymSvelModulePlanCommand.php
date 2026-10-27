@@ -35,22 +35,24 @@ final class SymSvelModulePlanCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $workspace = $input->getOption('workspace');
-        if ($workspace === null) {
-            if (basename(rtrim($this->projectDir, '/')) !== 'backend') {
-                $io->error('Indiquez --workspace ou lancez depuis backend/.');
-                return Command::INVALID;
-            }
-            $workspace = dirname($this->projectDir);
-        }
-        if (!is_dir((string) $workspace)) {
-            $io->error('Workspace introuvable.');
-            return Command::INVALID;
-        }
         $source = $input->getOption('source');
         if (!in_array($source, ['local', 'composer'], true)) {
             $io->error('Source invalide : utilisez local ou composer.');
             return Command::INVALID;
+        }
+        $workspace = $input->getOption('workspace');
+        if ($source === 'local') {
+            if ($workspace === null) {
+                if (basename(rtrim($this->projectDir, '/')) !== 'backend') {
+                    $io->error('Indiquez --workspace ou lancez depuis backend/.');
+                    return Command::INVALID;
+                }
+                $workspace = dirname($this->projectDir);
+            }
+            if (!is_dir((string) $workspace)) {
+                $io->error('Workspace introuvable.');
+                return Command::INVALID;
+            }
         }
         try {
             $plan = $source === 'composer'
@@ -65,7 +67,7 @@ final class SymSvelModulePlanCommand extends Command
             return Command::SUCCESS;
         }
         if ($plan === []) {
-            $io->note('undefined.');
+            $io->note('Aucun module détecté pour la source '.$source.'.');
             return Command::SUCCESS;
         }
         foreach ($plan as $step) {
