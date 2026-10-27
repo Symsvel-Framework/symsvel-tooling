@@ -74,4 +74,21 @@ final class ModuleRemovalTransactionTest extends TestCase
         }
     }
 
+    public function testSymlinkedRecoveryDirectoryBlocksRestoration(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-restore-link-'.bin2hex(random_bytes(6));
+        mkdir($root, 0700);
+        mkdir($root.'/outside', 0700);
+        symlink($root.'/outside', $root.'/.symsvel');
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('symbolique interdit');
+            (new ModuleRemovalTransaction())->restore($root, 'postgresql://localhost/example');
+        } finally {
+            unlink($root.'/.symsvel');
+            rmdir($root.'/outside');
+            rmdir($root);
+        }
+    }
+
 }
