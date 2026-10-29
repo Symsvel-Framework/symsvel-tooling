@@ -36,6 +36,32 @@ final class GitComponentCheckpointTest extends TestCase
         }
     }
 
+    public function testRestoresDetachedHeadAfterCheckoutAndCommit(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-git-detached-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        try {
+            $this->git($root, ['init', '-b', 'main']);
+            $this->git($root, ['config', 'user.email', 'test@example.test']);
+            $this->git($root, ['config', 'user.name', 'SymSvel Test']);
+            file_put_contents($root.'/index.txt', 'initial');
+            $this->git($root, ['add', 'index.txt']);
+            $this->git($root, ['commit', '-m', 'initial']);
+            $this->git($root, ['checkout', '--detach', 'HEAD']);
+            $initial = trim($this->git($root, ['rev-parse', 'HEAD']));
+            $checkpoint = new GitComponentCheckpoint($root);
+            $checkpoint->capture();
+            file_put_contents($root.'/index.txt', 'changed');
+            $this->git($root, ['commit', '-am', 'changed']);
+            $checkpoint->restore();
+            self::assertSame($initial, trim($this->git($root, ['rev-parse', 'HEAD'])));
+            self::assertSame('', trim($this->git($root, ['branch', '--show-current'])));
+            self::assertSame('initial', file_get_contents($root.'/index.txt'));
+        } finally {
+            $this->deleteTree($root);
+        }
+    }
+
     private function git(string $directory, array $arguments): string
     {
         $process = new Process(['git', ...$arguments], $directory);
