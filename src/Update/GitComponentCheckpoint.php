@@ -38,6 +38,8 @@ final class GitComponentCheckpoint
             $this->git(['checkout', '--detach', '-f', $this->head]);
         }
         $this->git(['reset', '--hard', $this->head]);
+        // An update may have advanced the original branch before switching HEAD.
+        // Resetting the branch is essential; restoring only the working tree is not enough.
         if (trim($this->git(['rev-parse', 'HEAD'])) !== $this->head) {
             throw new \RuntimeException('Rollback Git incomplet : HEAD différent.');
         }
