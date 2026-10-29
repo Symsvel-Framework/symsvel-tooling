@@ -52,7 +52,7 @@ final class SvelteModuleSynchronizerTest extends TestCase
         self::assertSame(['written' => 9, 'removed' => 0], $sync->sync($this->backend));
         self::assertSame(['written' => 0, 'removed' => 0], $sync->sync($this->backend));
         self::assertStringContainsString('DO NOT EDIT', (string) file_get_contents($this->workspace.'/bo/src/routes/catalog/+page.svelte'));
-        self::assertStringContainsString('$lib/vendor/catalog/routes/catalog/+page.svelte', (string) file_get_contents($this->workspace.'/bo/src/routes/catalog/+page.svelte'));
+        self::assertStringContainsString('#lib/vendor/catalog/routes/catalog/+page.svelte', (string) file_get_contents($this->workspace.'/bo/src/routes/catalog/+page.svelte'));
         file_put_contents($this->module.'/bo/src/lib/widget.svelte', '<p>Updated</p>');
         self::assertSame(['written' => 1, 'removed' => 0], $sync->sync($this->backend));
         self::assertSame('<p>Updated</p>', file_get_contents($this->workspace.'/bo/src/lib/vendor/catalog/widget.svelte'));
