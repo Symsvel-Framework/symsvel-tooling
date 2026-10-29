@@ -19,10 +19,16 @@ final class SvelteModuleSynchronizer
     {
         $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
         $workspace = dirname($backend);
+        if (is_link($backend.'/.symsvel')) {
+            throw new \RuntimeException('Répertoire de registre symbolique interdit.');
+        }
         $plan = $this->modules->prepare($backend);
         $targets = [];
         foreach (['bo', 'app', 'front'] as $scope) {
             $app = $workspace.'/'.$scope;
+            if (is_link($app)) {
+                throw new \RuntimeException('Application Svelte symbolique interdite : '.$scope);
+            }
             if (!is_dir($app)) {
                 foreach ($plan as $module) {
                     if (isset($module['components'][$scope])) {
@@ -77,14 +83,25 @@ final class SvelteModuleSynchronizer
             throw new \RuntimeException('Registre Svelte invalide.');
         }
         foreach ($previous as $path => $hash) {
-            if (!is_string($path) || !is_string($hash) || !str_starts_with($path, $workspace.'/')) {
+            if (!is_string($path) || !is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash)
+                || !$this->managedPath($workspace, $path)) {
                 throw new \RuntimeException('Entrée de registre invalide.');
+            }
+            $parent = dirname($path);
+            while ($parent !== $workspace && $parent !== dirname($parent)) {
+                if (is_link($parent)) {
+                    throw new \RuntimeException('Répertoire symbolique interdit : '.$parent);
+                }
+                $parent = dirname($parent);
             }
             if (is_link($path) || !is_file($path) || hash_file('sha256', $path) !== $hash) {
                 throw new \RuntimeException('Fichier généré modifié ou absent : '.$path);
             }
         }
         foreach ($targets as $path => $content) {
+            if (!$this->managedPath($workspace, $path)) {
+                throw new \RuntimeException('Destination hors répertoire géré : '.$path);
+            }
             if (is_link($path) || (file_exists($path) && (!isset($previous[$path]) || !is_file($path)))) {
                 throw new \RuntimeException('Fichier non géré déjà présent : '.$path);
             }
@@ -129,6 +146,22 @@ final class SvelteModuleSynchronizer
         }
 
         return ['written' => $changed, 'removed' => $removed];
+    }
+
+    private function managedPath(string $workspace, string $path): bool
+    {
+        if (str_contains($path, '/./') || str_contains($path, '/../') || str_ends_with($path, '/..')
+            || str_ends_with($path, '/.')) {
+            return false;
+        }
+        foreach (['bo', 'app', 'front'] as $scope) {
+            $prefix = $workspace.'/'.$scope.'/src/';
+            if (str_starts_with($path, $prefix)) {
+                $relative = substr($path, strlen($prefix));
+                return str_starts_with($relative, 'lib/vendor/') || str_starts_with($relative, 'routes/');
+            }
+        }
+        return false;
     }
 
     /** @return array<string, string> */
