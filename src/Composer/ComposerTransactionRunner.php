@@ -40,7 +40,7 @@ final class ComposerTransactionRunner
         if (!is_file($backend.'/composer.lock')) {
             throw new \RuntimeException('composer.lock initial obligatoire pour garantir la restauration des dépendances.');
         }
-        $initialFiles = $this->projectFiles($backend);
+        $initialFiles = $this->workspaceFiles($backend);
         $transaction = $this->snapshots->begin($backend);
         try {
             $this->execute(array_merge(['composer'], $arguments), $backend, $progress);
@@ -52,7 +52,7 @@ final class ComposerTransactionRunner
                     throw new \RuntimeException('Aucun composer.lock initial : restauration vendor automatique impossible.');
                 }
                 $this->execute(['composer', 'install', '--no-scripts', '--no-plugins', '--no-interaction'], $backend, $progress);
-                $restoredFiles = $this->projectFiles($backend);
+                $restoredFiles = $this->workspaceFiles($backend);
                 $changedFiles = array_keys(array_diff_assoc($restoredFiles, $initialFiles));
                 $changedFiles = array_unique(array_merge($changedFiles, array_keys(array_diff_key($initialFiles, $restoredFiles))));
                 if ($changedFiles !== []) {
@@ -73,6 +73,27 @@ final class ComposerTransactionRunner
         $this->snapshots->finish($backend, $transaction);
     }
 
+    /**
+     * Fingerprint application source in all workspace components. This detects
+     * unrolled-back changes without falsely claiming they have been restored.
+     *
+     * @return array<string, string>
+     */
+    private function workspaceFiles(string $backend): array
+    {
+        $files = [];
+        foreach (['backend' => $backend, 'bo' => dirname($backend).'/bo', 'app' => dirname($backend).'/app', 'front' => dirname($backend).'/front'] as $component => $directory) {
+            if (!is_dir($directory)) {
+                continue;
+            }
+            foreach ($this->projectFiles($directory) as $path => $fingerprint) {
+                $files[$component.'/'.$path] = $fingerprint;
+            }
+        }
+
+        return $files;
+    }
+
     /** @return array<string, string> */
     private function projectFiles(string $backend): array
     {
@@ -84,7 +105,7 @@ final class ComposerTransactionRunner
             $directory,
             static function (\SplFileInfo $entry): bool {
                 if ($entry->isDir() && !$entry->isLink()) {
-                    return !in_array($entry->getFilename(), ['vendor', 'node_modules', '.git', '.symsvel'], true);
+                    return !in_array($entry->getFilename(), ['vendor', 'node_modules', '.git', '.symsvel', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true);
                 }
 
                 return true;
