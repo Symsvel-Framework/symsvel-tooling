@@ -90,6 +90,38 @@ final class SvelteModuleSynchronizerTest extends TestCase
         $sync->sync($this->backend);
     }
 
+    public function testRejectsRegistryEntryOutsideManagedDirectories(): void
+    {
+        mkdir($this->backend.'/.symsvel', 0775, true);
+        $protected = $this->backend.'/important.txt';
+        file_put_contents($protected, 'Keep me');
+        file_put_contents(
+            $this->backend.'/.symsvel/svelte-files.json',
+            json_encode([$protected => hash('sha256', 'Keep me')], JSON_THROW_ON_ERROR),
+        );
+        try {
+            (new SvelteModuleSynchronizer())->sync($this->backend);
+            self::fail('Expected an invalid registry exception.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('registre invalide', $exception->getMessage());
+            self::assertSame('Keep me', file_get_contents($protected));
+        }
+    }
+
+    public function testRejectsTraversalInRegistry(): void
+    {
+        mkdir($this->backend.'/.symsvel', 0775, true);
+        $path = $this->workspace.'/bo/src/routes/../../../backend/important.txt';
+        file_put_contents($this->backend.'/important.txt', 'Keep me');
+        file_put_contents(
+            $this->backend.'/.symsvel/svelte-files.json',
+            json_encode([$path => hash('sha256', 'Keep me')], JSON_THROW_ON_ERROR),
+        );
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('registre invalide');
+        (new SvelteModuleSynchronizer())->sync($this->backend);
+    }
+
     private function installed(bool $enabled): void
     {
         $packages = $enabled ? [['name' => 'symsvel-framework/module-catalog', 'install-path' => '../symsvel-framework/module-catalog']] : [];
