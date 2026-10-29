@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Update;
 
 use Symfony\Component\Process\Process;
+use SymSvel\Tooling\Composer\ComposerTransactionSnapshot;
+use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 
 final class WorkspaceUpdater
 {
@@ -59,6 +61,24 @@ final class WorkspaceUpdater
             $checkpoint = new GitComponentCheckpoint($directory);
             $checkpoint->capture();
             $gitCheckpoints[$component] = $checkpoint;
+        }
+        $composerSnapshot = null;
+        $workspaceSnapshot = null;
+        $composerCheckpoint = null;
+        if ($this->runner === null) {
+            // The update is refused before any mutation if Composer cannot be
+            // deterministically restored from the original lock file.
+            if (!is_file($backendDir.'/composer.lock')) {
+                throw new \RuntimeException('BACK : composer.lock initial obligatoire pour rollback.');
+            }
+            $composerSnapshot = new ComposerTransactionSnapshot();
+            $composerCheckpoint = $composerSnapshot->begin($backendDir);
+            $workspaceSnapshot = new WorkspaceFileSnapshot($backendDir, $composerCheckpoint);
+            try {
+                $workspaceSnapshot->capture();
+            } catch (\Throwable $failure) {
+                throw new \RuntimeException('BACK / Snapshot sources incomplet : '.$failure->getMessage().'; sauvegarde conservée : '.$composerCheckpoint, 0, $failure);
+            }
         }
         $runtimeSnapshots = [];
         $runtimeTransaction = null;
@@ -155,14 +175,27 @@ final class WorkspaceUpdater
                     $rollbackErrors[] = strtoupper($component).' / npm-build : '.$recovery->getMessage();
                 }
             }
+            if ($composerSnapshot !== null && $composerCheckpoint !== null && $workspaceSnapshot !== null) {
+                try {
+                    $composerSnapshot->restoreManifests($backendDir, $composerCheckpoint);
+                    $this->run(['composer', 'install', '--no-scripts', '--no-plugins', '--no-interaction'], $backendDir);
+                    $workspaceSnapshot->restore();
+                } catch (\Throwable $recovery) {
+                    $rollbackErrors[] = 'BACK / Composer et sources : '.$recovery->getMessage();
+                }
+            }
             $rollbackStatus = $rollbackErrors === []
-                ? 'Git et artefacts npm/build restaurés ; ATTENTION : rollback Composer et BDD non garanti.'
-                : 'Rollback Git incomplet : '.implode(' ; ', $rollbackErrors).'. Rollback global non garanti.';
+                ? 'Git, npm/build, Composer et sources restaurés ; ATTENTION : BDD non garantie.'
+                : 'Rollback incomplet : '.implode(' ; ', $rollbackErrors).'. Rollback global non garanti.';
             throw new \RuntimeException(
                 sprintf('Échec de mise à jour [%s / %s] : %s. %s', $componentInProgress, $stepInProgress, $failure->getMessage(), $rollbackStatus),
                 0,
                 $failure,
             );
+        }
+        if ($workspaceSnapshot !== null && $composerSnapshot !== null && $composerCheckpoint !== null) {
+            $workspaceSnapshot->discard();
+            $composerSnapshot->finish($backendDir, $composerCheckpoint);
         }
         foreach ($runtimeSnapshots as $snapshot) {
             $snapshot->discard();
