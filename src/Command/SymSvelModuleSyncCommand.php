@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Module\ModuleInventoryWriter;
+use SymSvel\Tooling\Module\SvelteModuleSynchronizer;
 use SymSvel\Tooling\Module\ComposerModuleSynchronizer;
 use SymSvel\Tooling\Module\ComposerModuleInventoryWriter;
 use SymSvel\Tooling\Module\ComposerModuleBundleMapWriter;
@@ -27,6 +28,7 @@ final class SymSvelModuleSyncCommand extends Command
         private readonly ComposerModuleSynchronizer $composerSynchronizer = new ComposerModuleSynchronizer(),
         private readonly ComposerModuleInventoryWriter $composerWriter = new ComposerModuleInventoryWriter(),
         private readonly ComposerModuleBundleMapWriter $composerBundleWriter = new ComposerModuleBundleMapWriter(),
+        private readonly SvelteModuleSynchronizer $svelteSynchronizer = new SvelteModuleSynchronizer(),
     ) {
         parent::__construct();
     }
@@ -52,9 +54,10 @@ final class SymSvelModuleSyncCommand extends Command
                 (new \SymSvel\Tooling\Module\ModuleBundleResolver())->resolve(
                     (new \SymSvel\Tooling\Module\ComposerModuleRegistry())->discover($this->projectDir),
                 );
+                $svelte = $this->svelteSynchronizer->sync($this->projectDir);
                 $this->composerBundleWriter->write($this->projectDir);
                 $path = $this->composerWriter->write($this->projectDir);
-                $io->success('Inventaire Composer et carte des Bundles publiés : '.$path.'. Aucun Bundle activé.');
+                $io->success(sprintf('Inventaire Composer et carte des Bundles publiés : %s. Svelte : %d écrits, %d supprimés. Aucun Bundle activé.', $path, $svelte['written'], $svelte['removed']));
                 return Command::SUCCESS;
             } catch (\Throwable $exception) {
                 $io->error($exception->getMessage());
