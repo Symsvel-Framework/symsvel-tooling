@@ -36,6 +36,7 @@ final class WorkspaceUpdater
         }
         $root = dirname($backendDir);
         // Validate all present interfaces before changing Composer dependencies.
+        $this->installComposerHooks($backendDir, $progress);
         foreach (['bo', 'app', 'front'] as $component) {
             $directory = $root.'/'.$component;
             if (!is_dir($directory)) {
@@ -95,6 +96,50 @@ final class WorkspaceUpdater
         if ($progress !== null) {
             $progress('Tous les composants présents ont été traités.');
         }
+    }
+
+
+    /** Publish the framework-managed Composer hook without replacing application scripts. */
+    private function installComposerHooks(string $backendDir, ?callable $progress): void
+    {
+        $source = dirname(__DIR__, 2).'/assets/symsvel-module-sync.php';
+        if (!is_file($source)) {
+            return;
+        }
+        $manifestPath = $backendDir.'/composer.json';
+        $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($manifest)) {
+            throw new \\RuntimeException('composer.json invalide.');
+        }
+        $hook = '@php scripts/symsvel-module-sync.php';
+        foreach (['post-install-cmd', 'post-update-cmd'] as $event) {
+            $commands = $manifest['scripts'][$event] ?? [];
+            if (!is_array($commands) || array_is_list($commands) === false) {
+                throw new \\RuntimeException('Scripts Composer incompatibles : '.$event);
+            }
+            if (!in_array($hook, $commands, true)) {
+                $commands[] = $hook;
+            }
+            $manifest['scripts'][$event] = $commands;
+        }
+        $destinationDir = $backendDir.'/scripts';
+        $destination = $destinationDir.'/symsvel-module-sync.php';
+        $existing = is_file($destination) ? file_get_contents($destination) : null;
+        $expected = file_get_contents($source);
+        if ($existing !== null && $existing !== $expected) {
+            throw new \\RuntimeException('Script Composer SymSvel modifié localement : '.$destination);
+        }
+        $encoded = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\\n";
+        if (!is_dir($destinationDir) && !mkdir($destinationDir, 0775, true) && !is_dir($destinationDir)) {
+            throw new \\RuntimeException('Impossible de créer '.$destinationDir);
+        }
+        if ($existing === null && file_put_contents($destination, $expected) === false) {
+            throw new \\RuntimeException('Impossible de publier '.$destination);
+        }
+        if (file_get_contents($manifestPath) !== $encoded && file_put_contents($manifestPath, $encoded) === false) {
+            throw new \\RuntimeException('Impossible de mettre à jour composer.json.');
+        }
+        $progress?.__invoke('Backend : hooks Composer SymSvel installés.');
     }
 
     /** Git changes are allowed only for intact, registered, untracked generated files. */
