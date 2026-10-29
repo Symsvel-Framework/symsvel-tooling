@@ -24,6 +24,11 @@ final class SvelteModuleSynchronizer
         foreach (['bo', 'app', 'front'] as $scope) {
             $app = $workspace.'/'.$scope;
             if (!is_dir($app)) {
+                foreach ($plan as $module) {
+                    if (isset($module['components'][$scope])) {
+                        throw new \RuntimeException('Application Svelte requise mais absente : '.$scope);
+                    }
+                }
                 continue;
             }
             if (is_link($app) || !is_dir($app.'/src/routes') || !is_dir($app.'/src/lib')) {
