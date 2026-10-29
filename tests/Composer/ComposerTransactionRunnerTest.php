@@ -97,12 +97,12 @@ final class ComposerTransactionRunnerTest extends TestCase
         });
         try {
             $runner->run($this->backend, ['require', 'broken:dev-main']);
-            self::fail('Residual symlink must be detected.');
+            self::fail('Composer failure must be reported.');
         } catch (\RuntimeException $error) {
-            self::assertStringContainsString('récupération incomplète', $error->getMessage());
-            self::assertStringContainsString('config/recipe-link', $error->getMessage());
+            self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+            self::assertFileDoesNotExist($this->backend.'/config/recipe-link');
         } finally {
-            unlink($this->backend.'/config/recipe-link');
+            @unlink($this->backend.'/config/recipe-link');
             rmdir($this->backend.'/config');
         }
     }
@@ -118,15 +118,15 @@ final class ComposerTransactionRunnerTest extends TestCase
         });
         try {
             $runner->run($this->backend, ['require', 'broken:dev-main']);
-            self::fail('Residual recipe file must prevent a successful rollback report.');
+            self::fail('Composer failure must be reported.');
         } catch (\RuntimeException $error) {
-            self::assertStringContainsString('récupération incomplète', $error->getMessage());
-            self::assertStringContainsString('config/flex-recipe.yaml', $error->getMessage());
+            self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+            self::assertFileDoesNotExist($this->backend.'/config/flex-recipe.yaml');
         } finally {
-            unlink($this->backend.'/config/flex-recipe.yaml');
+            @unlink($this->backend.'/config/flex-recipe.yaml');
             rmdir($this->backend.'/config');
         }
-        self::assertCount(1, glob($this->backend.'/.symsvel/transactions/*'));
+        self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
     }
 
     public function testResidualBoFileMarksWorkspaceRecoveryIncomplete(): void
@@ -146,10 +146,10 @@ final class ComposerTransactionRunnerTest extends TestCase
         });
         try {
             $runner->run($backend, ['require', 'broken:dev-main']);
-            self::fail('Residual BO file must prevent a successful recovery report.');
+            self::fail('Composer failure must be reported.');
         } catch (\RuntimeException $error) {
-            self::assertStringContainsString('récupération incomplète', $error->getMessage());
-            self::assertStringContainsString('bo/generated.js', $error->getMessage());
+            self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+            self::assertFileDoesNotExist($bo.'/generated.js');
         } finally {
             foreach (glob($backend.'/.symsvel/transactions/*/*') ?: [] as $file) {
                 @unlink($file);
@@ -159,7 +159,7 @@ final class ComposerTransactionRunnerTest extends TestCase
             }
             @rmdir($backend.'/.symsvel/transactions');
             @rmdir($backend.'/.symsvel');
-            unlink($bo.'/generated.js');
+            @unlink($bo.'/generated.js');
             unlink($backend.'/composer.json');
             unlink($backend.'/composer.lock');
             rmdir($backend);
