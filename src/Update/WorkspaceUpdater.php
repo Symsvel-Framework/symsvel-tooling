@@ -118,7 +118,7 @@ final class WorkspaceUpdater
         if ($progress !== null) {
             $progress('Backend : mise à jour Composer (Core + Tooling)…');
         }
-        $this->run(['composer', 'update', 'symsvel-framework/core', 'symsvel-framework/tooling', '--with-all-dependencies', '--no-interaction', '--no-scripts'], $backendDir);
+        $this->run(['composer', 'update', 'symsvel-framework/core', 'symsvel-framework/tooling', '--with-all-dependencies', '--no-interaction', '--no-scripts', '--no-plugins'], $backendDir);
         $stepInProgress = 'Publication des hooks Composer';
         $this->installComposerHooks($backendDir, $progress);
         foreach (['bo', 'app', 'front'] as $component) {
