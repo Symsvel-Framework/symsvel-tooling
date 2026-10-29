@@ -27,7 +27,7 @@ final class ModuleMakerTest extends TestCase
             self::assertFileExists($path.'/back/tests/Unit/MyDocumentsBundleTest.php');
             $recipe = json_decode((string) file_get_contents($path.'/recipe/recipe.json'), true, 512, JSON_THROW_ON_ERROR);
             $entry = $recipe['manifests']['symsvel-framework/module-my-documents'];
-            self::assertSame(['all'], $entry['manifest']['bundles']['SymSvel\\\\Module\\\\MyDocuments\\\\MyDocumentsBundle']);
+            self::assertSame(['all'], $entry['manifest']['bundles']['SymSvel\\Module\\MyDocuments\\MyDocumentsBundle']);
             self::assertArrayHasKey('config/routes/my-documents.yaml', $entry['files']);
             self::assertSame('1.0.x-dev', $composer['extra']['branch-alias']['dev-main']);
             self::assertFileExists($path.'/.github/workflows/qa.yml');
