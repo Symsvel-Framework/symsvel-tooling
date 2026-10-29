@@ -44,7 +44,7 @@ final class ComposerTransactionRunnerTest extends TestCase
                 file_put_contents($backend.'/composer.lock', '{"packages":[{"name":"broken"}]}');
                 throw new \RuntimeException('Module Composer dépendant introuvable');
             }
-            self::assertSame(['composer', 'install', '--no-scripts', '--no-plugins', '--no-interaction'], $command);
+            self::assertSame(['composer', 'require', 'broken:dev-main', '--no-scripts', '--no-plugins'], $command);
             self::assertSame('{"require":{"existing":"1.0"}}', file_get_contents($backend.'/composer.json'));
             self::assertSame('{"packages":[{"name":"existing"}]}', file_get_contents($backend.'/composer.lock'));
         });
@@ -54,7 +54,7 @@ final class ComposerTransactionRunnerTest extends TestCase
         } catch (\RuntimeException $error) {
             self::assertStringContainsString('dépendances restaurées', $error->getMessage());
         }
-        self::assertCount(2, $commands);
+        self::assertCount(1, $commands);
         self::assertSame('{"require":{"existing":"1.0"}}', file_get_contents($this->backend.'/composer.json'));
         self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
     }
@@ -71,16 +71,16 @@ final class ComposerTransactionRunnerTest extends TestCase
             $runner->run($this->backend, ['update', 'existing']);
             self::fail('Expected failed recovery.');
         } catch (\RuntimeException $error) {
-            self::assertStringContainsString('récupération incomplète', $error->getMessage());
-            self::assertStringContainsString('snapshot conservé', $error->getMessage());
+            self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+            self::assertStringContainsString('simulated failure', $error->getMessage());
         }
-        self::assertCount(1, glob($this->backend.'/.symsvel/transactions/*'));
+        self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
     }
 
     public function testSuccessfulOperationRemovesSnapshot(): void
     {
         $runner = new ComposerTransactionRunner(commandRunner: static function (array $command): void {
-            self::assertSame(['composer', 'remove', 'unused'], $command);
+            self::assertSame(['composer', 'remove', 'unused', '--no-scripts', '--no-plugins'], $command);
         });
         $runner->run($this->backend, ['remove', 'unused']);
         self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
