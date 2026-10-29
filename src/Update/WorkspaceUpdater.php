@@ -11,7 +11,7 @@ use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 final class WorkspaceUpdater
 {
     /** @param null|callable(list<string>, string):void $runner */
-    public function __construct(private readonly mixed $runner = null)
+    public function __construct(private readonly mixed $runner = null, private readonly bool $snapshotWithRunner = false)
     {
     }
 
@@ -65,7 +65,7 @@ final class WorkspaceUpdater
         $composerSnapshot = null;
         $workspaceSnapshot = null;
         $composerCheckpoint = null;
-        if ($this->runner === null) {
+        if ($this->runner === null || $this->snapshotWithRunner) {
             // The update is refused before any mutation if Composer cannot be
             // deterministically restored from the original lock file.
             if (!is_file($backendDir.'/composer.lock')) {
@@ -83,7 +83,7 @@ final class WorkspaceUpdater
         $vendorSnapshot = null;
         $runtimeSnapshots = [];
         $runtimeTransaction = null;
-        if ($this->runner === null) {
+        if ($this->runner === null || $this->snapshotWithRunner) {
             $runtimeTransaction = $backendDir.'/.symsvel/transactions/update-'.bin2hex(random_bytes(12));
             $vendorSnapshot = new RuntimeArtifactSnapshot($backendDir, $runtimeTransaction.'/backend', ['vendor']);
             try {
