@@ -16,12 +16,13 @@ final class RuntimeArtifactSnapshot
     public function __construct(
         private readonly string $component,
         private readonly string $transaction,
+        private readonly array $artifacts = ['node_modules', 'build', 'dist', '.svelte-kit'],
     ) {
     }
 
     public function capture(): void
     {
-        foreach (['node_modules', 'build', 'dist', '.svelte-kit'] as $name) {
+        foreach ($this->artifacts as $name) {
             $source = $this->component.'/'.$name;
             if (is_link($source)) {
                 throw new \RuntimeException('Snapshot runtime refusé : lien symbolique : '.$source);
