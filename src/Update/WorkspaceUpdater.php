@@ -49,12 +49,18 @@ final class WorkspaceUpdater
                 throw new \RuntimeException('Le composant '.$component.' contient des modifications locales : mise à jour annulée avant Composer.');
             }
         }
+        $componentInProgress = 'BACK';
+        $stepInProgress = 'Composer update';
+        try {
         if ($progress !== null) {
             $progress('Backend : mise à jour Composer (Core + Tooling)…');
         }
         $this->run(['composer', 'update', 'symsvel-framework/core', 'symsvel-framework/tooling', '--with-all-dependencies', '--no-interaction'], $backendDir);
+        $stepInProgress = 'Publication des hooks Composer';
         $this->installComposerHooks($backendDir, $progress);
         foreach (['bo', 'app', 'front'] as $component) {
+            $componentInProgress = strtoupper($component);
+            $stepInProgress = 'Vérification du composant';
             $directory = $root.'/'.$component;
             if (!is_dir($directory)) {
                 if ($progress !== null) {
@@ -68,10 +74,12 @@ final class WorkspaceUpdater
             if ($progress !== null) {
                 $progress(strtoupper($component).' : récupération des commits…');
             }
+            $stepInProgress = 'Git fetch';
             $this->run(['git', 'fetch', 'origin', '--tags'], $directory);
             if ($progress !== null) {
                 $progress(strtoupper($component).($environment === 'core' ? ' : synchronisation main…' : ' : sélection de la dernière release…'));
             }
+            $stepInProgress = 'Git checkout / merge';
             if ($environment === 'core') {
                 $this->run(['git', 'merge', '--ff-only', 'origin/main'], $directory);
             } else {
@@ -84,14 +92,23 @@ final class WorkspaceUpdater
             if ($progress !== null) {
                 $progress(strtoupper($component).' : installation npm…');
             }
+            $stepInProgress = 'npm ci';
             $this->run(['npm', 'ci'], $directory);
             if ($progress !== null) {
                 $progress(strtoupper($component).' : build…');
             }
+            $stepInProgress = 'Build Svelte';
             $this->run(['npm', 'run', 'build'], $directory);
             if ($progress !== null) {
                 $progress(strtoupper($component).' : terminé.');
             }
+        }
+        } catch (\Throwable $failure) {
+            throw new \RuntimeException(
+                sprintf('Échec de mise à jour [%s / %s] : %s', $componentInProgress, $stepInProgress, $failure->getMessage()),
+                0,
+                $failure,
+            );
         }
         if ($progress !== null) {
             $progress('Tous les composants présents ont été traités.');
