@@ -80,6 +80,30 @@ final class WorkspaceFileSnapshot
         }
     }
 
+    public function discard(): void
+    {
+        $root = $this->snapshot.'/workspace';
+        if (!is_dir($root)) {
+            return;
+        }
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($iterator as $entry) {
+            if ($entry->isDir() && !$entry->isLink()) {
+                if (!rmdir($entry->getPathname())) {
+                    throw new \RuntimeException('Nettoyage du snapshot impossible : '.$entry->getPathname());
+                }
+            } elseif (!unlink($entry->getPathname())) {
+                throw new \RuntimeException('Nettoyage du snapshot impossible : '.$entry->getPathname());
+            }
+        }
+        if (!rmdir($root)) {
+            throw new \RuntimeException('Nettoyage du snapshot impossible : '.$root);
+        }
+    }
+
     /** @return array<string, string> */
     private function scan(string $root): array
     {
