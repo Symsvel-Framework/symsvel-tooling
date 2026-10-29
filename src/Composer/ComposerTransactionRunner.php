@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Composer;
 
 use Symfony\Component\Process\Process;
+use SymSvel\Tooling\Update\RuntimeArtifactSnapshot;
 
 /**
  * Opt-in Composer transaction runner.
@@ -43,8 +44,19 @@ final class ComposerTransactionRunner
         $initialFiles = $this->workspaceFiles($backend);
         $transaction = $this->snapshots->begin($backend);
         $workspaceSnapshot = new WorkspaceFileSnapshot($backend, $transaction);
+        /** @var list<RuntimeArtifactSnapshot> $runtimeSnapshots */
+        $runtimeSnapshots = [];
         try {
             $workspaceSnapshot->capture();
+            foreach (['bo', 'app', 'front'] as $component) {
+                $directory = dirname($backend).'/'.$component;
+                if (!is_dir($directory)) {
+                    continue;
+                }
+                $runtime = new RuntimeArtifactSnapshot($directory, $transaction.'/'.$component);
+                $runtime->capture();
+                $runtimeSnapshots[] = $runtime;
+            }
         } catch (\Throwable $failure) {
             // No Composer command has started. Keep the snapshot for diagnosis;
             // do not report a successful transaction or attempt a partial restore.
@@ -65,11 +77,17 @@ final class ComposerTransactionRunner
                 }
                 $this->execute(['composer', 'install', '--no-scripts', '--no-plugins', '--no-interaction'], $backend, $progress);
                 $workspaceSnapshot->restore();
+                foreach ($runtimeSnapshots as $runtime) {
+                    $runtime->restore();
+                }
                 $restoredFiles = $this->workspaceFiles($backend);
                 $changedFiles = array_keys(array_diff_assoc($restoredFiles, $initialFiles));
                 $changedFiles = array_unique(array_merge($changedFiles, array_keys(array_diff_key($initialFiles, $restoredFiles))));
                 if ($changedFiles !== []) {
                     throw new \RuntimeException('Fichiers hors Composer modifiés : '.implode(', ', array_slice($changedFiles, 0, 10)));
+                }
+                foreach ($runtimeSnapshots as $runtime) {
+                    $runtime->discard();
                 }
                 $workspaceSnapshot->discard();
                 $this->snapshots->finish($backend, $transaction);
@@ -84,6 +102,9 @@ final class ComposerTransactionRunner
             throw new \RuntimeException('Opération Composer annulée et dépendances restaurées : '.$failure->getMessage(), 0, $failure);
         }
         // Cleanup failure after a successful Composer command must never trigger a rollback.
+        foreach ($runtimeSnapshots as $runtime) {
+            $runtime->discard();
+        }
         $workspaceSnapshot->discard();
         $this->snapshots->finish($backend, $transaction);
     }
