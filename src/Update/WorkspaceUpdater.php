@@ -185,7 +185,9 @@ final class WorkspaceUpdater
                 }
             }
             $rollbackStatus = $rollbackErrors === []
-                ? 'Git, npm/build, Composer et sources restaurés ; ATTENTION : BDD non garantie.'
+                ? ($composerSnapshot === null
+                    ? 'Git et artefacts npm/build restaurés ; rollback Composer et BDD non garanti.'
+                    : 'Git, npm/build, Composer et sources restaurés ; ATTENTION : BDD non garantie.')
                 : 'Rollback incomplet : '.implode(' ; ', $rollbackErrors).'. Rollback global non garanti.';
             throw new \RuntimeException(
                 sprintf('Échec de mise à jour [%s / %s] : %s. %s', $componentInProgress, $stepInProgress, $failure->getMessage(), $rollbackStatus),
