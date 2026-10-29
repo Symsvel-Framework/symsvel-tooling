@@ -41,7 +41,7 @@ final class WorkspaceUpdaterTest extends TestCase
             $updater->update($root.'/backend', 'core', static function (string $message) use (&$messages): void {
                 $messages[] = $message;
             });
-            self::assertSame(['git', 'status', '--porcelain'], $calls[0][0]);
+            self::assertSame(['git', 'status', '--porcelain', '--untracked-files=all'], $calls[0][0]);
             self::assertSame('composer', $calls[1][0][0]);
             self::assertContains([['git', 'merge', '--ff-only', 'origin/main'], $root.'/bo'], $calls);
             self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
@@ -101,7 +101,7 @@ final class WorkspaceUpdaterTest extends TestCase
         try {
             $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): ?string {
                 $calls[] = [$command, $cwd];
-                return $command === ['git', 'status', '--porcelain'] ? ' M package.json' : null;
+                return $command === ['git', 'status', '--porcelain', '--untracked-files=all'] ? ' M package.json' : null;
             });
             $this->expectException(\RuntimeException::class);
             $this->expectExceptionMessage('modifications locales');
@@ -111,6 +111,46 @@ final class WorkspaceUpdaterTest extends TestCase
             self::assertSame('git', $calls[0][0][0]);
             rmdir($root.'/bo/.git');
             rmdir($root.'/bo');
+            unlink($root.'/backend/composer.json');
+            rmdir($root.'/backend');
+            rmdir($root);
+        }
+    }
+
+    public function testRegisteredGeneratedFileDoesNotBlockUpdate(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-managed-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend/.symsvel', 0775, true);
+        file_put_contents($root.'/backend/composer.json', '{}');
+        mkdir($root.'/bo/.git', 0775, true);
+        mkdir($root.'/bo/src/lib/vendor/test-back', 0775, true);
+        $file = $root.'/bo/src/lib/vendor/test-back/Badge.svelte';
+        file_put_contents($file, '<p>OK</p>');
+        file_put_contents($root.'/backend/.symsvel/svelte-files.json', json_encode([$file => hash_file('sha256', $file)], JSON_THROW_ON_ERROR));
+        $calls = [];
+        try {
+            $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): ?string {
+                $calls[] = [$command, $cwd];
+                return $command === ['git', 'status', '--porcelain', '--untracked-files=all']
+                    ? '?? src/lib/vendor/test-back/Badge.svelte'
+                    : null;
+            });
+            $updater->update($root.'/backend', 'core');
+            self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
+            file_put_contents($file, '<p>Edited</p>');
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('modifications locales');
+            $updater->update($root.'/backend', 'core');
+        } finally {
+            unlink($file);
+            rmdir(dirname($file));
+            rmdir($root.'/bo/src/lib/vendor');
+            rmdir($root.'/bo/src/lib');
+            rmdir($root.'/bo/src');
+            rmdir($root.'/bo/.git');
+            rmdir($root.'/bo');
+            unlink($root.'/backend/.symsvel/svelte-files.json');
+            rmdir($root.'/backend/.symsvel');
             unlink($root.'/backend/composer.json');
             rmdir($root.'/backend');
             rmdir($root);

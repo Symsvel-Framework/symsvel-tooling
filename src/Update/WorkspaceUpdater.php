@@ -44,8 +44,8 @@ final class WorkspaceUpdater
             if (!is_dir($directory.'/.git')) {
                 throw new \RuntimeException('Le composant '.$component.' n’est pas un dépôt Git.');
             }
-            $status = trim($this->output(['git', 'status', '--porcelain'], $directory));
-            if ($status !== '') {
+            $status = trim($this->output(['git', 'status', '--porcelain', '--untracked-files=all'], $directory));
+            if ($status !== '' && !$this->onlyManagedGeneratedFiles($status, $directory, $backendDir)) {
                 throw new \RuntimeException('Le composant '.$component.' contient des modifications locales : mise à jour annulée avant Composer.');
             }
         }
@@ -95,6 +95,51 @@ final class WorkspaceUpdater
         if ($progress !== null) {
             $progress('Tous les composants présents ont été traités.');
         }
+    }
+
+    /** Git changes are allowed only for intact, registered, untracked generated files. */
+    private function onlyManagedGeneratedFiles(string $status, string $directory, string $backendDir): bool
+    {
+        $registry = $backendDir.'/.symsvel/svelte-files.json';
+        if (!is_file($registry) || is_link($registry)) {
+            return false;
+        }
+        try {
+            $entries = json_decode((string) file_get_contents($registry), true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return false;
+        }
+        if (!is_array($entries)) {
+            return false;
+        }
+        foreach (preg_split('/\\R/', $status) ?: [] as $line) {
+            if (!str_starts_with($line, '?? ')) {
+                return false;
+            }
+            $relative = substr($line, 3);
+            if ($relative === '' || str_contains($relative, '..') || str_contains($relative, '\\\\') || str_starts_with($relative, '/')) {
+                return false;
+            }
+            $path = $directory.'/'.$relative;
+            if (!str_starts_with($path, $directory.'/src/lib/vendor/') && !str_starts_with($path, $directory.'/src/routes/')) {
+                return false;
+            }
+            $hash = $entries[$path] ?? null;
+            if (!is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash) || !is_file($path) || is_link($path)) {
+                return false;
+            }
+            $parent = dirname($path);
+            while ($parent !== $directory && $parent !== dirname($parent)) {
+                if (is_link($parent)) {
+                    return false;
+                }
+                $parent = dirname($parent);
+            }
+            if (hash_file('sha256', $path) !== $hash) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private function latestReleaseTag(string $directory): string
