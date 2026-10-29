@@ -35,10 +35,6 @@ final class WorkspaceUpdater
             }
         }
         $root = dirname($backendDir);
-        // No workspace update may begin without a deterministic Composer recovery point.
-        if (!is_file($backendDir.'/composer.lock')) {
-            throw new \RuntimeException('BACK / Prévalidation : composer.lock initial obligatoire avant mise à jour du workspace.');
-        }
         // Validate all present interfaces before changing Composer dependencies.
         foreach (['bo', 'app', 'front'] as $component) {
             $directory = $root.'/'.$component;
