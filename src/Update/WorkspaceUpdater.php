@@ -146,10 +146,10 @@ final class WorkspaceUpdater
             $transactionExpected = file_get_contents($transactionSource);
             $transactionExisting = is_file($transactionDestination) ? file_get_contents($transactionDestination) : null;
             if ($transactionExisting !== null && $transactionExisting !== $transactionExpected) {
-                throw new \\RuntimeException('Script de transaction SymSvel modifié localement : '.$transactionDestination);
+                throw new \RuntimeException('Script de transaction SymSvel modifié localement : '.$transactionDestination);
             }
             if ($transactionExisting === null && file_put_contents($transactionDestination, $transactionExpected) === false) {
-                throw new \\RuntimeException('Impossible de publier '.$transactionDestination);
+                throw new \RuntimeException('Impossible de publier '.$transactionDestination);
             }
         }
         if ($progress !== null) {
