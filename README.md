@@ -107,6 +107,6 @@ Les anciens scopes séparés ou combinés ne sont plus acceptés. Le maker gén�
 
 Le Maker génère désormais `recipe/recipe.json`, un **modèle** de recette Symfony Flex contenant l'enregistrement du Bundle et l'import des contrôleurs attributés. Ce modèle n'est **pas** automatiquement installé par Composer : avant de distribuer le module, publier la recette dans `symsvel-recipes`, renseigner son `ref` réel, ajouter la version du module dans `index.json`, puis déployer le catalogue de recettes. Ne pas déclarer le module comme prêt à l'installation tant que cette étape n'est pas terminée.
 
-Les migrations source d'un module sont placées dans `back/migrations/` ; leur compilation et leur exécution relèvent du Tooling, pas du Maker. Un test PHPUnit minimal vérifie que le Bundle généré peut être instancié. Le Maker ne publie ni release, ni recette et n'installe pas le module.
+Les migrations source d'un module restent dans `Migration/`, conformément à `ModuleMigrationCatalog` ; leur compilation et leur exécution relèvent du Tooling, pas du Maker. Un test PHPUnit minimal vérifie que le Bundle généré peut être instancié. Le Maker ne publie ni release, ni recette et n'installe pas le module.
 
 Le profil `dev-main` est déclaré par un alias de branche Composer `1.0.x-dev`, sans modifier le circuit des releases stables.
