@@ -86,6 +86,21 @@ final class ComposerTransactionRunnerTest extends TestCase
         self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
     }
 
+    public function testRejectsMissingOriginalLockWithoutExecutingComposer(): void
+    {
+        unlink($this->backend.'/composer.lock');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+            self::fail('Composer must not run without an original lock.');
+        });
+        try {
+            $runner->run($this->backend, ['require', 'broken:dev-main']);
+            self::fail('Missing lock must be rejected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('composer.lock initial obligatoire', $error->getMessage());
+        }
+        self::assertDirectoryDoesNotExist($this->backend.'/.symsvel/transactions');
+    }
+
     public function testRejectsScriptBypassBeforeSnapshot(): void
     {
         $runner = new ComposerTransactionRunner();
