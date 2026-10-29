@@ -37,6 +37,11 @@ final class RuntimeArtifactSnapshot
     public function restore(): void
     {
         foreach ($this->present as $name => $exists) {
+            if ($exists && !is_dir($this->transaction.'/runtime/'.$name)) {
+                throw new \RuntimeException('Rollback runtime impossible : sauvegarde absente pour '.$name);
+            }
+        }
+        foreach ($this->present as $name => $exists) {
             $destination = $this->component.'/'.$name;
             $this->removeTree($destination);
             if ($exists) {
@@ -52,6 +57,9 @@ final class RuntimeArtifactSnapshot
 
     private function copyTree(string $source, string $destination): void
     {
+        if (is_link($destination)) {
+            throw new \RuntimeException('Destination runtime symbolique non fiable : '.$destination);
+        }
         if (!is_dir($destination) && !mkdir($destination, 0700, true) && !is_dir($destination)) {
             throw new \RuntimeException('Création snapshot runtime impossible : '.$destination);
         }
