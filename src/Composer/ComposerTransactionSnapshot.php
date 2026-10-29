@@ -12,7 +12,7 @@ namespace SymSvel\Tooling\Composer;
  */
 final class ComposerTransactionSnapshot
 {
-    private const FILES = ['composer.json', 'composer.lock'];
+    private const FILES = ['composer.json', 'composer.lock', 'symfony.lock'];
 
     public function begin(string $backend): string
     {
@@ -89,7 +89,9 @@ final class ComposerTransactionSnapshot
             || !isset($data['files']) || !is_array($data['files'])
             || !array_key_exists('composer.json', $data['files'])
             || !array_key_exists('composer.lock', $data['files'])
-            || !is_bool($data['files']['composer.json']) || !is_bool($data['files']['composer.lock'])) {
+            || !array_key_exists('symfony.lock', $data['files'])
+            || !is_bool($data['files']['composer.json']) || !is_bool($data['files']['composer.lock'])
+            || !is_bool($data['files']['symfony.lock'])) {
             throw new \RuntimeException('Manifeste de transaction invalide.');
         }
         return $data;
