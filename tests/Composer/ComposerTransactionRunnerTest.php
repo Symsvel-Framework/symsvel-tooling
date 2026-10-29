@@ -86,6 +86,28 @@ final class ComposerTransactionRunnerTest extends TestCase
         self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
     }
 
+    public function testResidualFlexRecipeFileMarksRecoveryIncomplete(): void
+    {
+        mkdir($this->backend.'/config');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend): void {
+            if ($command[1] === 'require') {
+                file_put_contents($backend.'/config/flex-recipe.yaml', 'created by recipe');
+                throw new \RuntimeException('simulated Composer failure');
+            }
+        });
+        try {
+            $runner->run($this->backend, ['require', 'broken:dev-main']);
+            self::fail('Residual recipe file must prevent a successful rollback report.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('récupération incomplète', $error->getMessage());
+            self::assertStringContainsString('config/flex-recipe.yaml', $error->getMessage());
+        } finally {
+            unlink($this->backend.'/config/flex-recipe.yaml');
+            rmdir($this->backend.'/config');
+        }
+        self::assertCount(1, glob($this->backend.'/.symsvel/transactions/*'));
+    }
+
     public function testRejectsMissingOriginalLockWithoutExecutingComposer(): void
     {
         unlink($this->backend.'/composer.lock');
