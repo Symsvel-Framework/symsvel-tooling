@@ -12,14 +12,14 @@ php scripts/symsvel-composer-transaction.php update symsvel-framework/module-tes
 php scripts/symsvel-composer-transaction.php remove symsvel-framework/module-test-back
 ```
 
-The runner snapshots `composer.json` and `composer.lock` under
+The runner snapshots `composer.json`, `composer.lock` and Symfony Flex's\n`symfony.lock` (if present) under
 `.symsvel/transactions/<id>/`. On success, it removes the snapshot.
-If Composer exits with an error, it restores both manifests and executes
+If Composer exits with an error, it restores these manifests and executes
 `composer install --no-scripts --no-plugins --no-interaction` to reconcile
 `vendor/` with the **original lockfile**.
 
 **Limitations:** This is not an atomic transaction. Composer plugins (including
-Symfony Flex) may have modified other files during the original operation.
+Symfony Flex) may have modified other files during the original operation.\nThe `symfony.lock` snapshot covers recipe bookkeeping, **not** files written\nby recipes (e.g. config/packages/*.yaml). These must be inspected separately.
 Database migrations, filesystem changes outside Composer's managed files,
 external services and generated Svelte files are not rolled back. A missing
 initial `composer.lock` prevents deterministic vendor restoration.
