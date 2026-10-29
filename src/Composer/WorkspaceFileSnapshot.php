@@ -39,8 +39,13 @@ final class WorkspaceFileSnapshot
                     if (!symlink((string) readlink($path), $target)) {
                         throw new \RuntimeException('Sauvegarde du lien impossible : '.$key);
                     }
-                } elseif (!copy($path, $target)) {
-                    throw new \RuntimeException('Sauvegarde impossible : '.$key);
+                } else {
+                    if (!copy($path, $target)) {
+                        throw new \RuntimeException('Sauvegarde impossible : '.$key);
+                    }
+                    if (!chmod($target, fileperms($path) & 0777)) {
+                        throw new \RuntimeException('Permissions impossibles à sauvegarder : '.$key);
+                    }
                 }
                 $this->files[$key] = $target;
             }
@@ -83,8 +88,13 @@ final class WorkspaceFileSnapshot
                 if (!symlink((string) readlink($source), $target)) {
                     throw new \RuntimeException('Lien impossible à restaurer : '.$key);
                 }
-            } elseif (!copy($source, $target)) {
-                throw new \RuntimeException('Fichier impossible à restaurer : '.$key);
+            } else {
+                if (!copy($source, $target)) {
+                    throw new \RuntimeException('Fichier impossible à restaurer : '.$key);
+                }
+                if (!chmod($target, fileperms($source) & 0777)) {
+                    throw new \RuntimeException('Permissions impossibles à restaurer : '.$key);
+                }
             }
         }
     }
