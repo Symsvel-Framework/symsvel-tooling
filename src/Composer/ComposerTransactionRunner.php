@@ -16,6 +16,8 @@ final class ComposerTransactionRunner
 {
     public function __construct(
         private readonly ComposerTransactionSnapshot $snapshots = new ComposerTransactionSnapshot(),
+        /** @var null|callable(list<string>, string, ?callable):void */
+        private readonly mixed $commandRunner = null,
     ) {
     }
 
@@ -63,6 +65,10 @@ final class ComposerTransactionRunner
     /** @param list<string> $command */
     private function execute(array $command, string $backend, ?callable $progress): void
     {
+        if ($this->commandRunner !== null) {
+            ($this->commandRunner)($command, $backend, $progress);
+            return;
+        }
         $process = new Process($command, $backend);
         $process->setTimeout(900);
         $process->run(static function (string $type, string $output) use ($progress): void {
