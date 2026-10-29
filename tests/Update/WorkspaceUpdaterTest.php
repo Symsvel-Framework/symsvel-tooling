@@ -43,6 +43,7 @@ final class WorkspaceUpdaterTest extends TestCase
             });
             self::assertSame(['git', 'status', '--porcelain', '--untracked-files=all'], $calls[0][0]);
             self::assertSame('composer', $calls[1][0][0]);
+            self::assertContains('--no-scripts', $calls[1][0]);
             self::assertContains([['git', 'merge', '--ff-only', 'origin/main'], $root.'/bo'], $calls);
             self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
             self::assertCount(6, $calls);
