@@ -139,6 +139,19 @@ final class WorkspaceUpdater
         if (file_get_contents($manifestPath) !== $encoded && file_put_contents($manifestPath, $encoded) === false) {
             throw new \RuntimeException('Impossible de mettre à jour composer.json.');
         }
+        // Publish the opt-in transaction entrypoint alongside the existing sync hook.
+        $transactionSource = dirname(__DIR__, 2).'/assets/symsvel-composer-transaction.php';
+        $transactionDestination = $destinationDir.'/symsvel-composer-transaction.php';
+        if (is_file($transactionSource)) {
+            $transactionExpected = file_get_contents($transactionSource);
+            $transactionExisting = is_file($transactionDestination) ? file_get_contents($transactionDestination) : null;
+            if ($transactionExisting !== null && $transactionExisting !== $transactionExpected) {
+                throw new \\RuntimeException('Script de transaction SymSvel modifié localement : '.$transactionDestination);
+            }
+            if ($transactionExisting === null && file_put_contents($transactionDestination, $transactionExpected) === false) {
+                throw new \\RuntimeException('Impossible de publier '.$transactionDestination);
+            }
+        }
         if ($progress !== null) {
             $progress('Backend : hooks Composer SymSvel installés.');
         }
