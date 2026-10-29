@@ -56,6 +56,7 @@ final class WorkspaceUpdaterTest extends TestCase
             rmdir($root.'/bo');
             unlink($root.'/backend/composer.json');
             unlink($root.'/backend/scripts/symsvel-module-sync.php');
+            unlink($root.'/backend/scripts/symsvel-composer-transaction.php');
             rmdir($root.'/backend/scripts');
             rmdir($root.'/backend');
             rmdir($root);
@@ -87,6 +88,7 @@ final class WorkspaceUpdaterTest extends TestCase
             rmdir($root.'/bo');
             unlink($root.'/backend/composer.json');
             unlink($root.'/backend/scripts/symsvel-module-sync.php');
+            unlink($root.'/backend/scripts/symsvel-composer-transaction.php');
             rmdir($root.'/backend/scripts');
             rmdir($root.'/backend');
             rmdir($root);
@@ -157,6 +159,7 @@ final class WorkspaceUpdaterTest extends TestCase
             rmdir($root.'/backend/.symsvel');
             unlink($root.'/backend/composer.json');
             unlink($root.'/backend/scripts/symsvel-module-sync.php');
+            unlink($root.'/backend/scripts/symsvel-composer-transaction.php');
             rmdir($root.'/backend/scripts');
             rmdir($root.'/backend');
             rmdir($root);
