@@ -62,6 +62,15 @@ final class WorkspaceFileSnapshot
             [$component, $relative] = explode('/', $key, 2);
             $root = $component === 'backend' ? $this->backend : $workspace.'/'.$component;
             $target = $root.'/'.$relative;
+            // Never follow a directory symlink created by the failed operation.
+            // Doing so could overwrite files outside the application workspace.
+            $parent = dirname($target);
+            while ($parent !== $root && $parent !== dirname($parent)) {
+                if (is_link($parent)) {
+                    throw new \RuntimeException('Rollback bloqué : répertoire symbolique non fiable : '.$parent);
+                }
+                $parent = dirname($parent);
+            }
             if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0775, true) && !is_dir(dirname($target))) {
                 throw new \RuntimeException('Répertoire impossible à restaurer : '.$key);
             }
