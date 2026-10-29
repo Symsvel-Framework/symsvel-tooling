@@ -138,7 +138,7 @@ final class ComposerTransactionRunner
             }
             $files[$relative] = $file->isLink()
                 ? 'symlink:'.readlink($file->getPathname())
-                : 'file:'.hash_file('sha256', $file->getPathname());
+                : 'file:'.hash_file('sha256', $file->getPathname()).':mode:'.decoct(fileperms($file->getPathname()) & 0777);
         }
         return $files;
     }
