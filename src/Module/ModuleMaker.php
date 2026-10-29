@@ -131,7 +131,7 @@ final class ModuleMaker
         $files['back/src/Entity/.gitkeep'] = '';
         $files['back/src/Repository/.gitkeep'] = '';
         $files['back/config/.gitkeep'] = '';
-        $files['back/migrations/.gitkeep'] = '';
+        $files['Migration/.gitkeep'] = '';
         if (!is_dir($root) && !mkdir($root, 0775, true) && !is_dir($root)) {
             throw new \RuntimeException('Impossible de créer modules/.');
         }
