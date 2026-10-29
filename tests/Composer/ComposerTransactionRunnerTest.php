@@ -129,6 +129,45 @@ final class ComposerTransactionRunnerTest extends TestCase
         self::assertCount(1, glob($this->backend.'/.symsvel/transactions/*'));
     }
 
+    public function testResidualBoFileMarksWorkspaceRecoveryIncomplete(): void
+    {
+        $workspace = $this->backend.'/workspace';
+        $backend = $workspace.'/backend';
+        $bo = $workspace.'/bo';
+        mkdir($backend, 0775, true);
+        mkdir($bo, 0775, true);
+        file_put_contents($backend.'/composer.json', '{"require":{}}');
+        file_put_contents($backend.'/composer.lock', '{"packages":[]}');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use ($bo): void {
+            if ($command[1] === 'require') {
+                file_put_contents($bo.'/generated.js', 'unexpected side effect');
+                throw new \RuntimeException('simulated BO failure');
+            }
+        });
+        try {
+            $runner->run($backend, ['require', 'broken:dev-main']);
+            self::fail('Residual BO file must prevent a successful recovery report.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('récupération incomplète', $error->getMessage());
+            self::assertStringContainsString('bo/generated.js', $error->getMessage());
+        } finally {
+            foreach (glob($backend.'/.symsvel/transactions/*/*') ?: [] as $file) {
+                @unlink($file);
+            }
+            foreach (glob($backend.'/.symsvel/transactions/*') ?: [] as $dir) {
+                @rmdir($dir);
+            }
+            @rmdir($backend.'/.symsvel/transactions');
+            @rmdir($backend.'/.symsvel');
+            unlink($bo.'/generated.js');
+            unlink($backend.'/composer.json');
+            unlink($backend.'/composer.lock');
+            rmdir($backend);
+            rmdir($bo);
+            rmdir($workspace);
+        }
+    }
+
     public function testRejectsMissingOriginalLockWithoutExecutingComposer(): void
     {
         unlink($this->backend.'/composer.lock');
