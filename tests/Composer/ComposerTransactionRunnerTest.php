@@ -168,6 +168,50 @@ final class ComposerTransactionRunnerTest extends TestCase
         }
     }
 
+    public function testFailedOperationRestoresModifiedAndDeletedWorkspaceFiles(): void
+    {
+        $workspace = $this->backend.'/restore-workspace';
+        $backend = $workspace.'/backend';
+        $bo = $workspace.'/bo';
+        mkdir($backend, 0775, true);
+        mkdir($bo, 0775, true);
+        file_put_contents($backend.'/composer.json', '{"require":{}}');
+        file_put_contents($backend.'/composer.lock', '{"packages":[]}');
+        file_put_contents($bo.'/existing.js', 'original');
+        file_put_contents($bo.'/deleted.js', 'keep me');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use ($bo): void {
+            if ($command[1] === 'update') {
+                file_put_contents($bo.'/existing.js', 'corrupted');
+                unlink($bo.'/deleted.js');
+                throw new \RuntimeException('simulated failed update');
+            }
+        });
+        try {
+            $runner->run($backend, ['update', 'existing']);
+            self::fail('Failed update must throw.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+            self::assertSame('original', file_get_contents($bo.'/existing.js'));
+            self::assertSame('keep me', file_get_contents($bo.'/deleted.js'));
+        } finally {
+            foreach (glob($backend.'/.symsvel/transactions/*/*') ?: [] as $file) {
+                @unlink($file);
+            }
+            foreach (glob($backend.'/.symsvel/transactions/*') ?: [] as $dir) {
+                @rmdir($dir);
+            }
+            @rmdir($backend.'/.symsvel/transactions');
+            @rmdir($backend.'/.symsvel');
+            @unlink($bo.'/existing.js');
+            @unlink($bo.'/deleted.js');
+            @unlink($backend.'/composer.json');
+            @unlink($backend.'/composer.lock');
+            @rmdir($backend);
+            @rmdir($bo);
+            @rmdir($workspace);
+        }
+    }
+
     public function testRejectsMissingOriginalLockWithoutExecutingComposer(): void
     {
         unlink($this->backend.'/composer.lock');
