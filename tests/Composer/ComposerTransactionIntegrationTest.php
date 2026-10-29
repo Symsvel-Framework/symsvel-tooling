@@ -105,7 +105,7 @@ final class ComposerTransactionIntegrationTest extends TestCase
             try {
                 (new ComposerTransactionRunner())->run($backend, ['update', 'symsvel-test/versioned-module', '--no-interaction']);
                 self::fail('Expected Composer update failure.');
-            } catch (\\RuntimeException $error) {
+            } catch (\RuntimeException $error) {
                 self::assertStringContainsString('dépendances restaurées', $error->getMessage());
             }
             self::assertSame($originalLock, file_get_contents($backend.'/composer.lock'));
@@ -158,7 +158,7 @@ final class ComposerTransactionIntegrationTest extends TestCase
             try {
                 (new ComposerTransactionRunner())->run($backend, ['remove', 'symsvel-test/removable-module', '--no-interaction']);
                 self::fail('Expected Composer removal failure.');
-            } catch (\\RuntimeException $error) {
+            } catch (\RuntimeException $error) {
                 self::assertStringContainsString('dépendances restaurées', $error->getMessage());
             }
             self::assertSame($originalJson, file_get_contents($backend.'/composer.json'));
