@@ -80,10 +80,17 @@ final class WorkspaceUpdater
                 throw new \RuntimeException('BACK / Snapshot sources incomplet : '.$failure->getMessage().'; sauvegarde conservée : '.$composerCheckpoint, 0, $failure);
             }
         }
+        $vendorSnapshot = null;
         $runtimeSnapshots = [];
         $runtimeTransaction = null;
         if ($this->runner === null) {
             $runtimeTransaction = $backendDir.'/.symsvel/transactions/update-'.bin2hex(random_bytes(12));
+            $vendorSnapshot = new RuntimeArtifactSnapshot($backendDir, $runtimeTransaction.'/backend', ['vendor']);
+            try {
+                $vendorSnapshot->capture();
+            } catch (\Throwable $failure) {
+                throw new \RuntimeException('BACK / Snapshot vendor impossible : '.$failure->getMessage().'; sauvegarde conservée : '.$runtimeTransaction, 0, $failure);
+            }
             foreach (['bo', 'app', 'front'] as $component) {
                 $directory = $root.'/'.$component;
                 if (!is_dir($directory)) {
@@ -183,11 +190,11 @@ final class WorkspaceUpdater
                 } catch (\Throwable $recovery) {
                     $rollbackErrors[] = 'BACK / manifests Composer : '.$recovery->getMessage();
                 }
-                if (!array_filter($rollbackErrors, static fn (string $error): bool => str_starts_with($error, 'BACK / manifests Composer'))) {
+                if ($vendorSnapshot !== null) {
                     try {
-                        $this->run(['composer', 'install', '--no-scripts', '--no-plugins', '--no-interaction'], $backendDir);
+                        $vendorSnapshot->restore();
                     } catch (\Throwable $recovery) {
-                        $rollbackErrors[] = 'BACK / vendor Composer : '.$recovery->getMessage();
+                        $rollbackErrors[] = 'BACK / vendor : '.$recovery->getMessage();
                     }
                 }
                 try {
@@ -199,7 +206,7 @@ final class WorkspaceUpdater
             $rollbackStatus = $rollbackErrors === []
                 ? ($composerSnapshot === null
                     ? 'Git et artefacts npm/build restaurés ; rollback Composer et BDD non garanti.'
-                    : 'Git, npm/build, Composer et sources restaurés ; ATTENTION : BDD non garantie.')
+                    : 'Git, npm/build, vendor et sources restaurés ; ATTENTION : BDD non garantie.')
                 : 'Rollback incomplet : '.implode(' ; ', $rollbackErrors).'. Rollback global non garanti.';
             throw new \RuntimeException(
                 sprintf('Échec de mise à jour [%s / %s] : %s. %s', $componentInProgress, $stepInProgress, $failure->getMessage(), $rollbackStatus),
@@ -213,6 +220,9 @@ final class WorkspaceUpdater
         }
         foreach ($runtimeSnapshots as $snapshot) {
             $snapshot->discard();
+        }
+        if ($vendorSnapshot !== null) {
+            $vendorSnapshot->discard();
         }
         if ($runtimeTransaction !== null && is_dir($runtimeTransaction) && !rmdir($runtimeTransaction)) {
             throw new \RuntimeException('Nettoyage transaction runtime impossible : '.$runtimeTransaction);
