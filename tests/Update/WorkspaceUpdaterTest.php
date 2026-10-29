@@ -138,7 +138,7 @@ final class WorkspaceUpdaterTest extends TestCase
             $updater->update($root.'/backend', 'core');
             self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
             file_put_contents($file, '<p>Edited</p>');
-            $this->expectException(\\RuntimeException::class);
+            $this->expectException(\RuntimeException::class);
             $this->expectExceptionMessage('modifications locales');
             $updater->update($root.'/backend', 'core');
         } finally {
