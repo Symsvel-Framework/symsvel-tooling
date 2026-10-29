@@ -9,6 +9,34 @@ use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 
 final class WorkspaceFileSnapshotTest extends TestCase
 {
+    public function testRestorePreservesExecutablePermissions(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-snapshot-mode-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $transaction = $backend.'/.symsvel/transactions/test';
+        mkdir($transaction, 0700, true);
+        $script = $backend.'/deploy.sh';
+        file_put_contents($script, '#!/bin/sh');
+        chmod($script, 0755);
+        $snapshot = new WorkspaceFileSnapshot($backend, $transaction);
+        try {
+            $snapshot->capture();
+            chmod($script, 0644);
+            file_put_contents($script, 'broken');
+            $snapshot->restore();
+            self::assertSame('#!/bin/sh', file_get_contents($script));
+            self::assertSame(0755, fileperms($script) & 0777);
+        } finally {
+            $snapshot->discard();
+            @unlink($script);
+            @rmdir($transaction);
+            @rmdir(dirname($transaction));
+            @rmdir(dirname(dirname($transaction)));
+            @rmdir($backend);
+            @rmdir($root);
+        }
+    }
+
     public function testCaptureFailureCannotProduceAUsableSnapshot(): void
     {
         $root = sys_get_temp_dir().'/symsvel-snapshot-capture-'.bin2hex(random_bytes(8));
