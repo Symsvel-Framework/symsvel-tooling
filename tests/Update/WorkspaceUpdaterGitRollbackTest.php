@@ -111,6 +111,82 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         }
     }
 
+    public function testFrontFailureRestoresBackendVendorSourcesAndAllInterfaceArtifacts(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-update-full-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend/vendor/pkg', 0775, true);
+        file_put_contents($root.'/backend/composer.json', '{"name":"test/backend"}');
+        file_put_contents($root.'/backend/composer.lock', '{"packages":[]}');
+        file_put_contents($root.'/backend/vendor/pkg/index.php', 'vendor-before');
+        file_put_contents($root.'/backend/source.php', 'source-before');
+        $heads = [];
+        foreach (['bo', 'app', 'front'] as $component) {
+            $dir = $root.'/'.$component;
+            mkdir($dir.'/node_modules/pkg', 0775, true);
+            mkdir($dir.'/build', 0775, true);
+            file_put_contents($dir.'/node_modules/pkg/index.js', 'npm-before');
+            file_put_contents($dir.'/build/index.html', 'build-before');
+            $this->git($dir, ['init', '-b', 'main']);
+            $this->git($dir, ['config', 'user.email', 'test@example.test']);
+            $this->git($dir, ['config', 'user.name', 'SymSvel Test']);
+            file_put_contents($dir.'/version.txt', 'git-before');
+            $this->git($dir, ['add', 'version.txt']);
+            $this->git($dir, ['commit', '-m', 'before']);
+            $heads[$component] = trim($this->git($dir, ['rev-parse', 'HEAD']));
+        }
+        try {
+            $runner = function (array $command, string $cwd) use ($root): ?string {
+                if ($command === ['git', 'status', '--porcelain', '--untracked-files=all']) {
+                    return '';
+                }
+                if ($command[0] === 'composer') {
+                    file_put_contents($cwd.'/composer.json', '{"changed":true}');
+                    file_put_contents($cwd.'/composer.lock', '{"changed":true}');
+                    file_put_contents($cwd.'/vendor/pkg/index.php', 'vendor-after');
+                    file_put_contents($cwd.'/source.php', 'source-after');
+                    file_put_contents($cwd.'/new-source.php', 'new');
+                }
+                if ($command === ['git', 'merge', '--ff-only', 'origin/main']) {
+                    file_put_contents($cwd.'/version.txt', 'git-after');
+                    $this->git($cwd, ['commit', '-am', 'after']);
+                }
+                if ($command === ['npm', 'ci']) {
+                    file_put_contents($cwd.'/node_modules/pkg/index.js', 'npm-after');
+                }
+                if ($command === ['npm', 'run', 'build']) {
+                    file_put_contents($cwd.'/build/index.html', 'build-after');
+                    file_put_contents($cwd.'/build/extra.html', 'new');
+                    if ($cwd === $root.'/front') {
+                        throw new \RuntimeException('FRONT build exploded');
+                    }
+                }
+                return null;
+            };
+            try {
+                (new WorkspaceUpdater($runner, true))->update($root.'/backend', 'core');
+                self::fail('Expected FRONT build failure.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
+                self::assertStringContainsString('vendor et sources restaurés', $error->getMessage());
+            }
+            self::assertSame('{"name":"test/backend"}', file_get_contents($root.'/backend/composer.json'));
+            self::assertSame('{"packages":[]}', file_get_contents($root.'/backend/composer.lock'));
+            self::assertSame('vendor-before', file_get_contents($root.'/backend/vendor/pkg/index.php'));
+            self::assertSame('source-before', file_get_contents($root.'/backend/source.php'));
+            self::assertFileDoesNotExist($root.'/backend/new-source.php');
+            foreach ($heads as $component => $head) {
+                $dir = $root.'/'.$component;
+                self::assertSame($head, trim($this->git($dir, ['rev-parse', 'HEAD'])));
+                self::assertSame('git-before', file_get_contents($dir.'/version.txt'));
+                self::assertSame('npm-before', file_get_contents($dir.'/node_modules/pkg/index.js'));
+                self::assertSame('build-before', file_get_contents($dir.'/build/index.html'));
+                self::assertFileDoesNotExist($dir.'/build/extra.html');
+            }
+        } finally {
+            $this->deleteTree($root);
+        }
+    }
+
     /** @param list<string> $args */
     private function git(string $directory, array $args): string
     {
