@@ -73,8 +73,8 @@ final class WorkspaceUpdater
                 try {
                     $snapshot->capture();
                     $runtimeSnapshots[$component] = $snapshot;
-                } catch (\\Throwable $failure) {
-                    throw new \\RuntimeException('Snapshot runtime initial impossible ['.strtoupper($component).'] : '.$failure->getMessage().'; opération annulée avant Composer.', 0, $failure);
+                } catch (\Throwable $failure) {
+                    throw new \RuntimeException('Snapshot runtime initial impossible ['.strtoupper($component).'] : '.$failure->getMessage().'; opération annulée avant Composer.', 0, $failure);
                 }
             }
         }
@@ -144,7 +144,7 @@ final class WorkspaceUpdater
             foreach (array_reverse($runtimeSnapshots, true) as $component => $snapshot) {
                 try {
                     $snapshot->restore();
-                } catch (\\Throwable $recovery) {
+                } catch (\Throwable $recovery) {
                     $rollbackErrors[] = strtoupper($component).' / npm-build : '.$recovery->getMessage();
                 }
             }
@@ -161,7 +161,7 @@ final class WorkspaceUpdater
             $snapshot->discard();
         }
         if ($runtimeTransaction !== null && is_dir($runtimeTransaction) && !rmdir($runtimeTransaction)) {
-            throw new \\RuntimeException('Nettoyage transaction runtime impossible : '.$runtimeTransaction);
+            throw new \RuntimeException('Nettoyage transaction runtime impossible : '.$runtimeTransaction);
         }
         if ($progress !== null) {
             $progress('Tous les composants présents ont été traités.');
