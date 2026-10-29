@@ -42,8 +42,16 @@ final class WorkspaceFileSnapshot
                     }
                     $parent = dirname($parent);
                 }
-                if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0700, true) && !is_dir(dirname($target))) {
-                    throw new \RuntimeException('Impossible de préparer le snapshot : '.$key);
+                if (!is_dir(dirname($target))) {
+                    // A regular file in the parent chain is an expected failure
+                    // scenario in crash tests: never let mkdir emit a PHP warning.
+                    $parent = dirname($target);
+                    while (!file_exists($parent) && !is_link($parent) && $parent !== dirname($parent)) {
+                        $parent = dirname($parent);
+                    }
+                    if (!is_dir($parent) || !@mkdir(dirname($target), 0700, true) && !is_dir(dirname($target))) {
+                        throw new \RuntimeException('Impossible de préparer le snapshot : '.$key);
+                    }
                 }
                 if (is_link($path)) {
                     if (!symlink((string) readlink($path), $target)) {
