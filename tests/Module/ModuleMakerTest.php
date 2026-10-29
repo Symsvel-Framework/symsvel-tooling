@@ -23,17 +23,24 @@ final class ModuleMakerTest extends TestCase
             self::assertSame('symsvel-framework/module-my-documents', $composer['name']);
             self::assertFileExists($path.'/back/src/MyDocumentsBundle.php');
             self::assertFileExists($path.'/back/phpunit.xml.dist');
+            self::assertFileExists($path.'/back/migrations/.gitkeep');
+            self::assertFileExists($path.'/back/tests/Unit/MyDocumentsBundleTest.php');
+            $recipe = json_decode((string) file_get_contents($path.'/recipe/recipe.json'), true, 512, JSON_THROW_ON_ERROR);
+            $entry = $recipe['manifests']['symsvel-framework/module-my-documents'];
+            self::assertSame(['all'], $entry['manifest']['bundles']['SymSvel\\\\Module\\\\MyDocuments\\\\MyDocumentsBundle']);
+            self::assertArrayHasKey('config/routes/my-documents.yaml', $entry['files']);
+            self::assertSame('1.0.x-dev', $composer['extra']['branch-alias']['dev-main']);
             self::assertFileExists($path.'/.github/workflows/qa.yml');
             $this->expectException(\RuntimeException::class);
             (new ModuleMaker())->create($workspace, 'my-documents');
         } finally {
-            foreach (['back/phpunit.xml.dist', '.github/workflows/qa.yml', 'back/tests/Unit/.gitkeep', 'back/tests/Integration/.gitkeep', 'back/tests/Functional/.gitkeep', 'back/src/Controller/.gitkeep', 'back/src/Entity/.gitkeep', 'back/src/Repository/.gitkeep', 'back/config/.gitkeep', 'Migration/.gitkeep'] as $file) {
+            foreach (['back/phpunit.xml.dist', 'back/migrations/.gitkeep', 'back/tests/Unit/MyDocumentsBundleTest.php', 'recipe/recipe.json', '.github/workflows/qa.yml', 'back/tests/Unit/.gitkeep', 'back/tests/Integration/.gitkeep', 'back/tests/Functional/.gitkeep', 'back/src/Controller/.gitkeep', 'back/src/Entity/.gitkeep', 'back/src/Repository/.gitkeep', 'back/config/.gitkeep', 'Migration/.gitkeep'] as $file) {
                 @unlink($workspace.'/modules/my-documents/'.$file);
             }
             foreach (['composer.json', 'module.json', 'back/src/MyDocumentsBundle.php', 'README.md', 'docs/dev/index.md', '.gitignore'] as $file) {
                 @unlink($workspace.'/modules/my-documents/'.$file);
             }
-            foreach (['back/tests/Unit', 'back/tests/Integration', 'back/tests/Functional', 'back/tests', 'back/src/Controller', 'back/src/Entity', 'back/src/Repository', 'back/config', 'Migration', '.github/workflows', '.github', 'back/src', 'back', 'docs/dev', 'docs'] as $dir) {
+            foreach (['recipe', 'back/migrations', 'back/tests/Unit', 'back/tests/Integration', 'back/tests/Functional', 'back/tests', 'back/src/Controller', 'back/src/Entity', 'back/src/Repository', 'back/config', 'Migration', '.github/workflows', '.github', 'back/src', 'back', 'docs/dev', 'docs'] as $dir) {
                 @rmdir($workspace.'/modules/my-documents/'.$dir);
             }
             @rmdir($workspace.'/modules/my-documents');
