@@ -116,8 +116,6 @@ final class WorkspaceUpdaterTest extends TestCase
             rmdir($root.'/bo/.git');
             rmdir($root.'/bo');
             unlink($root.'/backend/composer.json');
-            unlink($root.'/backend/scripts/symsvel-module-sync.php');
-            rmdir($root.'/backend/scripts');
             rmdir($root.'/backend');
             rmdir($root);
         }
