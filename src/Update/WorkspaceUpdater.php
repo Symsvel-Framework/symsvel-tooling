@@ -50,14 +50,16 @@ final class WorkspaceUpdater
             }
         }
         $gitCheckpoints = [];
-        foreach (['bo', 'app', 'front'] as $component) {
-            $directory = $root.'/'.$component;
-            if (!is_dir($directory)) {
-                continue;
+        if ($this->runner === null) {
+            foreach (['bo', 'app', 'front'] as $component) {
+                $directory = $root.'/'.$component;
+                if (!is_dir($directory)) {
+                    continue;
+                }
+                $checkpoint = new GitComponentCheckpoint($directory);
+                $checkpoint->capture();
+                $gitCheckpoints[$component] = $checkpoint;
             }
-            $checkpoint = new GitComponentCheckpoint($directory);
-            $checkpoint->capture();
-            $gitCheckpoints[$component] = $checkpoint;
         }
         $componentInProgress = 'BACK';
         $stepInProgress = 'Composer update';
