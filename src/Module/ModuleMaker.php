@@ -66,7 +66,7 @@ final class ModuleMaker
                 'autoload-dev' => ['psr-4' => [$namespace.'\\Tests\\' => 'back/tests/']],
                 'require-dev' => ['phpunit/phpunit' => '^13.4'],
                 'scripts' => ['test' => 'phpunit -c back/phpunit.xml.dist', 'qa' => ['@test']],
-                'extra' => ['symsvel-module' => ['manifest' => 'module.json']],
+                'extra' => ['symsvel-module' => ['manifest' => 'module.json'], 'branch-alias' => ['dev-main' => '1.0.x-dev']],
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n",
             'module.json' => json_encode([
                 'schema' => 1,
@@ -81,6 +81,33 @@ final class ModuleMaker
             'README.md' => '# '.$class."\n\nModule SymSvel (manifest schema 1).\n",
             'docs/dev/index.md' => '# '.$class."\n\nDocumentation développeur.\n",
             '.gitignore' => "/vendor/\n/node_modules/\n/.phpunit.result.cache\n",
+            // Template to publish in symsvel-recipes when the module is released.
+            // Flex does not discover recipes inside Composer packages automatically.
+            'recipe/recipe.json' => json_encode([
+                'manifests' => [
+                    $vendor.'/module-'.$name => [
+                        'manifest' => [
+                            'bundles' => [$namespace.'\\\\'.$class.'Bundle' => ['all']],
+                            'copy-from-recipe' => ['config/' => '%CONFIG_DIR%/'],
+                        ],
+                        'files' => [
+                            'config/routes/'.$name.'.yaml' => [
+                                'contents' => [
+                                    $name.':',
+                                    '    resource:',
+                                    "        path: '@".$class."Bundle/src/Controller/'",
+                                    '        namespace: '.$namespace.'\\\\Controller',
+                                    '    type: attribute',
+                                    '',
+                                ],
+                                'executable' => false,
+                            ],
+                        ],
+                        'ref' => 'REPLACE_WITH_RECIPE_COMMIT_SHA',
+                    ],
+                ],
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\\n",
+
         ];
 
         foreach (['admin', 'user'] as $scope) {
@@ -103,7 +130,7 @@ final class ModuleMaker
         $files['back/src/Entity/.gitkeep'] = '';
         $files['back/src/Repository/.gitkeep'] = '';
         $files['back/config/.gitkeep'] = '';
-        $files['Migration/.gitkeep'] = '';
+        $files['back/migrations/.gitkeep'] = '';
         if (!is_dir($root) && !mkdir($root, 0775, true) && !is_dir($root)) {
             throw new \RuntimeException('Impossible de créer modules/.');
         }
