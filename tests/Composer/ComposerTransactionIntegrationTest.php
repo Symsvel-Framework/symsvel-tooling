@@ -47,8 +47,13 @@ final class ComposerTransactionIntegrationTest extends TestCase
             $originalLock = file_get_contents($backend.'/composer.lock');
 
             try {
-                (new ComposerTransactionRunner())->run($backend, ['require', 'symsvel-test/broken-module:1.0.0', '--no-interaction']);
-                self::fail('Expected Composer post-update script to fail.');
+                (new ComposerTransactionRunner(commandRunner: static function (array $command, string $cwd, ?callable $progress): void {
+                    $process = new Process($command, $cwd);
+                    $process->setTimeout(120);
+                    $process->mustRun();
+                    throw new \RuntimeException('Injected failure after successful Composer mutation');
+                }))->run($backend, ['require', 'symsvel-test/broken-module:1.0.0', '--no-interaction']);
+                self::fail('Expected injected Composer failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('dépendances restaurées', $error->getMessage());
             }
@@ -103,8 +108,13 @@ final class ComposerTransactionIntegrationTest extends TestCase
             ], JSON_THROW_ON_ERROR));
 
             try {
-                (new ComposerTransactionRunner())->run($backend, ['update', 'symsvel-test/versioned-module', '--no-interaction']);
-                self::fail('Expected Composer update failure.');
+                (new ComposerTransactionRunner(commandRunner: static function (array $command, string $cwd, ?callable $progress): void {
+                    $process = new Process($command, $cwd);
+                    $process->setTimeout(120);
+                    $process->mustRun();
+                    throw new \RuntimeException('Injected failure after successful Composer mutation');
+                }))->run($backend, ['update', 'symsvel-test/versioned-module', '--no-interaction']);
+                self::fail('Expected injected Composer failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('dépendances restaurées', $error->getMessage());
             }
@@ -156,8 +166,13 @@ final class ComposerTransactionIntegrationTest extends TestCase
             $originalLock = file_get_contents($backend.'/composer.lock');
 
             try {
-                (new ComposerTransactionRunner())->run($backend, ['remove', 'symsvel-test/removable-module', '--no-interaction']);
-                self::fail('Expected Composer removal failure.');
+                (new ComposerTransactionRunner(commandRunner: static function (array $command, string $cwd, ?callable $progress): void {
+                    $process = new Process($command, $cwd);
+                    $process->setTimeout(120);
+                    $process->mustRun();
+                    throw new \RuntimeException('Injected failure after successful Composer mutation');
+                }))->run($backend, ['remove', 'symsvel-test/removable-module', '--no-interaction']);
+                self::fail('Expected injected Composer failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('dépendances restaurées', $error->getMessage());
             }
