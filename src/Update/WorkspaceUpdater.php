@@ -60,6 +60,24 @@ final class WorkspaceUpdater
             $checkpoint->capture();
             $gitCheckpoints[$component] = $checkpoint;
         }
+        $runtimeSnapshots = [];
+        $runtimeTransaction = null;
+        if ($this->runner === null) {
+            $runtimeTransaction = $backendDir.'/.symsvel/transactions/update-'.bin2hex(random_bytes(12));
+            foreach (['bo', 'app', 'front'] as $component) {
+                $directory = $root.'/'.$component;
+                if (!is_dir($directory)) {
+                    continue;
+                }
+                $snapshot = new RuntimeArtifactSnapshot($directory, $runtimeTransaction.'/'.$component);
+                try {
+                    $snapshot->capture();
+                    $runtimeSnapshots[$component] = $snapshot;
+                } catch (\\Throwable $failure) {
+                    throw new \\RuntimeException('Snapshot runtime initial impossible ['.strtoupper($component).'] : '.$failure->getMessage().'; opération annulée avant Composer.', 0, $failure);
+                }
+            }
+        }
         $componentInProgress = 'BACK';
         $stepInProgress = 'Composer update';
         try {
@@ -123,14 +141,24 @@ final class WorkspaceUpdater
                     $rollbackErrors[] = strtoupper($component).' / Git : '.$recovery->getMessage();
                 }
             }
+            foreach (array_reverse($runtimeSnapshots, true) as $component => $snapshot) {
+                try {
+                    $snapshot->restore();
+                } catch (\\Throwable $recovery) {
+                    $rollbackErrors[] = strtoupper($component).' / npm-build : '.$recovery->getMessage();
+                }
+            }
             $rollbackStatus = $rollbackErrors === []
-                ? 'Git restauré ; ATTENTION : rollback Composer, npm, builds et BDD non garanti.'
+                ? 'Git et artefacts npm/build restaurés ; ATTENTION : rollback Composer et BDD non garanti.'
                 : 'Rollback Git incomplet : '.implode(' ; ', $rollbackErrors).'. Rollback global non garanti.';
             throw new \RuntimeException(
                 sprintf('Échec de mise à jour [%s / %s] : %s. %s', $componentInProgress, $stepInProgress, $failure->getMessage(), $rollbackStatus),
                 0,
                 $failure,
             );
+        }
+        foreach ($runtimeSnapshots as $snapshot) {
+            $snapshot->discard();
         }
         if ($progress !== null) {
             $progress('Tous les composants présents ont été traités.');
