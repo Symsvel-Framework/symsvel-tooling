@@ -49,6 +49,16 @@ final class WorkspaceUpdater
                 throw new \RuntimeException('Le composant '.$component.' contient des modifications locales : mise à jour annulée avant Composer.');
             }
         }
+        $gitCheckpoints = [];
+        foreach (['bo', 'app', 'front'] as $component) {
+            $directory = $root.'/'.$component;
+            if (!is_dir($directory)) {
+                continue;
+            }
+            $checkpoint = new GitComponentCheckpoint($directory);
+            $checkpoint->capture();
+            $gitCheckpoints[$component] = $checkpoint;
+        }
         $componentInProgress = 'BACK';
         $stepInProgress = 'Composer update';
         try {
@@ -104,8 +114,19 @@ final class WorkspaceUpdater
             }
         }
         } catch (\Throwable $failure) {
+            $rollbackErrors = [];
+            foreach (array_reverse($gitCheckpoints, true) as $component => $checkpoint) {
+                try {
+                    $checkpoint->restore();
+                } catch (\Throwable $recovery) {
+                    $rollbackErrors[] = strtoupper($component).' / Git : '.$recovery->getMessage();
+                }
+            }
+            $rollbackStatus = $rollbackErrors === []
+                ? 'Git restauré ; ATTENTION : rollback Composer, npm, builds et BDD non garanti.'
+                : 'Rollback Git incomplet : '.implode(' ; ', $rollbackErrors).'. Rollback global non garanti.';
             throw new \RuntimeException(
-                sprintf('Échec de mise à jour [%s / %s] : %s. ATTENTION : rollback global non exécuté ; état du workspace potentiellement modifié.', $componentInProgress, $stepInProgress, $failure->getMessage()),
+                sprintf('Échec de mise à jour [%s / %s] : %s. %s', $componentInProgress, $stepInProgress, $failure->getMessage(), $rollbackStatus),
                 0,
                 $failure,
             );
