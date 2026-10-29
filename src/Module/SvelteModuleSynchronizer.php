@@ -57,7 +57,7 @@ final class SvelteModuleSynchronizer
                         $destination = $app.'/src/lib/vendor/'.$slug.'/'.$relative;
                         if (preg_match('~^routes/(.*)\+page\.svelte$~', $relative, $matches)) {
                             $route = $app.'/src/routes/'.$matches[1].'+page.svelte';
-                            $import = '$lib/vendor/'.$slug.'/'.$relative;
+                            $import = '#lib/vendor/'.$slug.'/'.$relative;
                             if (isset($targets[$route])) {
                                 throw new \RuntimeException('Collision de routes : '.$route);
                             }
