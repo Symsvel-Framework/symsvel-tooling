@@ -61,6 +61,56 @@ final class RuntimeArtifactSnapshotTest extends TestCase
         }
     }
 
+    public function testVendorSnapshotRestoresExactFilesAndRemovesNewDependencies(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-vendor-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        mkdir($backend.'/vendor/package', 0775, true);
+        file_put_contents($backend.'/vendor/package/original.php', 'original bytes');
+        chmod($backend.'/vendor/package/original.php', 0755);
+        symlink('original.php', $backend.'/vendor/package/alias.php');
+        $snapshot = new RuntimeArtifactSnapshot($backend, $root.'/transaction/backend', ['vendor']);
+        try {
+            $snapshot->capture();
+            file_put_contents($backend.'/vendor/package/original.php', 'modified');
+            unlink($backend.'/vendor/package/alias.php');
+            file_put_contents($backend.'/vendor/package/extra.php', 'new dependency');
+            $snapshot->restore();
+            self::assertSame('original bytes', file_get_contents($backend.'/vendor/package/original.php'));
+            self::assertSame(0755, fileperms($backend.'/vendor/package/original.php') & 0777);
+            self::assertTrue(is_link($backend.'/vendor/package/alias.php'));
+            self::assertSame('original.php', readlink($backend.'/vendor/package/alias.php'));
+            self::assertFileDoesNotExist($backend.'/vendor/package/extra.php');
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
+    public function testMissingVendorBackupDoesNotDeleteMutatedVendor(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-vendor-missing-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        mkdir($backend.'/vendor', 0775, true);
+        file_put_contents($backend.'/vendor/original.php', 'before');
+        $snapshot = new RuntimeArtifactSnapshot($backend, $root.'/transaction/backend', ['vendor']);
+        try {
+            $snapshot->capture();
+            file_put_contents($backend.'/vendor/original.php', 'after');
+            $this->deleteTree($root.'/transaction/backend/runtime/vendor');
+            try {
+                $snapshot->restore();
+                self::fail('Expected missing vendor backup failure.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('sauvegarde absente', $error->getMessage());
+                self::assertSame('after', file_get_contents($backend.'/vendor/original.php'));
+            }
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
     private function deleteTree(string $path): void
     {
         if (!is_dir($path) || is_link($path)) {
