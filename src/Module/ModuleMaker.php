@@ -87,7 +87,7 @@ final class ModuleMaker
                 'manifests' => [
                     $vendor.'/module-'.$name => [
                         'manifest' => [
-                            'bundles' => [$namespace.'\\\\'.$class.'Bundle' => ['all']],
+                            'bundles' => [$namespace.'\\'.$class.'Bundle' => ['all']],
                             'copy-from-recipe' => ['config/' => '%CONFIG_DIR%/'],
                         ],
                         'files' => [
@@ -96,7 +96,7 @@ final class ModuleMaker
                                     $name.':',
                                     '    resource:',
                                     "        path: '@".$class."Bundle/src/Controller/'",
-                                    '        namespace: '.$namespace.'\\\\Controller',
+                                    '        namespace: '.$namespace.'\\Controller',
                                     '    type: attribute',
                                     '',
                                 ],
@@ -106,7 +106,7 @@ final class ModuleMaker
                         'ref' => 'REPLACE_WITH_RECIPE_COMMIT_SHA',
                     ],
                 ],
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\\n",
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n",
 
         ];
 
