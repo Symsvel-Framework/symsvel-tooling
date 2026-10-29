@@ -106,7 +106,7 @@ final class WorkspaceUpdater
         }
         try {
             $entries = json_decode((string) file_get_contents($registry), true, 512, JSON_THROW_ON_ERROR);
-        } catch (\\JsonException) {
+        } catch (\JsonException) {
             return false;
         }
         if (!is_array($entries)) {
