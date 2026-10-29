@@ -37,6 +37,9 @@ final class ComposerTransactionRunner
             }
         }
         $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
+        if (!is_file($backend.'/composer.lock')) {
+            throw new \RuntimeException('composer.lock initial obligatoire pour garantir la restauration des dépendances.');
+        }
         $transaction = $this->snapshots->begin($backend);
         try {
             $this->execute(array_merge(['composer'], $arguments), $backend, $progress);
