@@ -82,7 +82,7 @@ final class ComposerTransactionRunner
             \RecursiveIteratorIterator::LEAVES_ONLY,
         );
         foreach ($iterator as $file) {
-            if (!$file->isFile() || $file->isLink()) {
+            if (!$file->isFile() && !$file->isLink()) {
                 continue;
             }
             $relative = substr($file->getPathname(), strlen($backend) + 1);
@@ -90,7 +90,9 @@ final class ComposerTransactionRunner
                 || in_array($relative, ['composer.json', 'composer.lock', 'symfony.lock'], true)) {
                 continue;
             }
-            $files[$relative] = hash_file('sha256', $file->getPathname());
+            $files[$relative] = $file->isLink()
+                ? 'symlink:'.readlink($file->getPathname())
+                : 'file:'.hash_file('sha256', $file->getPathname());
         }
         return $files;
     }
