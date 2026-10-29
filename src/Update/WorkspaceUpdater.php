@@ -160,6 +160,9 @@ final class WorkspaceUpdater
         foreach ($runtimeSnapshots as $snapshot) {
             $snapshot->discard();
         }
+        if ($runtimeTransaction !== null && is_dir($runtimeTransaction) && !rmdir($runtimeTransaction)) {
+            throw new \\RuntimeException('Nettoyage transaction runtime impossible : '.$runtimeTransaction);
+        }
         if ($progress !== null) {
             $progress('Tous les composants présents ont été traités.');
         }
