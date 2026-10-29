@@ -176,12 +176,24 @@ final class WorkspaceUpdater
                 }
             }
             if ($composerSnapshot !== null && $composerCheckpoint !== null && $workspaceSnapshot !== null) {
+                // Recovery steps are independent: a failed vendor reinstall must
+                // never prevent the source files from being restored.
                 try {
                     $composerSnapshot->restoreManifests($backendDir, $composerCheckpoint);
-                    $this->run(['composer', 'install', '--no-scripts', '--no-plugins', '--no-interaction'], $backendDir);
+                } catch (\Throwable $recovery) {
+                    $rollbackErrors[] = 'BACK / manifests Composer : '.$recovery->getMessage();
+                }
+                if (!array_filter($rollbackErrors, static fn (string $error): bool => str_starts_with($error, 'BACK / manifests Composer'))) {
+                    try {
+                        $this->run(['composer', 'install', '--no-scripts', '--no-plugins', '--no-interaction'], $backendDir);
+                    } catch (\Throwable $recovery) {
+                        $rollbackErrors[] = 'BACK / vendor Composer : '.$recovery->getMessage();
+                    }
+                }
+                try {
                     $workspaceSnapshot->restore();
                 } catch (\Throwable $recovery) {
-                    $rollbackErrors[] = 'BACK / Composer et sources : '.$recovery->getMessage();
+                    $rollbackErrors[] = 'BACK / fichiers sources : '.$recovery->getMessage();
                 }
             }
             $rollbackStatus = $rollbackErrors === []
