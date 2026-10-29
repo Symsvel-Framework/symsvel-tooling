@@ -129,6 +129,7 @@ final class SvelteModuleSynchronizer
         foreach ($previous as $path => $hash) {
             if (!isset($targets[$path])) {
                 unlink($path);
+                $this->pruneEmptyParents(dirname($path), $workspace);
                 ++$removed;
             }
         }
@@ -146,6 +147,25 @@ final class SvelteModuleSynchronizer
         }
 
         return ['written' => $changed, 'removed' => $removed];
+    }
+
+    /** Remove only empty directories below module-managed roots. */
+    private function pruneEmptyParents(string $directory, string $workspace): void
+    {
+        foreach (['bo', 'app', 'front'] as $scope) {
+            foreach ([$workspace.'/'.$scope.'/src/lib/vendor', $workspace.'/'.$scope.'/src/routes'] as $root) {
+                if (!str_starts_with($directory, $root.'/')) {
+                    continue;
+                }
+                while ($directory !== $root && is_dir($directory) && !is_link($directory)) {
+                    if (!@rmdir($directory)) {
+                        break;
+                    }
+                    $directory = dirname($directory);
+                }
+                return;
+            }
+        }
     }
 
     private function managedPath(string $workspace, string $path): bool
