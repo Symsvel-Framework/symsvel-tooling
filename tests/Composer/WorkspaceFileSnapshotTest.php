@@ -9,6 +9,30 @@ use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 
 final class WorkspaceFileSnapshotTest extends TestCase
 {
+    public function testCaptureRejectsSymlinkedComponentRoot(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-snapshot-root-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $transaction = $backend.'/.symsvel/transactions/test';
+        mkdir($transaction, 0700, true);
+        mkdir($root.'/external');
+        symlink($root.'/external', $root.'/bo');
+        $snapshot = new WorkspaceFileSnapshot($backend, $transaction);
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('composant symbolique non fiable');
+            $snapshot->capture();
+        } finally {
+            @unlink($root.'/bo');
+            @rmdir($root.'/external');
+            @rmdir($transaction);
+            @rmdir(dirname($transaction));
+            @rmdir(dirname(dirname($transaction)));
+            @rmdir($backend);
+            @rmdir($root);
+        }
+    }
+
     public function testRestorePreservesExecutablePermissions(): void
     {
         $root = sys_get_temp_dir().'/symsvel-snapshot-mode-'.bin2hex(random_bytes(8));
