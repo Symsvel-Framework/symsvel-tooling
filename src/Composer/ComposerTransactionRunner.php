@@ -42,6 +42,8 @@ final class ComposerTransactionRunner
         }
         $initialFiles = $this->workspaceFiles($backend);
         $transaction = $this->snapshots->begin($backend);
+        $workspaceSnapshot = new WorkspaceFileSnapshot($backend, $transaction);
+        $workspaceSnapshot->capture();
         try {
             $this->execute(array_merge(['composer'], $arguments), $backend, $progress);
         } catch (\Throwable $failure) {
@@ -52,12 +54,14 @@ final class ComposerTransactionRunner
                     throw new \RuntimeException('Aucun composer.lock initial : restauration vendor automatique impossible.');
                 }
                 $this->execute(['composer', 'install', '--no-scripts', '--no-plugins', '--no-interaction'], $backend, $progress);
+                $workspaceSnapshot->restore();
                 $restoredFiles = $this->workspaceFiles($backend);
                 $changedFiles = array_keys(array_diff_assoc($restoredFiles, $initialFiles));
                 $changedFiles = array_unique(array_merge($changedFiles, array_keys(array_diff_key($initialFiles, $restoredFiles))));
                 if ($changedFiles !== []) {
                     throw new \RuntimeException('Fichiers hors Composer modifiés : '.implode(', ', array_slice($changedFiles, 0, 10)));
                 }
+                $workspaceSnapshot->discard();
                 $this->snapshots->finish($backend, $transaction);
             } catch (\Throwable $recovery) {
                 throw new \RuntimeException(
@@ -70,6 +74,7 @@ final class ComposerTransactionRunner
             throw new \RuntimeException('Opération Composer annulée et dépendances restaurées : '.$failure->getMessage(), 0, $failure);
         }
         // Cleanup failure after a successful Composer command must never trigger a rollback.
+        $workspaceSnapshot->discard();
         $this->snapshots->finish($backend, $transaction);
     }
 
