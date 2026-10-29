@@ -40,6 +40,7 @@ final class ComposerTransactionRunner
         if (!is_file($backend.'/composer.lock')) {
             throw new \RuntimeException('composer.lock initial obligatoire pour garantir la restauration des dépendances.');
         }
+        $initialFiles = $this->projectFiles($backend);
         $transaction = $this->snapshots->begin($backend);
         try {
             $this->execute(array_merge(['composer'], $arguments), $backend, $progress);
@@ -52,6 +53,11 @@ final class ComposerTransactionRunner
                     throw new \RuntimeException('Aucun composer.lock initial : restauration vendor automatique impossible.');
                 }
                 $this->execute(['composer', 'install', '--no-scripts', '--no-plugins', '--no-interaction'], $backend, $progress);
+                $changedFiles = array_keys(array_diff_assoc($this->projectFiles($backend), $initialFiles));
+                $changedFiles = array_unique(array_merge($changedFiles, array_keys(array_diff_key($initialFiles, $this->projectFiles($backend)))));
+                if ($changedFiles !== []) {
+                    throw new \RuntimeException('Fichiers hors Composer modifiés : '.implode(', ', array_slice($changedFiles, 0, 10)));
+                }
                 $this->snapshots->finish($backend, $transaction);
             } catch (\Throwable $recovery) {
                 throw new \RuntimeException(
@@ -63,6 +69,28 @@ final class ComposerTransactionRunner
             }
             throw new \RuntimeException('Opération Composer annulée et dépendances restaurées : '.$failure->getMessage(), 0, $failure);
         }
+    }
+
+    /** @return array<string, string> */
+    private function projectFiles(string $backend): array
+    {
+        $files = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($backend, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::LEAVES_ONLY,
+        );
+        foreach ($iterator as $file) {
+            if (!$file->isFile() || $file->isLink()) {
+                continue;
+            }
+            $relative = substr($file->getPathname(), strlen($backend) + 1);
+            if (preg_match('~^(?:vendor|node_modules|\\.git|\\.symsvel)/~', $relative)
+                || in_array($relative, ['composer.json', 'composer.lock', 'symfony.lock'], true)) {
+                continue;
+            }
+            $files[$relative] = hash_file('sha256', $file->getPathname());
+        }
+        return $files;
     }
 
     /** @param list<string> $command */
