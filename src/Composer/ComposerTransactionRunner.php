@@ -46,7 +46,7 @@ final class ComposerTransactionRunner
                 if (!is_file($backend.'/composer.lock')) {
                     throw new \RuntimeException('Aucun composer.lock initial : restauration vendor automatique impossible.');
                 }
-                $this->execute(['composer', 'install', '--no-scripts', '--no-interaction'], $backend, $progress);
+                $this->execute(['composer', 'install', '--no-scripts', '--no-plugins', '--no-interaction'], $backend, $progress);
                 $this->snapshots->finish($backend, $transaction);
             } catch (\Throwable $recovery) {
                 throw new \RuntimeException(
