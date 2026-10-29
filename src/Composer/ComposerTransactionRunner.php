@@ -77,10 +77,20 @@ final class ComposerTransactionRunner
     private function projectFiles(string $backend): array
     {
         $files = [];
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($backend, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::LEAVES_ONLY,
+        // Prune dependency and transaction directories before traversal, not after.
+        // A post-filter still walks every file in vendor/, which can be enormous.
+        $directory = new \RecursiveDirectoryIterator($backend, \FilesystemIterator::SKIP_DOTS);
+        $filtered = new \RecursiveCallbackFilterIterator(
+            $directory,
+            static function (\SplFileInfo $entry): bool {
+                if ($entry->isDir() && !$entry->isLink()) {
+                    return !in_array($entry->getFilename(), ['vendor', 'node_modules', '.git', '.symsvel'], true);
+                }
+
+                return true;
+            },
         );
+        $iterator = new \RecursiveIteratorIterator($filtered, \RecursiveIteratorIterator::LEAVES_ONLY);
         foreach ($iterator as $file) {
             if (!$file->isFile() && !$file->isLink()) {
                 continue;
