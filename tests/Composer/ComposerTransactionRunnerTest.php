@@ -86,6 +86,27 @@ final class ComposerTransactionRunnerTest extends TestCase
         self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
     }
 
+    public function testResidualRecipeSymlinkMarksRecoveryIncomplete(): void
+    {
+        mkdir($this->backend.'/config');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend): void {
+            if ($command[1] === 'require') {
+                symlink('../composer.json', $backend.'/config/recipe-link');
+                throw new \RuntimeException('simulated Composer failure');
+            }
+        });
+        try {
+            $runner->run($this->backend, ['require', 'broken:dev-main']);
+            self::fail('Residual symlink must be detected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('récupération incomplète', $error->getMessage());
+            self::assertStringContainsString('config/recipe-link', $error->getMessage());
+        } finally {
+            unlink($this->backend.'/config/recipe-link');
+            rmdir($this->backend.'/config');
+        }
+    }
+
     public function testResidualFlexRecipeFileMarksRecoveryIncomplete(): void
     {
         mkdir($this->backend.'/config');
