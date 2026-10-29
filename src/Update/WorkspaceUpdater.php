@@ -74,7 +74,14 @@ final class WorkspaceUpdater
                     $snapshot->capture();
                     $runtimeSnapshots[$component] = $snapshot;
                 } catch (\Throwable $failure) {
-                    throw new \RuntimeException('Snapshot runtime initial impossible ['.strtoupper($component).'] : '.$failure->getMessage().'; opération annulée avant Composer.', 0, $failure);
+                    // Snapshot capture failed before any update command. Preserve the
+                    // incomplete checkpoint for diagnosis rather than claiming cleanup.
+                    throw new \RuntimeException(
+                        'Snapshot runtime initial impossible ['.strtoupper($component).'] : '.$failure->getMessage().
+                        '; opération annulée avant Composer ; sauvegardes conservées : '.$runtimeTransaction,
+                        0,
+                        $failure,
+                    );
                 }
             }
         }
