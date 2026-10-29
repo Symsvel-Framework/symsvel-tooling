@@ -59,6 +59,58 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         }
     }
 
+    public function testRollbackContinuesAfterFrontGitRecoveryFailure(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-update-cascade-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend', 0775, true);
+        file_put_contents($root.'/backend/composer.json', '{}');
+        $initial = [];
+        foreach (['bo', 'app', 'front'] as $component) {
+            $directory = $root.'/'.$component;
+            mkdir($directory);
+            $this->git($directory, ['init', '-b', 'main']);
+            $this->git($directory, ['config', 'user.email', 'test@example.test']);
+            $this->git($directory, ['config', 'user.name', 'SymSvel Test']);
+            file_put_contents($directory.'/version.txt', 'before');
+            $this->git($directory, ['add', 'version.txt']);
+            $this->git($directory, ['commit', '-m', 'before']);
+            $initial[$component] = trim($this->git($directory, ['rev-parse', 'HEAD']));
+        }
+        try {
+            $updater = new WorkspaceUpdater(function (array $command, string $cwd) use ($root): ?string {
+                if ($command === ['git', 'status', '--porcelain', '--untracked-files=all']) {
+                    return '';
+                }
+                if ($command === ['git', 'merge', '--ff-only', 'origin/main']) {
+                    file_put_contents($cwd.'/version.txt', 'after');
+                    $this->git($cwd, ['commit', '-am', 'after']);
+                }
+                if ($command === ['npm', 'run', 'build'] && $cwd === $root.'/front') {
+                    // Make FRONT's Git checkpoint unrecoverable while leaving BO/APP
+                    // intact. Other component recoveries must still run.
+                    $this->deleteTree($cwd.'/.git');
+                    throw new \RuntimeException('FRONT build exploded');
+                }
+                return null;
+            });
+            try {
+                $updater->update($root.'/backend', 'core');
+                self::fail('Expected FRONT failure.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
+                self::assertStringContainsString('Rollback incomplet', $error->getMessage());
+                self::assertStringContainsString('FRONT / Git', $error->getMessage());
+                self::assertStringContainsString('Rollback global non garanti', $error->getMessage());
+            }
+            foreach (['bo', 'app'] as $component) {
+                self::assertSame($initial[$component], trim($this->git($root.'/'.$component, ['rev-parse', 'HEAD'])));
+                self::assertSame('before', file_get_contents($root.'/'.$component.'/version.txt'));
+            }
+        } finally {
+            $this->deleteTree($root);
+        }
+    }
+
     /** @param list<string> $args */
     private function git(string $directory, array $args): string
     {
