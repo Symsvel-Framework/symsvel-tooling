@@ -123,6 +123,7 @@ final class ModuleMaker
         }
         $files['back/phpunit.xml.dist'] = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<phpunit bootstrap="../vendor/autoload.php" colors="true"><testsuites><testsuite name="Unit"><directory>tests/Unit</directory></testsuite><testsuite name="Integration"><directory>tests/Integration</directory></testsuite><testsuite name="Functional"><directory>tests/Functional</directory></testsuite></testsuites></phpunit>'."\n";
         $files['.github/workflows/qa.yml'] = "name: QA\non: [push, pull_request]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: shivammathur/setup-php@v2\n        with:\n          php-version: '8.4'\n      - run: composer install --no-interaction --prefer-dist\n      - run: composer qa\n";
+        $files['back/tests/Unit/'.$class.'BundleTest.php'] = "<?php\\n\\ndeclare(strict_types=1);\\n\\nnamespace ".$namespace."\\\\Tests\\\\Unit;\\n\\nuse PHPUnit\\\\Framework\\\\TestCase;\\nuse ".$namespace."\\\\".$class."Bundle;\\n\\nfinal class ".$class."BundleTest extends TestCase\\n{\\n    public function testBundleCanBeInstantiated(): void\\n    {\\n        self::assertInstanceOf(".$class."Bundle::class, new ".$class."Bundle());\\n    }\\n}\\n";
         $files['back/tests/Unit/.gitkeep'] = '';
         $files['back/tests/Integration/.gitkeep'] = '';
         $files['back/tests/Functional/.gitkeep'] = '';
