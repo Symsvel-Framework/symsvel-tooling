@@ -43,7 +43,17 @@ final class ComposerTransactionRunner
         $initialFiles = $this->workspaceFiles($backend);
         $transaction = $this->snapshots->begin($backend);
         $workspaceSnapshot = new WorkspaceFileSnapshot($backend, $transaction);
-        $workspaceSnapshot->capture();
+        try {
+            $workspaceSnapshot->capture();
+        } catch (\Throwable $failure) {
+            // No Composer command has started. Keep the snapshot for diagnosis;
+            // do not report a successful transaction or attempt a partial restore.
+            throw new \RuntimeException(
+                'BACK / Snapshot initial incomplet : opération Composer annulée avant exécution ; snapshot conservé : '.$transaction,
+                0,
+                $failure,
+            );
+        }
         try {
             $this->execute(array_merge(['composer'], $arguments), $backend, $progress);
         } catch (\Throwable $failure) {
