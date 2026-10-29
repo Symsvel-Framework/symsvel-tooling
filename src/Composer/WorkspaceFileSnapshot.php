@@ -25,6 +25,9 @@ final class WorkspaceFileSnapshot
         $workspace = dirname($this->backend);
         foreach (['backend', 'bo', 'app', 'front'] as $component) {
             $root = $component === 'backend' ? $this->backend : $workspace.'/'.$component;
+            if (is_link($root)) {
+                throw new \RuntimeException('Snapshot refusé : composant symbolique non fiable : '.$root);
+            }
             if (!is_dir($root)) {
                 continue;
             }
@@ -32,6 +35,13 @@ final class WorkspaceFileSnapshot
             foreach ($this->scan($root) as $relative => $path) {
                 $key = $component.'/'.$relative;
                 $target = $this->snapshot.'/workspace/'.$key;
+                $parent = dirname($target);
+                while ($parent !== $this->snapshot && $parent !== dirname($parent)) {
+                    if (is_link($parent)) {
+                        throw new \RuntimeException('Snapshot refusé : répertoire symbolique non fiable : '.$parent);
+                    }
+                    $parent = dirname($parent);
+                }
                 if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0700, true) && !is_dir(dirname($target))) {
                     throw new \RuntimeException('Impossible de préparer le snapshot : '.$key);
                 }
