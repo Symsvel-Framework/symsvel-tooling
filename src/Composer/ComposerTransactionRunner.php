@@ -44,10 +44,12 @@ final class ComposerTransactionRunner
         $initialFiles = $this->workspaceFiles($backend);
         $transaction = $this->snapshots->begin($backend);
         $workspaceSnapshot = new WorkspaceFileSnapshot($backend, $transaction);
+        $vendorSnapshot = new RuntimeArtifactSnapshot($backend, $transaction.'/backend', ['vendor']);
         /** @var list<RuntimeArtifactSnapshot> $runtimeSnapshots */
         $runtimeSnapshots = [];
         try {
             $workspaceSnapshot->capture();
+            $vendorSnapshot->capture();
             foreach (['bo', 'app', 'front'] as $component) {
                 $directory = dirname($backend).'/'.$component;
                 if (!is_dir($directory)) {
@@ -67,7 +69,7 @@ final class ComposerTransactionRunner
             );
         }
         try {
-            $this->execute(array_merge(['composer'], $arguments), $backend, $progress);
+            $this->execute(array_merge(['composer'], $arguments, ['--no-scripts', '--no-plugins']), $backend, $progress);
         } catch (\Throwable $failure) {
             try {
                 $this->snapshots->restoreManifests($backend, $transaction);
@@ -75,7 +77,7 @@ final class ComposerTransactionRunner
                 if (!is_file($backend.'/composer.lock')) {
                     throw new \RuntimeException('Aucun composer.lock initial : restauration vendor automatique impossible.');
                 }
-                $this->execute(['composer', 'install', '--no-scripts', '--no-plugins', '--no-interaction'], $backend, $progress);
+                $vendorSnapshot->restore();
                 $workspaceSnapshot->restore();
                 foreach ($runtimeSnapshots as $runtime) {
                     $runtime->restore();
@@ -89,6 +91,7 @@ final class ComposerTransactionRunner
                 foreach ($runtimeSnapshots as $runtime) {
                     $runtime->discard();
                 }
+                $vendorSnapshot->discard();
                 $workspaceSnapshot->discard();
                 $this->snapshots->finish($backend, $transaction);
             } catch (\Throwable $recovery) {
@@ -105,6 +108,7 @@ final class ComposerTransactionRunner
         foreach ($runtimeSnapshots as $runtime) {
             $runtime->discard();
         }
+        $vendorSnapshot->discard();
         $workspaceSnapshot->discard();
         $this->snapshots->finish($backend, $transaction);
     }
