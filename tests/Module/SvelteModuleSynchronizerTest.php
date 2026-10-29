@@ -58,7 +58,9 @@ final class SvelteModuleSynchronizerTest extends TestCase
         self::assertSame('<p>Updated</p>', file_get_contents($this->workspace.'/bo/src/lib/vendor/catalog/widget.svelte'));
         $this->installed(false);
         self::assertSame(['written' => 0, 'removed' => 9], $sync->sync($this->backend));
-        self::assertFileDoesNotExist($this->workspace.'/bo/src/routes/catalog/+page.svelte');
+        self::assertDirectoryDoesNotExist($this->workspace.'/bo/src/routes/catalog');
+        self::assertDirectoryDoesNotExist($this->workspace.'/bo/src/lib/vendor/catalog');
+        self::assertDirectoryExists($this->workspace.'/bo/src/routes');
     }
 
     public function testRefusesToOverwriteUserRoute(): void
