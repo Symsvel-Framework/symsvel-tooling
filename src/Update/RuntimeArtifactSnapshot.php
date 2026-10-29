@@ -53,6 +53,9 @@ final class RuntimeArtifactSnapshot
     public function discard(): void
     {
         $this->removeTree($this->transaction.'/runtime');
+        if (is_dir($this->transaction) && !rmdir($this->transaction)) {
+            throw new \RuntimeException('Nettoyage du snapshot runtime impossible : '.$this->transaction);
+        }
     }
 
     private function copyTree(string $source, string $destination): void
