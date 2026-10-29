@@ -46,8 +46,8 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 self::fail('Expected FRONT build failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
-                self::assertStringContainsString('Git restauré', $error->getMessage());
-                self::assertStringContainsString('rollback Composer, npm, builds et BDD non garanti', $error->getMessage());
+                self::assertStringContainsString('Git et artefacts npm/build restaurés', $error->getMessage());
+                self::assertStringContainsString('rollback Composer et BDD non garanti', $error->getMessage());
             }
             foreach ($initial as $component => $sha) {
                 self::assertSame($sha, trim($this->git($root.'/'.$component, ['rev-parse', 'HEAD'])));
