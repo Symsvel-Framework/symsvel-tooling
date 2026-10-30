@@ -102,6 +102,10 @@ final class ComposerTransactionSnapshot
                     || !chmod($destination, $manifest['modes'][$name])) {
                     throw new \RuntimeException('Restauration Composer impossible : '.$name);
                 }
+                if (hash_file('sha256', $destination) !== $manifest['fingerprints'][$name]
+                    || (fileperms($destination) & 0777) !== $manifest['modes'][$name]) {
+                    throw new \RuntimeException('Restauration Composer non vérifiée : '.$name);
+                }
             } elseif ((is_file($destination) || is_link($destination)) && !unlink($destination)) {
                 throw new \RuntimeException('Suppression Composer impossible : '.$name);
             }
