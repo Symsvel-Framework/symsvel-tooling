@@ -27,6 +27,25 @@ final class WorkspaceDatabaseBackupTest extends TestCase
         ]);
     }
 
+    public function testPostgresRestoreRefusesPartialRollbackAndRetainsCheckpoint(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'symsvel-pg-checkpoint-');
+        self::assertNotFalse($path);
+        file_put_contents($path, 'archive placeholder');
+        try {
+            $backup = new WorkspaceDatabaseBackup();
+            try {
+                $backup->restore('postgresql://localhost/example', ['driver' => 'postgresql', 'path' => $path]);
+                self::fail('Unsafe PostgreSQL restore must be refused.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('Restauration PostgreSQL globale non sécurisée', $error->getMessage());
+                self::assertFileExists($path);
+            }
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function testSqliteCheckpointRestoresDataAndSchemaAfterMutation(): void
     {
         $probe = new Process(['sqlite3', '-version']);
