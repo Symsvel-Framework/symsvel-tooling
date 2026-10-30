@@ -86,7 +86,10 @@ final class ComposerTransactionSnapshot
         foreach (self::FILES as $name) {
             $destination = $backend.'/'.$name;
             if ($manifest['files'][$name]) {
-                if (is_link($destination) || !is_file($directory.'/'.$name)
+                if (is_link($destination) && !unlink($destination)) {
+                    throw new \RuntimeException('Lien Composer impossible à supprimer : '.$name);
+                }
+                if (!is_file($directory.'/'.$name)
                     || !copy($directory.'/'.$name, $destination)
                     || !chmod($destination, $manifest['modes'][$name])) {
                     throw new \RuntimeException('Restauration Composer impossible : '.$name);
