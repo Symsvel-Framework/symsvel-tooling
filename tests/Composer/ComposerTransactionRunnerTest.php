@@ -143,6 +143,42 @@ final class ComposerTransactionRunnerTest extends TestCase
         }
     }
 
+    public function testMultipleRecoveryFailuresStillRestoreIndependentSourceFiles(): void
+    {
+        file_put_contents($this->backend.'/source.txt', 'original source');
+        mkdir($this->backend.'/vendor/existing', 0775, true);
+        file_put_contents($this->backend.'/vendor/existing/code.php', 'original vendor');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend): void {
+            file_put_contents($backend.'/source.txt', 'modified source');
+            file_put_contents($backend.'/vendor/existing/code.php', 'modified vendor');
+            file_put_contents($backend.'/composer.lock', '{"damaged":true}');
+            $transactions = glob($backend.'/.symsvel/transactions/*');
+            self::assertCount(1, $transactions);
+            $checkpoint = $transactions[0];
+            unlink($checkpoint.'/composer.lock');
+            unlink($checkpoint.'/backend/runtime/vendor/existing/code.php');
+            throw new \RuntimeException('injected Composer failure');
+        });
+        try {
+            $runner->run($this->backend, ['update', 'existing']);
+            self::fail('Recovery must report both corrupted checkpoints.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('récupération incomplète', $error->getMessage());
+            self::assertStringContainsString('BACK / manifests', $error->getMessage());
+            self::assertStringContainsString('BACK / vendor', $error->getMessage());
+            self::assertSame('original source', file_get_contents($this->backend.'/source.txt'));
+            self::assertNotEmpty(glob($this->backend.'/.symsvel/transactions/*'));
+        } finally {
+            foreach (glob($this->backend.'/.symsvel/transactions/*') ?: [] as $checkpoint) {
+                $this->deleteDirectory($checkpoint);
+            }
+            unlink($this->backend.'/source.txt');
+            unlink($this->backend.'/vendor/existing/code.php');
+            rmdir($this->backend.'/vendor/existing');
+            rmdir($this->backend.'/vendor');
+        }
+    }
+
     private function deleteDirectory(string $path): void
     {
         if (is_file($path) || is_link($path)) {
