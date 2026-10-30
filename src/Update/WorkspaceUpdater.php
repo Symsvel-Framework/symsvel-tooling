@@ -51,6 +51,13 @@ final class WorkspaceUpdater
                 throw new \RuntimeException('Le composant '.$component.' contient des modifications locales : mise à jour annulée avant Composer.');
             }
         }
+        // Validate the database configuration before creating any checkpoints.
+        // A missing DATABASE_URL must leave the workspace untouched.
+        $effectiveDatabaseUrl = $this->resolveDatabaseUrl($backendDir, $environment);
+        if (($this->runner === null || $this->snapshotWithRunner)
+            && (!is_string($effectiveDatabaseUrl) || $effectiveDatabaseUrl === '')) {
+            throw new \RuntimeException('BACK / BDD : DATABASE_URL explicite obligatoire pour garantir le rollback ; mise à jour annulée avant Composer.');
+        }
         $gitCheckpoints = [];
         foreach (['bo', 'app', 'front'] as $component) {
             $directory = $root.'/'.$component;
@@ -114,11 +121,7 @@ final class WorkspaceUpdater
         }
         $databaseBackup = null;
         $databaseCheckpoint = null;
-        $effectiveDatabaseUrl = $this->resolveDatabaseUrl($backendDir, $environment);
         if ($this->runner === null || $this->snapshotWithRunner) {
-            if (!is_string($effectiveDatabaseUrl) || $effectiveDatabaseUrl === '') {
-                throw new \RuntimeException('BACK / BDD : DATABASE_URL explicite obligatoire pour garantir le rollback ; mise à jour annulée avant Composer.');
-            }
             $databaseBackup = new WorkspaceDatabaseBackup();
             try {
                 $databaseCheckpoint = $databaseBackup->capture($backendDir, $effectiveDatabaseUrl);
