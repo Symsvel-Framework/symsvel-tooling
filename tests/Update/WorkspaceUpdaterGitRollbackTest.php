@@ -378,6 +378,32 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         }
     }
 
+    public function testMissingComposerLockFailsBeforeCreatingAnyCheckpoint(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-lock-preflight-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend', 0775, true);
+        file_put_contents($root.'/backend/composer.json', '{"name":"test/backend"}');
+        $database = $root.'/database.sqlite';
+        $commands = [];
+        try {
+            $runner = static function (array $command, string $cwd) use (&$commands): ?string {
+                $commands[] = $command;
+                return null;
+            };
+            try {
+                (new WorkspaceUpdater($runner, true, 'sqlite:///'.$database))->update($root.'/backend', 'core');
+                self::fail('Missing original lock must be rejected.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('composer.lock initial obligatoire', $error->getMessage());
+            }
+            self::assertSame([], $commands);
+            self::assertDirectoryDoesNotExist($root.'/backend/.symsvel/transactions');
+            self::assertSame('{"name":"test/backend"}', file_get_contents($root.'/backend/composer.json'));
+        } finally {
+            $this->deleteTree($root);
+        }
+    }
+
     public function testMissingDatabaseUrlFailsBeforeComposerWithoutChangingWorkspace(): void
     {
         $root = sys_get_temp_dir().'/symsvel-db-preflight-'.bin2hex(random_bytes(8));
