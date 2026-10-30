@@ -63,6 +63,9 @@ final class WorkspaceCleanupRegistry
     private function withLock(callable $callback): mixed
     {
         $directory = $this->backend.'/.symsvel';
+        if (is_link($directory)) {
+            throw new \RuntimeException('Lien symbolique interdit pour le registre cleanup.');
+        }
         if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
             throw new \RuntimeException('Registre cleanup inaccessible : '.$directory);
         }
