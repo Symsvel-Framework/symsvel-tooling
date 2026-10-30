@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Composer;
 
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\RuntimeArtifactSnapshot;
+use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
 
 /**
  * Opt-in Composer transaction runner.
@@ -104,13 +105,20 @@ final class ComposerTransactionRunner
             }
             throw new \RuntimeException('Opération Composer annulée et dépendances restaurées : '.$failure->getMessage(), 0, $failure);
         }
-        // Cleanup failure after a successful Composer command must never trigger a rollback.
-        foreach ($runtimeSnapshots as $runtime) {
-            $runtime->discard();
+        // Composer has succeeded. Register the checkpoint before deleting anything:
+        // an interrupted cleanup can be retried without turning success into failure.
+        try {
+            $registry = new WorkspaceCleanupRegistry($backend);
+            $registry->enqueue([$transaction]);
+            $result = $registry->cleanup();
+            if ($result['errors'] !== [] && $progress !== null) {
+                $progress('AVERTISSEMENT : opération Composer réussie, nettoyage différé (symsvel:cleanup) : '.implode(' ; ', $result['errors']));
+            }
+        } catch (\Throwable $cleanupFailure) {
+            if ($progress !== null) {
+                $progress('AVERTISSEMENT : opération Composer réussie, nettoyage non enregistré ou interrompu : '.$cleanupFailure->getMessage().'; checkpoint conservé si présent : '.$transaction);
+            }
         }
-        $vendorSnapshot->discard();
-        $workspaceSnapshot->discard();
-        $this->snapshots->finish($backend, $transaction);
     }
 
     /**
