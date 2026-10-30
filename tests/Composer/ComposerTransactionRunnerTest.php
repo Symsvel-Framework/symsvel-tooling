@@ -419,6 +419,30 @@ final class ComposerTransactionRunnerTest extends TestCase
         }
     }
 
+    public function testFailedComposerRollbackReplacesSymlinkedManifestWithoutTouchingOutside(): void
+    {
+        $outside = sys_get_temp_dir().'/symsvel-composer-outside-'.bin2hex(random_bytes(8));
+        file_put_contents($outside, 'outside remains untouched');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend) use ($outside): void {
+            unlink($backend.'/composer.json');
+            symlink($outside, $backend.'/composer.json');
+            throw new \RuntimeException('simulated recipe failure');
+        });
+        try {
+            try {
+                $runner->run($this->backend, ['update', 'existing']);
+                self::fail('Composer failure must trigger rollback.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+            }
+            self::assertFalse(is_link($this->backend.'/composer.json'));
+            self::assertSame('{"require":{"existing":"1.0"}}', file_get_contents($this->backend.'/composer.json'));
+            self::assertSame('outside remains untouched', file_get_contents($outside));
+        } finally {
+            @unlink($outside);
+        }
+    }
+
     public function testRejectsMissingOriginalLockWithoutExecutingComposer(): void
     {
         unlink($this->backend.'/composer.lock');
