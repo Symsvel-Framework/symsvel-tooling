@@ -157,6 +157,8 @@ final class ComposerTransactionRunnerTest extends TestCase
             $checkpoint = $transactions[0];
             unlink($checkpoint.'/composer.lock');
             unlink($checkpoint.'/backend/runtime/vendor/existing/code.php');
+            rmdir($checkpoint.'/backend/runtime/vendor/existing');
+            rmdir($checkpoint.'/backend/runtime/vendor');
             throw new \RuntimeException('injected Composer failure');
         });
         try {
