@@ -21,7 +21,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
             $updater = new WorkspaceUpdater(databaseUrl: 'sqlite:///explicit.sqlite');
             $method = new \\ReflectionMethod(WorkspaceUpdater::class, 'resolveDatabaseUrl');
             self::assertSame('sqlite:///explicit.sqlite', $method->invoke($updater, $root.'/backend', 'core'));
-            if (!class_exists(\\Symfony\\Component\\Dotenv\\Dotenv::class)) {
+            if (!class_exists(\Symfony\Component\\Dotenv\\Dotenv::class)) {
                 self::markTestSkipped('Symfony Dotenv is not installed.');
             }
             $external = $_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
