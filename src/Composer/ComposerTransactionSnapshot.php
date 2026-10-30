@@ -30,18 +30,25 @@ final class ComposerTransactionSnapshot
             throw new \RuntimeException('Impossible de créer la transaction.');
         }
         $state = [];
+        $fingerprints = [];
         foreach (self::FILES as $name) {
             $source = $backend.'/'.$name;
             $present = is_file($source);
             $state[$name] = $present;
-            if ($present && !copy($source, $directory.'/'.$name)) {
-                throw new \RuntimeException('Sauvegarde Composer impossible : '.$name);
+            if ($present) {
+                $fingerprint = hash_file('sha256', $source);
+                if ($fingerprint === false || !copy($source, $directory.'/'.$name)
+                    || hash_file('sha256', $directory.'/'.$name) !== $fingerprint) {
+                    throw new \RuntimeException('Sauvegarde Composer impossible : '.$name);
+                }
+                $fingerprints[$name] = $fingerprint;
             }
         }
         file_put_contents($directory.'/manifest.json', json_encode([
             'schema' => 1,
             'backend' => $backend,
             'files' => $state,
+            'fingerprints' => $fingerprints,
             'status' => 'pending',
         ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
         return $directory;
@@ -52,6 +59,17 @@ final class ComposerTransactionSnapshot
     {
         $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
         $manifest = $this->read($backend, $directory);
+        // Preflight all saved manifests before overwriting any current file.
+        foreach (self::FILES as $name) {
+            if (!$manifest['files'][$name]) {
+                continue;
+            }
+            $source = $directory.'/'.$name;
+            if (!is_file($source) || is_link($source)
+                || hash_file('sha256', $source) !== ($manifest['fingerprints'][$name] ?? null)) {
+                throw new \RuntimeException('Sauvegarde Composer altérée : '.$name);
+            }
+        }
         foreach (self::FILES as $name) {
             $destination = $backend.'/'.$name;
             if ($manifest['files'][$name]) {
@@ -91,8 +109,15 @@ final class ComposerTransactionSnapshot
             || !array_key_exists('composer.lock', $data['files'])
             || !array_key_exists('symfony.lock', $data['files'])
             || !is_bool($data['files']['composer.json']) || !is_bool($data['files']['composer.lock'])
-            || !is_bool($data['files']['symfony.lock'])) {
+            || !is_bool($data['files']['symfony.lock']) || !isset($data['fingerprints']) || !is_array($data['fingerprints'])) {
             throw new \RuntimeException('Manifeste de transaction invalide.');
+        }
+        foreach (self::FILES as $name) {
+            if ($data['files'][$name] && (!isset($data['fingerprints'][$name])
+                || !is_string($data['fingerprints'][$name])
+                || !preg_match('/^[a-f0-9]{64}$/D', $data['fingerprints'][$name]))) {
+                throw new \RuntimeException('Empreinte Composer invalide : '.$name);
+            }
         }
         return $data;
     }
