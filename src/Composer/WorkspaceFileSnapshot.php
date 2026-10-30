@@ -132,6 +132,29 @@ final class WorkspaceFileSnapshot
                 }
             }
         }
+        $this->verifyRestoration();
+    }
+
+    /** Verify every restored source and reject files left behind by rollback. */
+    private function verifyRestoration(): void
+    {
+        foreach ($this->roots as $root) {
+            $component = $root === $this->backend ? 'backend' : basename($root);
+            foreach ($this->scan($root) as $relative => $path) {
+                $key = $component.'/'.$relative;
+                if (!isset($this->fingerprints[$key]) || $this->fingerprint($path) !== $this->fingerprints[$key]) {
+                    throw new \RuntimeException('Rollback sources non vérifié : '.$key);
+                }
+            }
+        }
+        foreach ($this->files as $key => $source) {
+            [$component, $relative] = explode('/', $key, 2);
+            $root = $component === 'backend' ? $this->backend : dirname($this->backend).'/'.$component;
+            $target = $root.'/'.$relative;
+            if ((!is_file($target) && !is_link($target)) || $this->fingerprint($target) !== $this->fingerprints[$key]) {
+                throw new \RuntimeException('Rollback sources non vérifié : '.$key);
+            }
+        }
     }
 
     public function discard(): void
