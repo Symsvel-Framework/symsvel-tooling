@@ -60,6 +60,51 @@ final class WorkspaceDatabaseBackupTest extends TestCase
         }
     }
 
+    public function testPostgresRestoresOriginalDataAndDropsTablesCreatedAfterCheckpoint(): void
+    {
+        $url = getenv('SYMSVEL_TEST_POSTGRES_URL');
+        if (!is_string($url) || $url === '') {
+            self::markTestSkipped('Dedicated PostgreSQL integration database not configured.');
+        }
+        // Destructive integration test: never run against a non-CI database.
+        $parts = parse_url($url);
+        if ($parts === false || ($parts['path'] ?? '') !== '/symsvel_rollback_ci') {
+            self::fail('PostgreSQL integration test requires the dedicated symsvel_rollback_ci database.');
+        }
+        $env = ['PGPASSWORD' => rawurldecode((string) ($parts['pass'] ?? ''))];
+        $psql = static function (string $sql) use ($parts, $env): string {
+            $command = [
+                'psql', '-X', '-v', 'ON_ERROR_STOP=1',
+                '--host='.($parts['host'] ?? '127.0.0.1'),
+                '--port='.($parts['port'] ?? 5432),
+                '--username='.rawurldecode((string) ($parts['user'] ?? '')),
+                '--dbname=symsvel_rollback_ci', '-Atc', $sql,
+            ];
+            $process = new Process($command, null, $env);
+            $process->mustRun();
+            return trim($process->getOutput());
+        };
+        $root = sys_get_temp_dir().'/symsvel-pg-rollback-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        $backup = new WorkspaceDatabaseBackup();
+        $checkpoint = null;
+        try {
+            $psql('DROP TABLE IF EXISTS symsvel_new_table; DROP TABLE IF EXISTS symsvel_initial_table; CREATE TABLE symsvel_initial_table (id INTEGER PRIMARY KEY, label TEXT); INSERT INTO symsvel_initial_table VALUES (1, \'original\');');
+            $checkpoint = $backup->capture($root, $url);
+            $psql('UPDATE symsvel_initial_table SET label = \'changed\'; CREATE TABLE symsvel_new_table (id INTEGER); INSERT INTO symsvel_new_table VALUES (2);');
+            $backup->restore($url, $checkpoint);
+            self::assertSame('original', $psql('SELECT label FROM symsvel_initial_table WHERE id=1'));
+            self::assertSame('0', $psql("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='symsvel_new_table'"));
+        } finally {
+            if ($checkpoint !== null) {
+                $backup->discard($checkpoint);
+            }
+            @rmdir($root.'/.symsvel/transactions');
+            @rmdir($root.'/.symsvel');
+            @rmdir($root);
+        }
+    }
+
     public function testSqliteCheckpointRestoresDataAndSchemaAfterMutation(): void
     {
         $probe = new Process(['sqlite3', '-version']);
