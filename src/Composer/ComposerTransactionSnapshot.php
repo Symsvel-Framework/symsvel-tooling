@@ -120,6 +120,9 @@ final class ComposerTransactionSnapshot
         if ($root === false || $actual === false || dirname($actual) !== $root) {
             throw new \RuntimeException('Transaction hors registre.');
         }
+        if (is_link($actual.'/manifest.json') || !is_file($actual.'/manifest.json')) {
+            throw new \RuntimeException('Manifeste de transaction absent ou symbolique.');
+        }
         $data = json_decode((string) file_get_contents($actual.'/manifest.json'), true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($data) || ($data['schema'] ?? null) !== 1 || ($data['backend'] ?? null) !== $backend
             || !isset($data['files']) || !is_array($data['files'])
