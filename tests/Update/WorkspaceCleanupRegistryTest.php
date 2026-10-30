@@ -159,6 +159,33 @@ final class WorkspaceCleanupRegistryTest extends TestCase
         }
     }
 
+    public function testRejectsSymlinkedRegistryFilesWithoutTouchingExternalTarget(): void
+    {
+        foreach (['cleanup.lock', 'cleanup-pending.json'] as $filename) {
+            $root = sys_get_temp_dir().'/symsvel-cleanup-file-link-'.bin2hex(random_bytes(8));
+            $backend = $root.'/backend';
+            mkdir($backend.'/.symsvel/transactions', 0700, true);
+            file_put_contents($root.'/outside.txt', 'preserve');
+            symlink($root.'/outside.txt', $backend.'/.symsvel/'.$filename);
+            try {
+                $this->expectSymlinkedRegistryRejection($backend);
+                self::assertSame('preserve', file_get_contents($root.'/outside.txt'));
+            } finally {
+                $this->remove($root);
+            }
+        }
+    }
+
+    private function expectSymlinkedRegistryRejection(string $backend): void
+    {
+        try {
+            (new WorkspaceCleanupRegistry($backend))->cleanup();
+            self::fail('Symlinked cleanup control file must be rejected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Lien symbolique interdit', $error->getMessage());
+        }
+    }
+
     private function remove(string $path): void
     {
         if (!file_exists($path) && !is_link($path)) {
