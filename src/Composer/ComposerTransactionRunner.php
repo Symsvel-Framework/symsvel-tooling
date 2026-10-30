@@ -58,7 +58,7 @@ final class ComposerTransactionRunner
                 }
                 $runtime = new RuntimeArtifactSnapshot($directory, $transaction.'/'.$component);
                 $runtime->capture();
-                $runtimeSnapshots[] = $runtime;
+                $runtimeSnapshots[$component] = $runtime;
             }
         } catch (\Throwable $failure) {
             // No Composer command has started. Keep the snapshot for diagnosis;
@@ -90,11 +90,11 @@ final class ComposerTransactionRunner
             } catch (\Throwable $recovery) {
                 $recoveryErrors[] = 'Workspace / sources : '.$recovery->getMessage();
             }
-            foreach ($runtimeSnapshots as $index => $runtime) {
+            foreach ($runtimeSnapshots as $component => $runtime) {
                 try {
                     $runtime->restore();
                 } catch (\Throwable $recovery) {
-                    $recoveryErrors[] = ['BO', 'APP', 'FRONT'][$index].' / npm-build : '.$recovery->getMessage();
+                    $recoveryErrors[] = strtoupper($component).' / npm-build : '.$recovery->getMessage();
                 }
             }
             try {
