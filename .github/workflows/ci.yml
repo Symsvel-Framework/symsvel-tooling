@@ -36,7 +36,16 @@ jobs:
       - name: Lint PHP files
         run: find src tests -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: PostgreSQL client tools
-        run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y curl ca-certificates
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc > /dev/null
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
       - name: PHPUnit
         env:
           SYMSVEL_TEST_POSTGRES_URL: postgresql://symsvel_ci:symsvel_ci_only@127.0.0.1:5432/symsvel_rollback_ci
