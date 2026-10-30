@@ -181,6 +181,48 @@ final class ComposerTransactionRunnerTest extends TestCase
         }
     }
 
+    public function testCorruptedComposerLockCheckpointDoesNotPartiallyRestoreJson(): void
+    {
+        $snapshot = new \SymSvel\Tooling\Composer\ComposerTransactionSnapshot();
+        $checkpoint = $snapshot->begin($this->backend);
+        try {
+            file_put_contents($this->backend.'/composer.json', '{"mutated":true}');
+            file_put_contents($this->backend.'/composer.lock', '{"mutated":true}');
+            file_put_contents($checkpoint.'/composer.lock', '{"corrupted":true}');
+            try {
+                $snapshot->restoreManifests($this->backend, $checkpoint);
+                self::fail('Corrupted checkpoint must be rejected.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('Sauvegarde Composer altérée : composer.lock', $error->getMessage());
+            }
+            self::assertSame('{"mutated":true}', file_get_contents($this->backend.'/composer.json'));
+            self::assertSame('{"mutated":true}', file_get_contents($this->backend.'/composer.lock'));
+        } finally {
+            $this->deleteDirectory($checkpoint);
+        }
+    }
+
+    public function testMissingComposerLockCheckpointDoesNotPartiallyRestoreJson(): void
+    {
+        $snapshot = new \SymSvel\Tooling\Composer\ComposerTransactionSnapshot();
+        $checkpoint = $snapshot->begin($this->backend);
+        try {
+            file_put_contents($this->backend.'/composer.json', '{"mutated":true}');
+            file_put_contents($this->backend.'/composer.lock', '{"mutated":true}');
+            unlink($checkpoint.'/composer.lock');
+            try {
+                $snapshot->restoreManifests($this->backend, $checkpoint);
+                self::fail('Missing checkpoint must be rejected.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('Sauvegarde Composer altérée : composer.lock', $error->getMessage());
+            }
+            self::assertSame('{"mutated":true}', file_get_contents($this->backend.'/composer.json'));
+            self::assertSame('{"mutated":true}', file_get_contents($this->backend.'/composer.lock'));
+        } finally {
+            $this->deleteDirectory($checkpoint);
+        }
+    }
+
     private function deleteDirectory(string $path): void
     {
         if (is_file($path) || is_link($path)) {
