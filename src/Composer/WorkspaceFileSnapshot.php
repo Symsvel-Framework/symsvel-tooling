@@ -80,6 +80,20 @@ final class WorkspaceFileSnapshot
 
     public function restore(): void
     {
+        // Reject redirected checkpoint directories before reading any saved file.
+        $snapshotRoot = $this->snapshot.'/workspace';
+        if (is_link($snapshotRoot) || !is_dir($snapshotRoot)) {
+            throw new \RuntimeException('Rollback sources impossible : répertoire de sauvegarde absent ou symbolique.');
+        }
+        foreach ($this->files as $source) {
+            $parent = dirname($source);
+            while ($parent !== $this->snapshot && $parent !== dirname($parent)) {
+                if (is_link($parent)) {
+                    throw new \RuntimeException('Rollback sources impossible : répertoire de sauvegarde symbolique : '.$parent);
+                }
+                $parent = dirname($parent);
+            }
+        }
         // Validate every saved source before removing any current workspace file.
         foreach ($this->files as $key => $source) {
             if ((!is_file($source) && !is_link($source)) || $this->fingerprint($source) !== $this->fingerprints[$key]) {
