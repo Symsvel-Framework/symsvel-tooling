@@ -117,13 +117,13 @@ final class WorkspaceUpdater
         $effectiveDatabaseUrl = $this->databaseUrl ?? ($_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL') ?: null);
         if ($this->runner === null || $this->snapshotWithRunner) {
             if (!is_string($effectiveDatabaseUrl) || $effectiveDatabaseUrl === '') {
-                throw new \\RuntimeException('BACK / BDD : DATABASE_URL explicite obligatoire pour garantir le rollback ; mise à jour annulée avant Composer.');
+                throw new \RuntimeException('BACK / BDD : DATABASE_URL explicite obligatoire pour garantir le rollback ; mise à jour annulée avant Composer.');
             }
             $databaseBackup = new WorkspaceDatabaseBackup();
             try {
                 $databaseCheckpoint = $databaseBackup->capture($backendDir, $effectiveDatabaseUrl);
-            } catch (\\Throwable $failure) {
-                throw new \\RuntimeException('BACK / Snapshot BDD impossible : '.$failure->getMessage().'; mise à jour annulée avant Composer.', 0, $failure);
+            } catch (\Throwable $failure) {
+                throw new \RuntimeException('BACK / Snapshot BDD impossible : '.$failure->getMessage().'; mise à jour annulée avant Composer.', 0, $failure);
             }
         }
         $componentInProgress = 'BACK';
@@ -220,7 +220,7 @@ final class WorkspaceUpdater
             if ($databaseBackup !== null && $databaseCheckpoint !== null && is_string($effectiveDatabaseUrl)) {
                 try {
                     $databaseBackup->restore($effectiveDatabaseUrl, $databaseCheckpoint);
-                } catch (\\Throwable $recovery) {
+                } catch (\Throwable $recovery) {
                     $rollbackErrors[] = 'BACK / BDD : '.$recovery->getMessage().'; checkpoint conservé : '.$databaseCheckpoint['path'];
                 }
             }
