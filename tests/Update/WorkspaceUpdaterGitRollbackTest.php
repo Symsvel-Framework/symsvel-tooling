@@ -221,6 +221,90 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         }
     }
 
+    public function testPostgresFrontFailureRestoresWholeDatabaseAndWorkspace(): void
+    {
+        $url = getenv('SYMSVEL_TEST_POSTGRES_URL');
+        if (!is_string($url) || $url === '') {
+            self::markTestSkipped('Dedicated PostgreSQL CI database not configured.');
+        }
+        $parts = parse_url($url);
+        if ($parts === false || ($parts['path'] ?? '') !== '/symsvel_rollback_ci') {
+            self::fail('Destructive test requires dedicated symsvel_rollback_ci database.');
+        }
+        $env = ['PGPASSWORD' => rawurldecode((string) ($parts['pass'] ?? ''))];
+        $sql = static function (string $query) use ($parts, $env): string {
+            $process = new Process([
+                'psql', '-X', '-v', 'ON_ERROR_STOP=1',
+                '--host='.($parts['host'] ?? '127.0.0.1'),
+                '--port='.($parts['port'] ?? 5432),
+                '--username='.rawurldecode((string) ($parts['user'] ?? '')),
+                '--dbname=symsvel_rollback_ci', '-Atc', $query,
+            ], null, $env);
+            $process->mustRun();
+            return trim($process->getOutput());
+        };
+        $root = sys_get_temp_dir().'/symsvel-pg-global-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend/vendor/pkg', 0775, true);
+        file_put_contents($root.'/backend/composer.json', '{"name":"test/backend"}');
+        file_put_contents($root.'/backend/composer.lock', '{"packages":[]}');
+        file_put_contents($root.'/backend/vendor/pkg/index.php', 'original');
+        $heads = [];
+        foreach (['bo', 'app', 'front'] as $component) {
+            $dir = $root.'/'.$component;
+            mkdir($dir.'/build', 0775, true);
+            file_put_contents($dir.'/build/index.html', 'original');
+            $this->git($dir, ['init', '-b', 'main']);
+            $this->git($dir, ['config', 'user.email', 'test@example.test']);
+            $this->git($dir, ['config', 'user.name', 'SymSvel Test']);
+            file_put_contents($dir.'/version.txt', 'original');
+            $this->git($dir, ['add', 'version.txt']);
+            $this->git($dir, ['commit', '-m', 'original']);
+            $heads[$component] = trim($this->git($dir, ['rev-parse', 'HEAD']));
+        }
+        try {
+            $sql("DROP TABLE IF EXISTS symsvel_global_extra; DROP TABLE IF EXISTS symsvel_global_probe; CREATE TABLE symsvel_global_probe (value TEXT); INSERT INTO symsvel_global_probe VALUES ('original');");
+            $runner = function (array $command, string $cwd) use ($root, $sql): ?string {
+                if ($command === ['git', 'status', '--porcelain', '--untracked-files=all']) {
+                    return '';
+                }
+                if ($command[0] === 'composer') {
+                    file_put_contents($cwd.'/composer.lock', '{"changed":true}');
+                    file_put_contents($cwd.'/vendor/pkg/index.php', 'changed');
+                    $sql("UPDATE symsvel_global_probe SET value='changed'; CREATE TABLE symsvel_global_extra (id INTEGER);");
+                }
+                if ($command === ['git', 'merge', '--ff-only', 'origin/main']) {
+                    file_put_contents($cwd.'/version.txt', 'changed');
+                    $this->git($cwd, ['commit', '-am', 'changed']);
+                }
+                if ($command === ['npm', 'run', 'build']) {
+                    file_put_contents($cwd.'/build/index.html', 'changed');
+                    if ($cwd === $root.'/front') {
+                        throw new \RuntimeException('FRONT build exploded');
+                    }
+                }
+                return null;
+            };
+            try {
+                (new WorkspaceUpdater($runner, true, $url))->update($root.'/backend', 'core');
+                self::fail('Expected FRONT failure.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
+                self::assertStringContainsString('BDD restaurés', $error->getMessage());
+            }
+            self::assertSame('original', $sql('SELECT value FROM symsvel_global_probe'));
+            self::assertSame('0', $sql("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='symsvel_global_extra'"));
+            self::assertSame('{"packages":[]}', file_get_contents($root.'/backend/composer.lock'));
+            self::assertSame('original', file_get_contents($root.'/backend/vendor/pkg/index.php'));
+            foreach ($heads as $component => $head) {
+                self::assertSame($head, trim($this->git($root.'/'.$component, ['rev-parse', 'HEAD'])));
+                self::assertSame('original', file_get_contents($root.'/'.$component.'/version.txt'));
+                self::assertSame('original', file_get_contents($root.'/'.$component.'/build/index.html'));
+            }
+        } finally {
+            $this->deleteTree($root);
+        }
+    }
+
     /** @param list<string> $args */
     private function git(string $directory, array $args): string
     {
