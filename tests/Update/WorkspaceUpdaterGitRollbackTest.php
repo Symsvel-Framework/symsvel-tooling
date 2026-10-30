@@ -119,6 +119,8 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         file_put_contents($root.'/backend/composer.lock', '{"packages":[]}');
         file_put_contents($root.'/backend/vendor/pkg/index.php', 'vendor-before');
         file_put_contents($root.'/backend/source.php', 'source-before');
+        $database = $root.'/rollback.sqlite';
+        (new Process(['sqlite3', $database, 'CREATE TABLE rollback_probe (value TEXT); INSERT INTO rollback_probe VALUES (\'before\');']))->mustRun();
         $heads = [];
         foreach (['bo', 'app', 'front'] as $component) {
             $dir = $root.'/'.$component;
@@ -135,7 +137,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
             $heads[$component] = trim($this->git($dir, ['rev-parse', 'HEAD']));
         }
         try {
-            $runner = function (array $command, string $cwd) use ($root): ?string {
+            $runner = function (array $command, string $cwd) use ($root, $database): ?string {
                 if ($command === ['git', 'status', '--porcelain', '--untracked-files=all']) {
                     return '';
                 }
@@ -145,6 +147,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                     file_put_contents($cwd.'/vendor/pkg/index.php', 'vendor-after');
                     file_put_contents($cwd.'/source.php', 'source-after');
                     file_put_contents($cwd.'/new-source.php', 'new');
+                    (new Process(['sqlite3', $database, "UPDATE rollback_probe SET value='after'; CREATE TABLE unexpected (id INTEGER);"]))->mustRun();
                 }
                 if ($command === ['git', 'merge', '--ff-only', 'origin/main']) {
                     file_put_contents($cwd.'/version.txt', 'git-after');
@@ -163,7 +166,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 return null;
             };
             try {
-                (new WorkspaceUpdater($runner, true))->update($root.'/backend', 'core');
+                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database))->update($root.'/backend', 'core');
                 self::fail('Expected FRONT build failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
@@ -173,6 +176,12 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
             self::assertSame('{"packages":[]}', file_get_contents($root.'/backend/composer.lock'));
             self::assertSame('vendor-before', file_get_contents($root.'/backend/vendor/pkg/index.php'));
             self::assertSame('source-before', file_get_contents($root.'/backend/source.php'));
+            $probe = new Process(['sqlite3', $database, 'SELECT value FROM rollback_probe;']);
+            $probe->mustRun();
+            self::assertSame('before', trim($probe->getOutput()));
+            $unexpected = new Process(['sqlite3', $database, "SELECT COUNT(*) FROM sqlite_master WHERE name='unexpected';"]);
+            $unexpected->mustRun();
+            self::assertSame('0', trim($unexpected->getOutput()));
             self::assertFileDoesNotExist($root.'/backend/new-source.php');
             foreach ($heads as $component => $head) {
                 $dir = $root.'/'.$component;
