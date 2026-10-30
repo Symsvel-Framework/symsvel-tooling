@@ -43,10 +43,11 @@ final class WorkspaceDatabaseBackupTest extends TestCase
         $checkpoint = null;
         try {
             $checkpoint = $backup->capture($root, $url);
-            $this->sql($database, "UPDATE example SET name = 'modified'; INSERT INTO example VALUES (2, 'new');");
+            $this->sql($database, "UPDATE example SET name = 'modified'; INSERT INTO example VALUES (2, 'new'); CREATE TABLE unexpected (id INTEGER); INSERT INTO unexpected VALUES (7);");
             $backup->restore($url, $checkpoint);
             self::assertSame('initial', trim($this->sql($database, 'SELECT name FROM example;')));
             self::assertSame('1', trim($this->sql($database, 'SELECT COUNT(*) FROM example;')));
+            self::assertSame('0', trim($this->sql($database, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='unexpected';")));
         } finally {
             if ($checkpoint !== null) {
                 $backup->discard($checkpoint);
