@@ -15,13 +15,13 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         $root = sys_get_temp_dir().'/symsvel-env-resolution-'.bin2hex(random_bytes(8));
         mkdir($root.'/backend', 0775, true);
         try {
-            file_put_contents($root.'/backend/.env', "DATABASE_URL=sqlite:///default.sqlite\\n");
-            file_put_contents($root.'/backend/.env.core', "DATABASE_URL=sqlite:///core.sqlite\\n");
-            file_put_contents($root.'/backend/.env.core.local', "DATABASE_URL=sqlite:///core-local.sqlite\\n");
+            file_put_contents($root.'/backend/.env', "DATABASE_URL=sqlite:///default.sqlite\n");
+            file_put_contents($root.'/backend/.env.core', "DATABASE_URL=sqlite:///core.sqlite\n");
+            file_put_contents($root.'/backend/.env.core.local', "DATABASE_URL=sqlite:///core-local.sqlite\n");
             $updater = new WorkspaceUpdater(databaseUrl: 'sqlite:///explicit.sqlite');
-            $method = new \\ReflectionMethod(WorkspaceUpdater::class, 'resolveDatabaseUrl');
+            $method = new \ReflectionMethod(WorkspaceUpdater::class, 'resolveDatabaseUrl');
             self::assertSame('sqlite:///explicit.sqlite', $method->invoke($updater, $root.'/backend', 'core'));
-            if (!class_exists(\Symfony\Component\\Dotenv\\Dotenv::class)) {
+            if (!class_exists(\Symfony\Component\Dotenv\Dotenv::class)) {
                 self::markTestSkipped('Symfony Dotenv is not installed.');
             }
             $external = $_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
