@@ -137,6 +137,42 @@ final class WorkspaceFileSnapshotTest extends TestCase
         }
     }
 
+    public function testRejectsRedirectedCheckpointDirectoryBeforeChangingWorkspace(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-snapshot-checkpoint-link-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $transaction = $backend.'/.symsvel/transactions/test';
+        mkdir($transaction, 0700, true);
+        file_put_contents($backend.'/source.php', 'original');
+        $snapshot = new WorkspaceFileSnapshot($backend, $transaction);
+        try {
+            $snapshot->capture();
+            file_put_contents($backend.'/source.php', 'changed');
+            file_put_contents($backend.'/new.php', 'keep');
+            rename($transaction.'/workspace/backend', $transaction.'/saved-backend');
+            symlink($transaction.'/saved-backend', $transaction.'/workspace/backend');
+            try {
+                $snapshot->restore();
+                self::fail('Redirected checkpoint directory must be rejected.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('sauvegarde symbolique', $error->getMessage());
+                self::assertSame('changed', file_get_contents($backend.'/source.php'));
+                self::assertSame('keep', file_get_contents($backend.'/new.php'));
+            }
+        } finally {
+            @unlink($transaction.'/workspace/backend');
+            @rename($transaction.'/saved-backend', $transaction.'/workspace/backend');
+            $snapshot->discard();
+            @unlink($backend.'/source.php');
+            @unlink($backend.'/new.php');
+            @rmdir($transaction);
+            @rmdir(dirname($transaction));
+            @rmdir(dirname(dirname($transaction)));
+            @rmdir($backend);
+            @rmdir($root);
+        }
+    }
+
     public function testRestorePreservesExecutablePermissions(): void
     {
         $root = sys_get_temp_dir().'/symsvel-snapshot-mode-'.bin2hex(random_bytes(8));
