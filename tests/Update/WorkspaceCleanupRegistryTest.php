@@ -27,7 +27,7 @@ final class WorkspaceCleanupRegistryTest extends TestCase
             self::assertSame([], json_decode((string) file_get_contents($backend.'/.symsvel/cleanup-pending.json'), true));
             self::assertSame(0, $registry->cleanup()['removed']);
         } finally {
-            $this->remove($backend.'/..');
+            $this->remove(dirname($backend));
         }
     }
 
@@ -40,7 +40,7 @@ final class WorkspaceCleanupRegistryTest extends TestCase
             $this->expectException(\RuntimeException::class);
             $registry->enqueue([$backend.'/composer.json']);
         } finally {
-            $this->remove($backend.'/..');
+            $this->remove(dirname($backend));
         }
     }
 
