@@ -60,13 +60,31 @@ final class WorkspaceDatabaseBackup
         if ($driver === 'sqlite') {
             $this->run(['sqlite3', $this->sqlitePath($parts), '.restore '.$checkpoint['path']]);
         } elseif ($driver === 'postgresql') {
-            // pg_restore --clean only removes objects present in the archive.
-            // It cannot undo new tables/schemas created after capture. Never
-            // advertise a partial restore as a whole-database rollback.
-            throw new \RuntimeException(
-                'Restauration PostgreSQL globale non sécurisée : les objets créés après le checkpoint resteraient présents. '.
-                'Checkpoint conservé pour restauration contrôlée : '.$checkpoint['path'],
+            // Restore at DATABASE level, not object level: --create --clean
+            // drops the target database, including objects absent from the dump.
+            // The maintenance connection must point to another database.
+            [$connection, $env] = $this->postgresConnection($parts);
+            $database = substr((string) end($connection), strlen('--dbname='));
+            if (in_array($database, ['postgres', 'template0', 'template1'], true)) {
+                throw new \DomainException('Restauration destructive de la base de maintenance interdite.');
+            }
+            $archive = new Process(['pg_restore', '--list', $checkpoint['path']]);
+            $archive->setTimeout(60);
+            $archive->run();
+            if (!$archive->isSuccessful() || !preg_match('/^;\\s*dbname:\\s*(.+)\\s*$/m', $archive->getOutput(), $matches)) {
+                throw new \RuntimeException('Archive PostgreSQL illisible ou nom de base absent.');
+            }
+            if (trim($matches[1]) !== $database) {
+                throw new \RuntimeException('La base cible ne correspond pas à la base sauvegardée.');
+            }
+            $maintenance = array_map(
+                static fn (string $arg): string => str_starts_with($arg, '--dbname=') ? '--dbname=postgres' : $arg,
+                $connection,
             );
+            $this->run([
+                'pg_restore', '--exit-on-error', '--create', '--clean', '--if-exists',
+                '--no-owner', '--no-acl', ...$maintenance, $checkpoint['path'],
+            ], $env);
         } else {
             throw new \DomainException('Restauration globale non prise en charge pour '.$driver.'.');
         }
