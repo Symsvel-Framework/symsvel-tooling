@@ -223,6 +223,33 @@ final class ComposerTransactionRunnerTest extends TestCase
         }
     }
 
+    public function testComposerManifestPermissionsAreRestoredAndCheckpointModeTamperingIsRejected(): void
+    {
+        chmod($this->backend.'/composer.json', 0640);
+        $snapshot = new \SymSvel\Tooling\Composer\ComposerTransactionSnapshot();
+        $checkpoint = $snapshot->begin($this->backend);
+        try {
+            chmod($this->backend.'/composer.json', 0600);
+            file_put_contents($this->backend.'/composer.json', '{"mutated":true}');
+            $snapshot->restoreManifests($this->backend, $checkpoint);
+            self::assertSame(0640, fileperms($this->backend.'/composer.json') & 0777);
+            self::assertSame('{"require":{"existing":"1.0"}}', file_get_contents($this->backend.'/composer.json'));
+
+            chmod($checkpoint.'/composer.lock', 0600);
+            file_put_contents($this->backend.'/composer.json', '{"mutated":true}');
+            try {
+                $snapshot->restoreManifests($this->backend, $checkpoint);
+                self::fail('Tampered checkpoint permissions must be rejected.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('Sauvegarde Composer altérée : composer.lock', $error->getMessage());
+            }
+            self::assertSame('{"mutated":true}', file_get_contents($this->backend.'/composer.json'));
+        } finally {
+            chmod($checkpoint.'/composer.lock', 0644);
+            $this->deleteDirectory($checkpoint);
+        }
+    }
+
     private function deleteDirectory(string $path): void
     {
         if (is_file($path) || is_link($path)) {
