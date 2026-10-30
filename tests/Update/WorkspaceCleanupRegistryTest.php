@@ -1,0 +1,203 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SymSvel\Tooling\Tests\Update;
+
+use PHPUnit\Framework\TestCase;
+use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
+
+final class WorkspaceCleanupRegistryTest extends TestCase
+{
+    public function testEnqueueAndCleanupCommittedTransaction(): void
+    {
+        $backend = sys_get_temp_dir().'/symsvel-cleanup-'.bin2hex(random_bytes(8)).'/backend';
+        mkdir($backend.'/.symsvel/transactions/update-'.str_repeat('a', 24), 0700, true);
+        $path = $backend.'/.symsvel/transactions/update-'.str_repeat('a', 24);
+        file_put_contents($path.'/snapshot.txt', 'old');
+        try {
+            $registry = new WorkspaceCleanupRegistry($backend);
+            $registry->enqueue([$path]);
+            self::assertFileExists($backend.'/.symsvel/cleanup-pending.json');
+            $result = $registry->cleanup();
+            self::assertSame(1, $result['removed']);
+            self::assertSame(0, $result['remaining']);
+            self::assertSame([], $result['errors']);
+            self::assertDirectoryDoesNotExist($path);
+            self::assertSame([], json_decode((string) file_get_contents($backend.'/.symsvel/cleanup-pending.json'), true));
+            self::assertSame(0, $registry->cleanup()['removed']);
+        } finally {
+            $this->remove(dirname($backend));
+        }
+    }
+
+    public function testRejectsArbitraryPaths(): void
+    {
+        $backend = sys_get_temp_dir().'/symsvel-cleanup-'.bin2hex(random_bytes(8)).'/backend';
+        mkdir($backend.'/.symsvel/transactions', 0700, true);
+        try {
+            $registry = new WorkspaceCleanupRegistry($backend);
+            $this->expectException(\RuntimeException::class);
+            $registry->enqueue([$backend.'/composer.json']);
+        } finally {
+            $this->remove(dirname($backend));
+        }
+    }
+
+    public function testRegistryWriteFailurePreservesCheckpoint(): void
+    {
+        $backend = sys_get_temp_dir().'/symsvel-cleanup-write-'.bin2hex(random_bytes(8)).'/backend';
+        $path = $backend.'/.symsvel/transactions/update-'.str_repeat('b', 24);
+        mkdir($path, 0700, true);
+        file_put_contents($path.'/snapshot.txt', 'keep');
+        // A directory at the registry location deterministically prevents atomic replacement,
+        // even when tests run with elevated filesystem permissions.
+        mkdir($backend.'/.symsvel/cleanup-pending.json');
+        try {
+            $failed = false;
+            try {
+                (new WorkspaceCleanupRegistry($backend))->enqueue([$path]);
+            } catch (\Throwable) {
+                $failed = true;
+            }
+            self::assertTrue($failed, 'Registry write should fail.');
+            self::assertSame('keep', file_get_contents($path.'/snapshot.txt'));
+            self::assertDirectoryExists($path);
+        } finally {
+            $this->remove(dirname($backend));
+        }
+    }
+
+    public function testFailedDeletionStaysQueuedAndNextRunRetries(): void
+    {
+        $backend = sys_get_temp_dir().'/symsvel-cleanup-retry-'.bin2hex(random_bytes(8)).'/backend';
+        $path = $backend.'/.symsvel/transactions/update-'.str_repeat('c', 24);
+        mkdir($path, 0700, true);
+        file_put_contents($path.'/snapshot.txt', 'keep');
+        try {
+            $registry = new WorkspaceCleanupRegistry($backend);
+            $registry->enqueue([$path]);
+            $this->remove($path);
+            symlink($backend.'/.symsvel/transactions', $path);
+            $first = $registry->cleanup();
+            self::assertSame(0, $first['removed']);
+            self::assertSame(1, $first['remaining']);
+            self::assertNotEmpty($first['errors']);
+            $entries = json_decode((string) file_get_contents($backend.'/.symsvel/cleanup-pending.json'), true);
+            self::assertSame([$path], $entries[0]['paths']);
+            unlink($path);
+            mkdir($path);
+            file_put_contents($path.'/snapshot.txt', 'retry');
+            $second = $registry->cleanup();
+            self::assertSame(1, $second['removed']);
+            self::assertSame(0, $second['remaining']);
+            self::assertSame([], $second['errors']);
+            self::assertDirectoryDoesNotExist($path);
+        } finally {
+            $this->remove(dirname($backend));
+        }
+    }
+
+    public function testRejectsSymlinkedTransactionRootWithoutDeletingTarget(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-cleanup-root-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $outside = $root.'/outside';
+        mkdir($backend.'/.symsvel', 0700, true);
+        mkdir($outside.'/update-'.str_repeat('d', 24), 0700, true);
+        file_put_contents($outside.'/update-'.str_repeat('d', 24).'/important.txt', 'preserve');
+        symlink($outside, $backend.'/.symsvel/transactions');
+        try {
+            $registry = new WorkspaceCleanupRegistry($backend);
+            $failed = false;
+            try {
+                $registry->enqueue([$backend.'/.symsvel/transactions/update-'.str_repeat('d', 24)]);
+            } catch (\RuntimeException $error) {
+                $failed = true;
+                self::assertStringContainsString('Lien symbolique', $error->getMessage());
+            }
+            self::assertTrue($failed);
+            self::assertSame('preserve', file_get_contents($outside.'/update-'.str_repeat('d', 24).'/important.txt'));
+        } finally {
+            $this->remove($root);
+        }
+    }
+
+    public function testRejectsMissingTransactionRoot(): void
+    {
+        $backend = sys_get_temp_dir().'/symsvel-cleanup-missing-'.bin2hex(random_bytes(8)).'/backend';
+        mkdir($backend, 0700, true);
+        try {
+            $registry = new WorkspaceCleanupRegistry($backend);
+            $this->expectException(\RuntimeException::class);
+            $registry->enqueue([$backend.'/.symsvel/transactions/update-'.str_repeat('e', 24)]);
+        } finally {
+            $this->remove(dirname($backend));
+        }
+    }
+
+    public function testRejectsSymlinkedRegistryDirectory(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-cleanup-link-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $outside = $root.'/outside';
+        mkdir($backend, 0700, true);
+        mkdir($outside, 0700, true);
+        symlink($outside, $backend.'/.symsvel');
+        try {
+            $failed = false;
+            try {
+                (new WorkspaceCleanupRegistry($backend))->cleanup();
+            } catch (\RuntimeException $error) {
+                $failed = true;
+                self::assertStringContainsString('Lien symbolique', $error->getMessage());
+            }
+            self::assertTrue($failed);
+            self::assertFileDoesNotExist($outside.'/cleanup.lock');
+        } finally {
+            $this->remove($root);
+        }
+    }
+
+    public function testRejectsSymlinkedRegistryFilesWithoutTouchingExternalTarget(): void
+    {
+        foreach (['cleanup.lock', 'cleanup-pending.json'] as $filename) {
+            $root = sys_get_temp_dir().'/symsvel-cleanup-file-link-'.bin2hex(random_bytes(8));
+            $backend = $root.'/backend';
+            mkdir($backend.'/.symsvel/transactions', 0700, true);
+            file_put_contents($root.'/outside.txt', 'preserve');
+            symlink($root.'/outside.txt', $backend.'/.symsvel/'.$filename);
+            try {
+                $this->expectSymlinkedRegistryRejection($backend);
+                self::assertSame('preserve', file_get_contents($root.'/outside.txt'));
+            } finally {
+                $this->remove($root);
+            }
+        }
+    }
+
+    private function expectSymlinkedRegistryRejection(string $backend): void
+    {
+        try {
+            (new WorkspaceCleanupRegistry($backend))->cleanup();
+            self::fail('Symlinked cleanup control file must be rejected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Lien symbolique interdit', $error->getMessage());
+        }
+    }
+
+    private function remove(string $path): void
+    {
+        if (!file_exists($path) && !is_link($path)) {
+            return;
+        }
+        if (is_file($path) || is_link($path)) {
+            unlink($path);
+            return;
+        }
+        foreach (new \FilesystemIterator($path) as $entry) {
+            $this->remove($entry->getPathname());
+        }
+        rmdir($path);
+    }
+}

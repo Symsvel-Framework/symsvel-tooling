@@ -43,6 +43,8 @@ final class WorkspaceUpdaterTest extends TestCase
             });
             self::assertSame(['git', 'status', '--porcelain', '--untracked-files=all'], $calls[0][0]);
             self::assertSame('composer', $calls[1][0][0]);
+            self::assertContains('--no-scripts', $calls[1][0]);
+            self::assertContains('--no-plugins', $calls[1][0]);
             self::assertContains([['git', 'merge', '--ff-only', 'origin/main'], $root.'/bo'], $calls);
             self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
             self::assertCount(6, $calls);
@@ -56,6 +58,7 @@ final class WorkspaceUpdaterTest extends TestCase
             rmdir($root.'/bo');
             unlink($root.'/backend/composer.json');
             unlink($root.'/backend/scripts/symsvel-module-sync.php');
+            unlink($root.'/backend/scripts/symsvel-composer-transaction.php');
             rmdir($root.'/backend/scripts');
             rmdir($root.'/backend');
             rmdir($root);
@@ -87,8 +90,40 @@ final class WorkspaceUpdaterTest extends TestCase
             rmdir($root.'/bo');
             unlink($root.'/backend/composer.json');
             unlink($root.'/backend/scripts/symsvel-module-sync.php');
+            unlink($root.'/backend/scripts/symsvel-composer-transaction.php');
             rmdir($root.'/backend/scripts');
             rmdir($root.'/backend');
+            rmdir($root);
+        }
+    }
+
+    public function testBuildFailureIdentifiesComponentAndStage(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-failing-build-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend', 0775, true);
+        mkdir($root.'/bo/.git', 0775, true);
+        file_put_contents($root.'/backend/composer.json', '{}');
+        try {
+            $updater = new WorkspaceUpdater(static function (array $command): void {
+                if ($command === ['npm', 'run', 'build']) {
+                    throw new \RuntimeException('Svelte compilation failed');
+                }
+            });
+            try {
+                $updater->update($root.'/backend', 'core');
+                self::fail('Expected BO build failure.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('[BO / Build Svelte]', $error->getMessage());
+                self::assertStringContainsString('Svelte compilation failed', $error->getMessage());
+            }
+        } finally {
+            @unlink($root.'/backend/scripts/symsvel-composer-transaction.php');
+            @unlink($root.'/backend/scripts/symsvel-module-sync.php');
+            @rmdir($root.'/backend/scripts');
+            unlink($root.'/backend/composer.json');
+            rmdir($root.'/backend');
+            rmdir($root.'/bo/.git');
+            rmdir($root.'/bo');
             rmdir($root);
         }
     }
@@ -157,6 +192,7 @@ final class WorkspaceUpdaterTest extends TestCase
             rmdir($root.'/backend/.symsvel');
             unlink($root.'/backend/composer.json');
             unlink($root.'/backend/scripts/symsvel-module-sync.php');
+            unlink($root.'/backend/scripts/symsvel-composer-transaction.php');
             rmdir($root.'/backend/scripts');
             rmdir($root.'/backend');
             rmdir($root);

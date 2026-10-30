@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Update;
 
 use Symfony\Component\Process\Process;
+use SymSvel\Tooling\Composer\ComposerTransactionSnapshot;
+use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 
 final class WorkspaceUpdater
 {
     /** @param null|callable(list<string>, string):void $runner */
-    public function __construct(private readonly mixed $runner = null)
+    public function __construct(private readonly mixed $runner = null, private readonly bool $snapshotWithRunner = false, private readonly ?string $databaseUrl = null)
     {
     }
 
@@ -49,12 +51,96 @@ final class WorkspaceUpdater
                 throw new \RuntimeException('Le composant '.$component.' contient des modifications locales : mise à jour annulée avant Composer.');
             }
         }
+        // Validate the database configuration before creating any checkpoints.
+        // A missing DATABASE_URL must leave the workspace untouched.
+        $effectiveDatabaseUrl = $this->resolveDatabaseUrl($backendDir, $environment);
+        if (($this->runner === null || $this->snapshotWithRunner)
+            && (!is_string($effectiveDatabaseUrl) || $effectiveDatabaseUrl === '')) {
+            throw new \RuntimeException('BACK / BDD : DATABASE_URL explicite obligatoire pour garantir le rollback ; mise à jour annulée avant Composer.');
+        }
+        // A missing original lock must fail before capturing Git or runtime state.
+        if (($this->runner === null || $this->snapshotWithRunner)
+            && !is_file($backendDir.'/composer.lock')) {
+            throw new \RuntimeException('BACK : composer.lock initial obligatoire pour rollback.');
+        }
+        $gitCheckpoints = [];
+        foreach (['bo', 'app', 'front'] as $component) {
+            $directory = $root.'/'.$component;
+            if (!is_dir($directory) || ($this->runner !== null && !is_file($directory.'/.git/HEAD'))) {
+                // Legacy command-mock tests use placeholder .git directories.
+                continue;
+            }
+            $checkpoint = new GitComponentCheckpoint($directory);
+            $checkpoint->capture();
+            $gitCheckpoints[$component] = $checkpoint;
+        }
+        $composerSnapshot = null;
+        $workspaceSnapshot = null;
+        $composerCheckpoint = null;
+        if ($this->runner === null || $this->snapshotWithRunner) {
+            $composerSnapshot = new ComposerTransactionSnapshot();
+            $composerCheckpoint = $composerSnapshot->begin($backendDir);
+            $workspaceSnapshot = new WorkspaceFileSnapshot($backendDir, $composerCheckpoint);
+            try {
+                $workspaceSnapshot->capture();
+            } catch (\Throwable $failure) {
+                throw new \RuntimeException('BACK / Snapshot sources incomplet : '.$failure->getMessage().'; sauvegarde conservée : '.$composerCheckpoint, 0, $failure);
+            }
+        }
+        $vendorSnapshot = null;
+        $runtimeSnapshots = [];
+        $runtimeTransaction = null;
+        if ($this->runner === null || $this->snapshotWithRunner) {
+            $runtimeTransaction = $backendDir.'/.symsvel/transactions/update-'.bin2hex(random_bytes(12));
+            $vendorSnapshot = new RuntimeArtifactSnapshot($backendDir, $runtimeTransaction.'/backend', ['vendor']);
+            try {
+                $vendorSnapshot->capture();
+            } catch (\Throwable $failure) {
+                throw new \RuntimeException('BACK / Snapshot vendor impossible : '.$failure->getMessage().'; sauvegarde conservée : '.$runtimeTransaction, 0, $failure);
+            }
+            foreach (['bo', 'app', 'front'] as $component) {
+                $directory = $root.'/'.$component;
+                if (!is_dir($directory)) {
+                    continue;
+                }
+                $snapshot = new RuntimeArtifactSnapshot($directory, $runtimeTransaction.'/'.$component);
+                try {
+                    $snapshot->capture();
+                    $runtimeSnapshots[$component] = $snapshot;
+                } catch (\Throwable $failure) {
+                    // Snapshot capture failed before any update command. Preserve the
+                    // incomplete checkpoint for diagnosis rather than claiming cleanup.
+                    throw new \RuntimeException(
+                        'Snapshot runtime initial impossible ['.strtoupper($component).'] : '.$failure->getMessage().
+                        '; opération annulée avant Composer ; sauvegardes conservées : '.$runtimeTransaction,
+                        0,
+                        $failure,
+                    );
+                }
+            }
+        }
+        $databaseBackup = null;
+        $databaseCheckpoint = null;
+        if ($this->runner === null || $this->snapshotWithRunner) {
+            $databaseBackup = new WorkspaceDatabaseBackup();
+            try {
+                $databaseCheckpoint = $databaseBackup->capture($backendDir, $effectiveDatabaseUrl);
+            } catch (\Throwable $failure) {
+                throw new \RuntimeException('BACK / Snapshot BDD impossible : '.$failure->getMessage().'; mise à jour annulée avant Composer.', 0, $failure);
+            }
+        }
+        $componentInProgress = 'BACK';
+        $stepInProgress = 'Composer update';
+        try {
         if ($progress !== null) {
             $progress('Backend : mise à jour Composer (Core + Tooling)…');
         }
-        $this->run(['composer', 'update', 'symsvel-framework/core', 'symsvel-framework/tooling', '--with-all-dependencies', '--no-interaction'], $backendDir);
+        $this->run(['composer', 'update', 'symsvel-framework/core', 'symsvel-framework/tooling', '--with-all-dependencies', '--no-interaction', '--no-scripts', '--no-plugins'], $backendDir);
+        $stepInProgress = 'Publication des hooks Composer';
         $this->installComposerHooks($backendDir, $progress);
         foreach (['bo', 'app', 'front'] as $component) {
+            $componentInProgress = strtoupper($component);
+            $stepInProgress = 'Vérification du composant';
             $directory = $root.'/'.$component;
             if (!is_dir($directory)) {
                 if ($progress !== null) {
@@ -68,10 +154,12 @@ final class WorkspaceUpdater
             if ($progress !== null) {
                 $progress(strtoupper($component).' : récupération des commits…');
             }
+            $stepInProgress = 'Git fetch';
             $this->run(['git', 'fetch', 'origin', '--tags'], $directory);
             if ($progress !== null) {
                 $progress(strtoupper($component).($environment === 'core' ? ' : synchronisation main…' : ' : sélection de la dernière release…'));
             }
+            $stepInProgress = 'Git checkout / merge';
             if ($environment === 'core') {
                 $this->run(['git', 'merge', '--ff-only', 'origin/main'], $directory);
             } else {
@@ -84,13 +172,96 @@ final class WorkspaceUpdater
             if ($progress !== null) {
                 $progress(strtoupper($component).' : installation npm…');
             }
+            $stepInProgress = 'npm ci';
             $this->run(['npm', 'ci'], $directory);
             if ($progress !== null) {
                 $progress(strtoupper($component).' : build…');
             }
+            $stepInProgress = 'Build Svelte';
             $this->run(['npm', 'run', 'build'], $directory);
             if ($progress !== null) {
                 $progress(strtoupper($component).' : terminé.');
+            }
+        }
+        } catch (\Throwable $failure) {
+            $rollbackErrors = [];
+            foreach (array_reverse($gitCheckpoints, true) as $component => $checkpoint) {
+                try {
+                    $checkpoint->restore();
+                } catch (\Throwable $recovery) {
+                    $rollbackErrors[] = strtoupper($component).' / Git : '.$recovery->getMessage();
+                }
+            }
+            foreach (array_reverse($runtimeSnapshots, true) as $component => $snapshot) {
+                try {
+                    $snapshot->restore();
+                } catch (\Throwable $recovery) {
+                    $rollbackErrors[] = strtoupper($component).' / npm-build : '.$recovery->getMessage();
+                }
+            }
+            if ($composerSnapshot !== null && $composerCheckpoint !== null && $workspaceSnapshot !== null) {
+                // Recovery steps are independent: a failed vendor reinstall must
+                // never prevent the source files from being restored.
+                try {
+                    $composerSnapshot->restoreManifests($backendDir, $composerCheckpoint);
+                } catch (\Throwable $recovery) {
+                    $rollbackErrors[] = 'BACK / manifests Composer : '.$recovery->getMessage();
+                }
+                if ($vendorSnapshot !== null) {
+                    try {
+                        $vendorSnapshot->restore();
+                    } catch (\Throwable $recovery) {
+                        $rollbackErrors[] = 'BACK / vendor : '.$recovery->getMessage();
+                    }
+                }
+                try {
+                    $workspaceSnapshot->restore();
+                } catch (\Throwable $recovery) {
+                    $rollbackErrors[] = 'BACK / fichiers sources : '.$recovery->getMessage();
+                }
+            }
+            if ($databaseBackup !== null && $databaseCheckpoint !== null && is_string($effectiveDatabaseUrl)) {
+                try {
+                    $databaseBackup->restore($effectiveDatabaseUrl, $databaseCheckpoint);
+                } catch (\Throwable $recovery) {
+                    $rollbackErrors[] = 'BACK / BDD : '.$recovery->getMessage().'; checkpoint conservé : '.$databaseCheckpoint['path'];
+                }
+            }
+            $rollbackStatus = $rollbackErrors === []
+                ? ($composerSnapshot === null
+                    ? 'Git et artefacts npm/build restaurés ; rollback Composer et BDD non garanti.'
+                    : 'Git, npm/build, vendor, sources et BDD restaurés.')
+                : 'Rollback incomplet : '.implode(' ; ', $rollbackErrors).'. Rollback global non garanti.';
+            throw new \RuntimeException(
+                sprintf('Échec de mise à jour [%s / %s] : %s. %s', $componentInProgress, $stepInProgress, $failure->getMessage(), $rollbackStatus),
+                0,
+                $failure,
+            );
+        }
+        // The update is committed. Cleanup must never be reported as a transaction failure.
+        // Register checkpoints BEFORE deleting anything so cron can retry interrupted cleanup.
+        $cleanupPaths = [];
+        if ($databaseCheckpoint !== null) {
+            $cleanupPaths[] = $databaseCheckpoint['path'];
+        }
+        if ($composerCheckpoint !== null) {
+            $cleanupPaths[] = $composerCheckpoint;
+        }
+        if ($runtimeTransaction !== null) {
+            $cleanupPaths[] = $runtimeTransaction;
+        }
+        if ($cleanupPaths !== []) {
+            $cleanup = new WorkspaceCleanupRegistry($backendDir);
+            try {
+                $cleanup->enqueue($cleanupPaths);
+                $result = $cleanup->cleanup();
+                if ($result['errors'] !== [] && $progress !== null) {
+                    $progress('AVERTISSEMENT : mise à jour réussie, nettoyage différé (symsvel:cleanup) : '.implode(' ; ', $result['errors']));
+                }
+            } catch (\Throwable $cleanupFailure) {
+                if ($progress !== null) {
+                    $progress('AVERTISSEMENT : mise à jour réussie, nettoyage non enregistré : '.$cleanupFailure->getMessage().'; checkpoints conservés : '.implode(', ', $cleanupPaths));
+                }
             }
         }
         if ($progress !== null) {
@@ -98,6 +269,39 @@ final class WorkspaceUpdater
         }
     }
 
+
+    /**
+     * Resolve the same environment-specific Dotenv layers used by Symfony.
+     * Explicit constructor injection remains available for isolated tests.
+     */
+    private function resolveDatabaseUrl(string $backendDir, string $environment): ?string
+    {
+        if ($this->databaseUrl !== null) {
+            return $this->databaseUrl;
+        }
+        $external = $_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
+        if (is_string($external) && $external !== '') {
+            return $external;
+        }
+        if (!class_exists(\Symfony\Component\Dotenv\Dotenv::class)) {
+            return null;
+        }
+        $dotenv = new \Symfony\Component\Dotenv\Dotenv();
+        $values = [];
+        foreach (['.env', '.env.local', '.env.'.$environment, '.env.'.$environment.'.local'] as $file) {
+            if ($environment === 'test' && $file === '.env.local') {
+                continue;
+            }
+            $path = $backendDir.'/'.$file;
+            if (!is_file($path)) {
+                continue;
+            }
+            $parsed = $dotenv->parse((string) file_get_contents($path), $path);
+            $values = array_replace($values, $parsed);
+        }
+        $url = $values['DATABASE_URL'] ?? null;
+        return is_string($url) && $url !== '' ? $url : null;
+    }
 
     /** Publish the framework-managed Composer hook without replacing application scripts. */
     private function installComposerHooks(string $backendDir, ?callable $progress): void
@@ -139,6 +343,19 @@ final class WorkspaceUpdater
         if (file_get_contents($manifestPath) !== $encoded && file_put_contents($manifestPath, $encoded) === false) {
             throw new \RuntimeException('Impossible de mettre à jour composer.json.');
         }
+        // Publish the opt-in transaction entrypoint alongside the existing sync hook.
+        $transactionSource = dirname(__DIR__, 2).'/assets/symsvel-composer-transaction.php';
+        $transactionDestination = $destinationDir.'/symsvel-composer-transaction.php';
+        if (is_file($transactionSource)) {
+            $transactionExpected = file_get_contents($transactionSource);
+            $transactionExisting = is_file($transactionDestination) ? file_get_contents($transactionDestination) : null;
+            if ($transactionExisting !== null && $transactionExisting !== $transactionExpected) {
+                throw new \RuntimeException('Script de transaction SymSvel modifié localement : '.$transactionDestination);
+            }
+            if ($transactionExisting === null && file_put_contents($transactionDestination, $transactionExpected) === false) {
+                throw new \RuntimeException('Impossible de publier '.$transactionDestination);
+            }
+        }
         if ($progress !== null) {
             $progress('Backend : hooks Composer SymSvel installés.');
         }
@@ -159,12 +376,12 @@ final class WorkspaceUpdater
         if (!is_array($entries)) {
             return false;
         }
-        foreach (preg_split('/\\R/', $status) ?: [] as $line) {
+        foreach (preg_split('/\R/', $status) ?: [] as $line) {
             if (!str_starts_with($line, '?? ')) {
                 return false;
             }
             $relative = substr($line, 3);
-            if ($relative === '' || str_contains($relative, '..') || str_contains($relative, '\\\\') || str_starts_with($relative, '/')) {
+            if ($relative === '' || str_contains($relative, '..') || str_contains($relative, '\\') || str_starts_with($relative, '/')) {
                 return false;
             }
             $path = $directory.'/'.$relative;
@@ -193,8 +410,8 @@ final class WorkspaceUpdater
     {
         $tags = $this->output(['git', 'tag', '--list', 'v[0-9]*'], $directory);
         $versions = array_filter(
-            preg_split('/\\R/', trim($tags)) ?: [],
-            static fn (string $tag): bool => preg_match('/^v\\d+\\.\\d+\\.\\d+$/', $tag) === 1,
+            preg_split('/\R/', trim($tags)) ?: [],
+            static fn (string $tag): bool => preg_match('/^v\d+\.\d+\.\d+$/', $tag) === 1,
         );
         if ($versions === []) {
             throw new \RuntimeException('Aucune release stable (tag vX.Y.Z) disponible dans '.$directory);
