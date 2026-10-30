@@ -89,12 +89,21 @@ final class ComposerTransactionRunner
                 if ($changedFiles !== []) {
                     throw new \RuntimeException('Fichiers hors Composer modifiés : '.implode(', ', array_slice($changedFiles, 0, 10)));
                 }
-                foreach ($runtimeSnapshots as $runtime) {
-                    $runtime->discard();
+                // Restoration is complete. Cleanup is post-recovery housekeeping:
+                // a deletion failure must not turn a verified rollback into an
+                // incorrectly reported recovery failure.
+                try {
+                    $registry = new WorkspaceCleanupRegistry($backend);
+                    $registry->enqueue([$transaction]);
+                    $cleanup = $registry->cleanup();
+                    if ($cleanup['errors'] !== [] && $progress !== null) {
+                        $progress('AVERTISSEMENT : rollback Composer restauré, nettoyage différé (symsvel:cleanup) : '.implode(' ; ', $cleanup['errors']));
+                    }
+                } catch (\Throwable $cleanupFailure) {
+                    if ($progress !== null) {
+                        $progress('AVERTISSEMENT : rollback Composer restauré, nettoyage non enregistré : '.$cleanupFailure->getMessage().'; checkpoint conservé si présent : '.$transaction);
+                    }
                 }
-                $vendorSnapshot->discard();
-                $workspaceSnapshot->discard();
-                $this->snapshots->finish($backend, $transaction);
             } catch (\Throwable $recovery) {
                 throw new \RuntimeException(
                     'Échec Composer : '.$failure->getMessage().'; récupération incomplète : '.$recovery->getMessage().
