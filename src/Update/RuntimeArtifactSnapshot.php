@@ -13,6 +13,9 @@ final class RuntimeArtifactSnapshot
     /** @var array<string, bool> */
     private array $present = [];
 
+    /** @var array<string, string> */
+    private array $fingerprints = [];
+
     public function __construct(
         private readonly string $component,
         private readonly string $transaction,
@@ -31,6 +34,10 @@ final class RuntimeArtifactSnapshot
             $this->present[$name] = $exists;
             if ($exists) {
                 $this->copyTree($source, $this->transaction.'/runtime/'.$name);
+                $this->fingerprints[$name] = $this->fingerprint($source);
+                if ($this->fingerprint($this->transaction.'/runtime/'.$name) !== $this->fingerprints[$name]) {
+                    throw new \RuntimeException('Snapshot runtime incohérent : '.$name);
+                }
             }
         }
     }
@@ -41,12 +48,18 @@ final class RuntimeArtifactSnapshot
             if ($exists && !is_dir($this->transaction.'/runtime/'.$name)) {
                 throw new \RuntimeException('Rollback runtime impossible : sauvegarde absente pour '.$name);
             }
+            if ($exists && $this->fingerprint($this->transaction.'/runtime/'.$name) !== $this->fingerprints[$name]) {
+                throw new \RuntimeException('Rollback runtime impossible : sauvegarde altérée pour '.$name);
+            }
         }
         foreach ($this->present as $name => $exists) {
             $destination = $this->component.'/'.$name;
             $this->removeTree($destination);
             if ($exists) {
                 $this->copyTree($this->transaction.'/runtime/'.$name, $destination);
+                if ($this->fingerprint($destination) !== $this->fingerprints[$name]) {
+                    throw new \RuntimeException('Rollback runtime incomplet : intégrité non vérifiée pour '.$name);
+                }
             }
         }
     }
@@ -57,6 +70,31 @@ final class RuntimeArtifactSnapshot
         if (is_dir($this->transaction) && !rmdir($this->transaction)) {
             throw new \RuntimeException('Nettoyage du snapshot runtime impossible : '.$this->transaction);
         }
+    }
+
+    private function fingerprint(string $directory): string
+    {
+        $entries = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST,
+        );
+        foreach ($iterator as $entry) {
+            $path = substr($entry->getPathname(), strlen($directory) + 1);
+            if ($entry->isLink()) {
+                $entries[$path] = 'link:'.readlink($entry->getPathname());
+            } elseif ($entry->isDir()) {
+                $entries[$path] = 'dir';
+            } else {
+                $hash = hash_file('sha256', $entry->getPathname());
+                if ($hash === false) {
+                    throw new \RuntimeException('Empreinte runtime impossible : '.$path);
+                }
+                $entries[$path] = 'file:'.$hash.':'.($entry->getPerms() & 0777);
+            }
+        }
+        ksort($entries);
+        return hash('sha256', json_encode($entries, JSON_THROW_ON_ERROR));
     }
 
     private function copyTree(string $source, string $destination): void
