@@ -20,6 +20,14 @@ final class ComposerTransactionSnapshot
         if (!is_file($backend.'/composer.json')) {
             throw new \RuntimeException('composer.json introuvable.');
         }
+        foreach (self::FILES as $name) {
+            if (is_link($backend.'/'.$name)) {
+                throw new \RuntimeException('Manifest Composer symbolique refusé : '.$name);
+            }
+        }
+        if (is_link($backend.'/.symsvel') || is_link($backend.'/.symsvel/transactions')) {
+            throw new \RuntimeException('Répertoire de transactions symbolique refusé.');
+        }
         $base = $backend.'/.symsvel/transactions';
         if (!is_dir($base) && !mkdir($base, 0700, true) && !is_dir($base)) {
             throw new \RuntimeException('Impossible de créer le registre de transactions.');
