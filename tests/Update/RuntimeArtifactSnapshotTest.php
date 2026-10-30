@@ -162,6 +162,35 @@ final class RuntimeArtifactSnapshotTest extends TestCase
         }
     }
 
+    public function testCorruptedLaterArtifactDoesNotPartiallyRestoreEarlierArtifact(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-runtime-atomic-'.bin2hex(random_bytes(8));
+        $component = $root.'/bo';
+        $transaction = $root.'/transaction';
+        mkdir($component.'/node_modules', 0775, true);
+        mkdir($component.'/build', 0775, true);
+        file_put_contents($component.'/node_modules/current.js', 'original dependency');
+        file_put_contents($component.'/build/index.html', 'original build');
+        $snapshot = new RuntimeArtifactSnapshot($component, $transaction);
+        try {
+            $snapshot->capture();
+            file_put_contents($component.'/node_modules/current.js', 'mutated dependency');
+            file_put_contents($component.'/build/index.html', 'mutated build');
+            file_put_contents($transaction.'/runtime/build/index.html', 'corrupted backup');
+            try {
+                $snapshot->restore();
+                self::fail('A later corrupted artifact must block all artifact restoration.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('sauvegarde altérée pour build', $error->getMessage());
+                self::assertSame('mutated dependency', file_get_contents($component.'/node_modules/current.js'));
+                self::assertSame('mutated build', file_get_contents($component.'/build/index.html'));
+            }
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
     private function deleteTree(string $path): void
     {
         if (!is_dir($path) || is_link($path)) {
