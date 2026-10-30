@@ -235,21 +235,31 @@ final class WorkspaceUpdater
                 $failure,
             );
         }
-        if ($databaseBackup !== null && $databaseCheckpoint !== null) {
-            $databaseBackup->discard($databaseCheckpoint);
+        // The update is committed. Cleanup must never be reported as a transaction failure.
+        // Register checkpoints BEFORE deleting anything so cron can retry interrupted cleanup.
+        $cleanupPaths = [];
+        if ($databaseCheckpoint !== null) {
+            $cleanupPaths[] = $databaseCheckpoint['path'];
         }
-        if ($workspaceSnapshot !== null && $composerSnapshot !== null && $composerCheckpoint !== null) {
-            $workspaceSnapshot->discard();
-            $composerSnapshot->finish($backendDir, $composerCheckpoint);
+        if ($composerCheckpoint !== null) {
+            $cleanupPaths[] = $composerCheckpoint;
         }
-        foreach ($runtimeSnapshots as $snapshot) {
-            $snapshot->discard();
+        if ($runtimeTransaction !== null) {
+            $cleanupPaths[] = $runtimeTransaction;
         }
-        if ($vendorSnapshot !== null) {
-            $vendorSnapshot->discard();
-        }
-        if ($runtimeTransaction !== null && is_dir($runtimeTransaction) && !rmdir($runtimeTransaction)) {
-            throw new \RuntimeException('Nettoyage transaction runtime impossible : '.$runtimeTransaction);
+        if ($cleanupPaths !== []) {
+            $cleanup = new WorkspaceCleanupRegistry($backendDir);
+            try {
+                $cleanup->enqueue($cleanupPaths);
+                $result = $cleanup->cleanup();
+                if ($result['errors'] !== [] && $progress !== null) {
+                    $progress('AVERTISSEMENT : mise à jour réussie, nettoyage différé (symsvel:cleanup) : '.implode(' ; ', $result['errors']));
+                }
+            } catch (\Throwable $cleanupFailure) {
+                if ($progress !== null) {
+                    $progress('AVERTISSEMENT : mise à jour réussie, nettoyage non enregistré : '.$cleanupFailure->getMessage().'; checkpoints conservés : '.implode(', ', $cleanupPaths));
+                }
+            }
         }
         if ($progress !== null) {
             $progress('Tous les composants présents ont été traités.');
