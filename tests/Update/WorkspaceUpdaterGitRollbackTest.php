@@ -407,6 +407,49 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         }
     }
 
+    public function testSuccessfulUpdateReportsRegistryFailureWithoutRollingBack(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-cleanup-warning-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend/vendor/pkg', 0775, true);
+        mkdir($root.'/backend/.symsvel/cleanup-pending.json', 0775, true);
+        file_put_contents($root.'/backend/composer.json', '{"name":"test/backend"}');
+        file_put_contents($root.'/backend/composer.lock', '{"packages":[]}');
+        file_put_contents($root.'/backend/vendor/pkg/index.php', 'original');
+        $database = $root.'/database.sqlite';
+        (new Process(['sqlite3', $database, "CREATE TABLE probe (value TEXT); INSERT INTO probe VALUES ('original');"]))->mustRun();
+        $messages = [];
+        try {
+            $runner = static function (array $command, string $cwd) use ($database): ?string {
+                if ($command[0] === 'composer') {
+                    file_put_contents($cwd.'/composer.lock', '{"updated":true}');
+                    file_put_contents($cwd.'/vendor/pkg/index.php', 'updated');
+                    (new Process(['sqlite3', $database, "UPDATE probe SET value='updated';"]))->mustRun();
+                }
+                return null;
+            };
+            (new WorkspaceUpdater($runner, true, 'sqlite://'.$database))->update(
+                $root.'/backend',
+                'core',
+                static function (string $message) use (&$messages): void {
+                    $messages[] = $message;
+                },
+            );
+            self::assertSame('{"updated":true}', file_get_contents($root.'/backend/composer.lock'));
+            self::assertSame('updated', file_get_contents($root.'/backend/vendor/pkg/index.php'));
+            $probe = new Process(['sqlite3', $database, 'SELECT value FROM probe']);
+            $probe->mustRun();
+            self::assertSame('updated', trim($probe->getOutput()));
+            $output = implode("\n", $messages);
+            self::assertStringContainsString('AVERTISSEMENT : mise à jour réussie, nettoyage non enregistré', $output);
+            self::assertStringContainsString('checkpoints conservés', $output);
+            self::assertStringContainsString('Tous les composants présents ont été traités', $output);
+            self::assertNotEmpty(glob($root.'/backend/.symsvel/transactions/.database-*'));
+            self::assertNotEmpty(glob($root.'/backend/.symsvel/transactions/update-*'));
+        } finally {
+            $this->deleteTree($root);
+        }
+    }
+
     /** @param list<string> $args */
     private function git(string $directory, array $args): string
     {
