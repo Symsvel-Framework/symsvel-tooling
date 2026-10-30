@@ -31,8 +31,12 @@ final class ComposerTransactionSnapshot
         }
         $state = [];
         $fingerprints = [];
+        $modes = [];
         foreach (self::FILES as $name) {
             $source = $backend.'/'.$name;
+            if (is_link($source)) {
+                throw new \RuntimeException('Manifest Composer symbolique refusé : '.$name);
+            }
             $present = is_file($source);
             $state[$name] = $present;
             if ($present) {
@@ -42,15 +46,23 @@ final class ComposerTransactionSnapshot
                     throw new \RuntimeException('Sauvegarde Composer impossible : '.$name);
                 }
                 $fingerprints[$name] = $fingerprint;
+                $modes[$name] = fileperms($source) & 0777;
+                if (!chmod($directory.'/'.$name, $modes[$name])) {
+                    throw new \RuntimeException('Permissions snapshot Composer impossibles : '.$name);
+                }
             }
         }
-        file_put_contents($directory.'/manifest.json', json_encode([
+        $written = file_put_contents($directory.'/manifest.json', json_encode([
             'schema' => 1,
             'backend' => $backend,
             'files' => $state,
             'fingerprints' => $fingerprints,
+            'modes' => $modes,
             'status' => 'pending',
         ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+        if ($written === false) {
+            throw new \RuntimeException('Écriture du manifeste de transaction impossible : '.$directory);
+        }
         return $directory;
     }
 
@@ -66,17 +78,20 @@ final class ComposerTransactionSnapshot
             }
             $source = $directory.'/'.$name;
             if (!is_file($source) || is_link($source)
-                || hash_file('sha256', $source) !== ($manifest['fingerprints'][$name] ?? null)) {
+                || hash_file('sha256', $source) !== ($manifest['fingerprints'][$name] ?? null)
+                || (fileperms($source) & 0777) !== ($manifest['modes'][$name] ?? null)) {
                 throw new \RuntimeException('Sauvegarde Composer altérée : '.$name);
             }
         }
         foreach (self::FILES as $name) {
             $destination = $backend.'/'.$name;
             if ($manifest['files'][$name]) {
-                if (!is_file($directory.'/'.$name) || !copy($directory.'/'.$name, $destination)) {
+                if (is_link($destination) || !is_file($directory.'/'.$name)
+                    || !copy($directory.'/'.$name, $destination)
+                    || !chmod($destination, $manifest['modes'][$name])) {
                     throw new \RuntimeException('Restauration Composer impossible : '.$name);
                 }
-            } elseif (is_file($destination) && !unlink($destination)) {
+            } elseif ((is_file($destination) || is_link($destination)) && !unlink($destination)) {
                 throw new \RuntimeException('Suppression Composer impossible : '.$name);
             }
         }
@@ -109,13 +124,16 @@ final class ComposerTransactionSnapshot
             || !array_key_exists('composer.lock', $data['files'])
             || !array_key_exists('symfony.lock', $data['files'])
             || !is_bool($data['files']['composer.json']) || !is_bool($data['files']['composer.lock'])
-            || !is_bool($data['files']['symfony.lock']) || !isset($data['fingerprints']) || !is_array($data['fingerprints'])) {
+            || !is_bool($data['files']['symfony.lock']) || !isset($data['fingerprints']) || !is_array($data['fingerprints'])
+            || !isset($data['modes']) || !is_array($data['modes'])) {
             throw new \RuntimeException('Manifeste de transaction invalide.');
         }
         foreach (self::FILES as $name) {
             if ($data['files'][$name] && (!isset($data['fingerprints'][$name])
                 || !is_string($data['fingerprints'][$name])
-                || !preg_match('/^[a-f0-9]{64}$/D', $data['fingerprints'][$name]))) {
+                || !preg_match('/^[a-f0-9]{64}$/D', $data['fingerprints'][$name])
+                || !isset($data['modes'][$name]) || !is_int($data['modes'][$name])
+                || $data['modes'][$name] < 0 || $data['modes'][$name] > 0777)) {
                 throw new \RuntimeException('Empreinte Composer invalide : '.$name);
             }
         }
