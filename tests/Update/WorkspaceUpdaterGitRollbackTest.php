@@ -170,7 +170,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 self::fail('Expected FRONT build failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
-                self::assertStringContainsString('vendor et sources restaurés', $error->getMessage());
+                self::assertStringContainsString('vendor, sources et BDD restaurés', $error->getMessage());
             }
             self::assertSame('{"name":"test/backend"}', file_get_contents($root.'/backend/composer.json'));
             self::assertSame('{"packages":[]}', file_get_contents($root.'/backend/composer.lock'));
