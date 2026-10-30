@@ -58,6 +58,11 @@ final class WorkspaceUpdater
             && (!is_string($effectiveDatabaseUrl) || $effectiveDatabaseUrl === '')) {
             throw new \RuntimeException('BACK / BDD : DATABASE_URL explicite obligatoire pour garantir le rollback ; mise à jour annulée avant Composer.');
         }
+        // A missing original lock must fail before capturing Git or runtime state.
+        if (($this->runner === null || $this->snapshotWithRunner)
+            && !is_file($backendDir.'/composer.lock')) {
+            throw new \RuntimeException('BACK : composer.lock initial obligatoire pour rollback.');
+        }
         $gitCheckpoints = [];
         foreach (['bo', 'app', 'front'] as $component) {
             $directory = $root.'/'.$component;
@@ -73,11 +78,6 @@ final class WorkspaceUpdater
         $workspaceSnapshot = null;
         $composerCheckpoint = null;
         if ($this->runner === null || $this->snapshotWithRunner) {
-            // The update is refused before any mutation if Composer cannot be
-            // deterministically restored from the original lock file.
-            if (!is_file($backendDir.'/composer.lock')) {
-                throw new \RuntimeException('BACK : composer.lock initial obligatoire pour rollback.');
-            }
             $composerSnapshot = new ComposerTransactionSnapshot();
             $composerCheckpoint = $composerSnapshot->begin($backendDir);
             $workspaceSnapshot = new WorkspaceFileSnapshot($backendDir, $composerCheckpoint);
