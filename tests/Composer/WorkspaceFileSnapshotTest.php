@@ -75,6 +75,44 @@ final class WorkspaceFileSnapshotTest extends TestCase
         }
     }
 
+    public function testRollbackRejectsReplacedComponentRootWithoutTouchingExternalFiles(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-snapshot-replaced-root-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $bo = $root.'/bo';
+        $outside = $root.'/outside';
+        $transaction = $backend.'/.symsvel/transactions/test';
+        mkdir($transaction, 0700, true);
+        mkdir($bo);
+        mkdir($outside);
+        file_put_contents($bo.'/component.js', 'original');
+        file_put_contents($outside.'/component.js', 'external');
+        $snapshot = new WorkspaceFileSnapshot($backend, $transaction);
+        try {
+            $snapshot->capture();
+            unlink($bo.'/component.js');
+            rmdir($bo);
+            symlink($outside, $bo);
+            try {
+                $snapshot->restore();
+                self::fail('Replaced component root must block rollback.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('composant absent ou symbolique', $error->getMessage());
+                self::assertSame('external', file_get_contents($outside.'/component.js'));
+            }
+        } finally {
+            $snapshot->discard();
+            @unlink($bo);
+            @unlink($outside.'/component.js');
+            @rmdir($outside);
+            @rmdir($transaction);
+            @rmdir(dirname($transaction));
+            @rmdir(dirname(dirname($transaction)));
+            @rmdir($backend);
+            @rmdir($root);
+        }
+    }
+
     public function testCaptureRejectsSymlinkedComponentRoot(): void
     {
         $root = sys_get_temp_dir().'/symsvel-snapshot-root-'.bin2hex(random_bytes(8));
