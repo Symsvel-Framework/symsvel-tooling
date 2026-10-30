@@ -82,7 +82,7 @@ final class WorkspaceFileSnapshot
     {
         // Reject redirected checkpoint directories before reading any saved file.
         $snapshotRoot = $this->snapshot.'/workspace';
-        if (is_link($snapshotRoot) || !is_dir($snapshotRoot)) {
+        if (is_link($snapshotRoot) || ($this->files !== [] && !is_dir($snapshotRoot))) {
             throw new \RuntimeException('Rollback sources impossible : répertoire de sauvegarde absent ou symbolique.');
         }
         foreach ($this->files as $source) {
