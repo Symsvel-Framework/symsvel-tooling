@@ -399,6 +399,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 self::assertStringContainsString('avant Composer', $error->getMessage());
             }
             self::assertSame([], $commands, 'No Composer or Git/npm commands should run.');
+            self::assertDirectoryDoesNotExist($root.'/backend/.symsvel/transactions', 'Preflight failure must not create checkpoints.');
             self::assertSame('{"name":"test/backend"}', file_get_contents($root.'/backend/composer.json'));
             self::assertSame('{"packages":[]}', file_get_contents($root.'/backend/composer.lock'));
             self::assertSame('original', file_get_contents($root.'/backend/vendor/pkg/index.php'));
