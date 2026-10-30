@@ -378,6 +378,35 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         }
     }
 
+    public function testMissingDatabaseUrlFailsBeforeComposerWithoutChangingWorkspace(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-db-preflight-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend/vendor/pkg', 0775, true);
+        file_put_contents($root.'/backend/composer.json', '{"name":"test/backend"}');
+        file_put_contents($root.'/backend/composer.lock', '{"packages":[]}');
+        file_put_contents($root.'/backend/vendor/pkg/index.php', 'original');
+        $commands = [];
+        try {
+            $runner = static function (array $command, string $cwd) use (&$commands): ?string {
+                $commands[] = $command;
+                return null;
+            };
+            try {
+                (new WorkspaceUpdater($runner, true, ''))->update($root.'/backend', 'core');
+                self::fail('Missing database URL must fail closed.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('DATABASE_URL explicite obligatoire', $error->getMessage());
+                self::assertStringContainsString('avant Composer', $error->getMessage());
+            }
+            self::assertSame([], $commands, 'No Composer or Git/npm commands should run.');
+            self::assertSame('{"name":"test/backend"}', file_get_contents($root.'/backend/composer.json'));
+            self::assertSame('{"packages":[]}', file_get_contents($root.'/backend/composer.lock'));
+            self::assertSame('original', file_get_contents($root.'/backend/vendor/pkg/index.php'));
+        } finally {
+            $this->deleteTree($root);
+        }
+    }
+
     /** @param list<string> $args */
     private function git(string $directory, array $args): string
     {
