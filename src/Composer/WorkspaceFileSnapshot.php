@@ -87,6 +87,22 @@ final class WorkspaceFileSnapshot
             }
         }
         $workspace = dirname($this->backend);
+        // Check every destination parent before deleting any current file.
+        // A symlink introduced by a failed recipe must not cause a partial rollback.
+        foreach ($this->files as $key => $source) {
+            [$component, $relative] = explode('/', $key, 2);
+            $root = $component === 'backend' ? $this->backend : $workspace.'/'.$component;
+            if (is_link($root)) {
+                throw new \RuntimeException('Rollback bloqué : composant symbolique non fiable : '.$root);
+            }
+            $parent = dirname($root.'/'.$relative);
+            while ($parent !== $root && $parent !== dirname($parent)) {
+                if (is_link($parent)) {
+                    throw new \RuntimeException('Rollback bloqué : répertoire symbolique non fiable : '.$parent);
+                }
+                $parent = dirname($parent);
+            }
+        }
         foreach ($this->roots as $root) {
             $component = $root === $this->backend ? 'backend' : basename($root);
             foreach ($this->scan($root) as $relative => $path) {
