@@ -10,6 +10,31 @@ use SymSvel\Tooling\Update\WorkspaceUpdater;
 
 final class WorkspaceUpdaterGitRollbackTest extends TestCase
 {
+    public function testDatabaseUrlUsesSymfonyEnvironmentSpecificConfiguration(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-env-resolution-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend', 0775, true);
+        try {
+            file_put_contents($root.'/backend/.env', "DATABASE_URL=sqlite:///default.sqlite\\n");
+            file_put_contents($root.'/backend/.env.core', "DATABASE_URL=sqlite:///core.sqlite\\n");
+            file_put_contents($root.'/backend/.env.core.local', "DATABASE_URL=sqlite:///core-local.sqlite\\n");
+            $updater = new WorkspaceUpdater(databaseUrl: 'sqlite:///explicit.sqlite');
+            $method = new \\ReflectionMethod(WorkspaceUpdater::class, 'resolveDatabaseUrl');
+            self::assertSame('sqlite:///explicit.sqlite', $method->invoke($updater, $root.'/backend', 'core'));
+            if (!class_exists(\\Symfony\\Component\\Dotenv\\Dotenv::class)) {
+                self::markTestSkipped('Symfony Dotenv is not installed.');
+            }
+            $external = $_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
+            if (is_string($external) && $external !== '') {
+                self::markTestSkipped('External DATABASE_URL overrides Symfony Dotenv files.');
+            }
+            self::assertSame('sqlite:///core-local.sqlite', $method->invoke(new WorkspaceUpdater(), $root.'/backend', 'core'));
+            self::assertSame('sqlite:///default.sqlite', $method->invoke(new WorkspaceUpdater(), $root.'/backend', 'dev'));
+        } finally {
+            $this->deleteTree($root);
+        }
+    }
+
     public function testFrontBuildFailureRestoresAllThreeGitComponents(): void
     {
         $root = sys_get_temp_dir().'/symsvel-update-rollback-'.bin2hex(random_bytes(8));
