@@ -111,6 +111,57 @@ final class RuntimeArtifactSnapshotTest extends TestCase
         }
     }
 
+    public function testCorruptedCheckpointFileNeverDestroysCurrentRuntime(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-runtime-corrupt-'.bin2hex(random_bytes(8));
+        $component = $root.'/bo';
+        $transaction = $root.'/transaction';
+        mkdir($component.'/node_modules/pkg', 0775, true);
+        file_put_contents($component.'/node_modules/pkg/index.js', 'original');
+        $snapshot = new RuntimeArtifactSnapshot($component, $transaction);
+        try {
+            $snapshot->capture();
+            file_put_contents($component.'/node_modules/pkg/index.js', 'current mutated state');
+            file_put_contents($transaction.'/runtime/node_modules/pkg/index.js', 'corrupted checkpoint');
+            try {
+                $snapshot->restore();
+                self::fail('Corrupted checkpoint must abort before deleting current files.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('sauvegarde altérée', $error->getMessage());
+                self::assertSame('current mutated state', file_get_contents($component.'/node_modules/pkg/index.js'));
+                self::assertSame('corrupted checkpoint', file_get_contents($transaction.'/runtime/node_modules/pkg/index.js'));
+            }
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
+    public function testMissingFileInsideCheckpointNeverDestroysCurrentRuntime(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-runtime-file-missing-'.bin2hex(random_bytes(8));
+        $component = $root.'/bo';
+        $transaction = $root.'/transaction';
+        mkdir($component.'/build', 0775, true);
+        file_put_contents($component.'/build/index.html', 'original');
+        $snapshot = new RuntimeArtifactSnapshot($component, $transaction);
+        try {
+            $snapshot->capture();
+            file_put_contents($component.'/build/index.html', 'current mutated state');
+            unlink($transaction.'/runtime/build/index.html');
+            try {
+                $snapshot->restore();
+                self::fail('Missing checkpoint file must abort before deleting current files.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('sauvegarde altérée', $error->getMessage());
+                self::assertSame('current mutated state', file_get_contents($component.'/build/index.html'));
+            }
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
     private function deleteTree(string $path): void
     {
         if (!is_dir($path) || is_link($path)) {
