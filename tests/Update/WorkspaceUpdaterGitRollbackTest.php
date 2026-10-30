@@ -305,6 +305,79 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         }
     }
 
+    public function testDatabaseRecoveryFailureKeepsCheckpointAndRestoresOtherComponents(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-recovery-failure-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend/vendor/pkg', 0775, true);
+        file_put_contents($root.'/backend/composer.json', '{"name":"test/backend"}');
+        file_put_contents($root.'/backend/composer.lock', '{"packages":[]}');
+        file_put_contents($root.'/backend/vendor/pkg/index.php', 'original');
+        file_put_contents($root.'/backend/source.php', 'original');
+        $database = $root.'/database.sqlite';
+        (new Process(['sqlite3', $database, "CREATE TABLE probe (value TEXT); INSERT INTO probe VALUES ('original');"]))->mustRun();
+        $bo = $root.'/bo';
+        mkdir($bo.'/build', 0775, true);
+        file_put_contents($bo.'/build/index.html', 'original');
+        $this->git($bo, ['init', '-b', 'main']);
+        $this->git($bo, ['config', 'user.email', 'test@example.test']);
+        $this->git($bo, ['config', 'user.name', 'SymSvel Test']);
+        file_put_contents($bo.'/version.txt', 'original');
+        $this->git($bo, ['add', 'version.txt']);
+        $this->git($bo, ['commit', '-m', 'original']);
+        $head = trim($this->git($bo, ['rev-parse', 'HEAD']));
+        $checkpointPath = null;
+        try {
+            $runner = function (array $command, string $cwd) use ($root, $database, &$checkpointPath): ?string {
+                if ($command === ['git', 'status', '--porcelain', '--untracked-files=all']) {
+                    return '';
+                }
+                if ($command[0] === 'composer') {
+                    file_put_contents($cwd.'/composer.lock', '{"changed":true}');
+                    file_put_contents($cwd.'/vendor/pkg/index.php', 'changed');
+                    file_put_contents($cwd.'/source.php', 'changed');
+                    (new Process(['sqlite3', $database, "UPDATE probe SET value='changed';"]))->mustRun();
+                }
+                if ($command === ['git', 'merge', '--ff-only', 'origin/main']) {
+                    file_put_contents($cwd.'/version.txt', 'changed');
+                    $this->git($cwd, ['commit', '-am', 'changed']);
+                }
+                if ($command === ['npm', 'run', 'build']) {
+                    file_put_contents($cwd.'/build/index.html', 'changed');
+                    $checkpoints = glob($root.'/backend/.symsvel/transactions/.database-*');
+                    self::assertCount(1, $checkpoints);
+                    $checkpointPath = $checkpoints[0];
+                    file_put_contents($checkpointPath, 'corrupted backup');
+                    throw new \RuntimeException('BO build exploded');
+                }
+                return null;
+            };
+            try {
+                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database))->update($root.'/backend', 'core');
+                self::fail('Expected rollback failure.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('[BO / Build Svelte]', $error->getMessage());
+                self::assertStringContainsString('Rollback incomplet', $error->getMessage());
+                self::assertStringContainsString('BACK / BDD', $error->getMessage());
+                self::assertStringContainsString('checkpoint conservé', $error->getMessage());
+                self::assertStringContainsString('Rollback global non garanti', $error->getMessage());
+            }
+            self::assertNotNull($checkpointPath);
+            self::assertFileExists($checkpointPath);
+            self::assertSame('corrupted backup', file_get_contents($checkpointPath));
+            self::assertSame('{"packages":[]}', file_get_contents($root.'/backend/composer.lock'));
+            self::assertSame('original', file_get_contents($root.'/backend/vendor/pkg/index.php'));
+            self::assertSame('original', file_get_contents($root.'/backend/source.php'));
+            self::assertSame($head, trim($this->git($bo, ['rev-parse', 'HEAD'])));
+            self::assertSame('original', file_get_contents($bo.'/version.txt'));
+            self::assertSame('original', file_get_contents($bo.'/build/index.html'));
+            $probe = new Process(['sqlite3', $database, 'SELECT value FROM probe']);
+            $probe->mustRun();
+            self::assertSame('changed', trim($probe->getOutput()), 'Database restoration failed as intended.');
+        } finally {
+            $this->deleteTree($root);
+        }
+    }
+
     /** @param list<string> $args */
     private function git(string $directory, array $args): string
     {
