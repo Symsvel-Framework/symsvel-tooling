@@ -88,6 +88,9 @@ final class WorkspaceFileSnapshot
         }
         $workspace = dirname($this->backend);
         foreach ($this->roots as $root) {
+            if (is_link($root) || !is_dir($root)) {
+                throw new \RuntimeException('Rollback bloqué : composant absent ou symbolique : '.$root);
+            }
             $component = $root === $this->backend ? 'backend' : basename($root);
             foreach ($this->scan($root) as $relative => $path) {
                 if (!isset($this->files[$component.'/'.$relative]) && !unlink($path)) {
