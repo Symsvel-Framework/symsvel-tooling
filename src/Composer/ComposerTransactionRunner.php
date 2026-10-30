@@ -72,16 +72,34 @@ final class ComposerTransactionRunner
         try {
             $this->execute(array_merge(['composer'], $arguments, ['--no-scripts', '--no-plugins']), $backend, $progress);
         } catch (\Throwable $failure) {
+            $recoveryErrors = [];
+            // Every recovery step is independent: a failed manifest restore
+            // must not prevent vendor, sources or frontend artifacts recovery.
             try {
                 $this->snapshots->restoreManifests($backend, $transaction);
-                // The original lock must exist for deterministic vendor recovery.
-                if (!is_file($backend.'/composer.lock')) {
-                    throw new \RuntimeException('Aucun composer.lock initial : restauration vendor automatique impossible.');
-                }
+            } catch (\Throwable $recovery) {
+                $recoveryErrors[] = 'BACK / manifests : '.$recovery->getMessage();
+            }
+            try {
                 $vendorSnapshot->restore();
+            } catch (\Throwable $recovery) {
+                $recoveryErrors[] = 'BACK / vendor : '.$recovery->getMessage();
+            }
+            try {
                 $workspaceSnapshot->restore();
-                foreach ($runtimeSnapshots as $runtime) {
+            } catch (\Throwable $recovery) {
+                $recoveryErrors[] = 'Workspace / sources : '.$recovery->getMessage();
+            }
+            foreach ($runtimeSnapshots as $index => $runtime) {
+                try {
                     $runtime->restore();
+                } catch (\Throwable $recovery) {
+                    $recoveryErrors[] = ['BO', 'APP', 'FRONT'][$index].' / npm-build : '.$recovery->getMessage();
+                }
+            }
+            try {
+                if (!is_file($backend.'/composer.lock')) {
+                    throw new \RuntimeException('composer.lock initial absent après restauration.');
                 }
                 $restoredFiles = $this->workspaceFiles($backend);
                 $changedFiles = array_keys(array_diff_assoc($restoredFiles, $initialFiles));
@@ -89,28 +107,29 @@ final class ComposerTransactionRunner
                 if ($changedFiles !== []) {
                     throw new \RuntimeException('Fichiers hors Composer modifiés : '.implode(', ', array_slice($changedFiles, 0, 10)));
                 }
-                // Restoration is complete. Cleanup is post-recovery housekeeping:
-                // a deletion failure must not turn a verified rollback into an
-                // incorrectly reported recovery failure.
-                try {
-                    $registry = new WorkspaceCleanupRegistry($backend);
-                    $registry->enqueue([$transaction]);
-                    $cleanup = $registry->cleanup();
-                    if ($cleanup['errors'] !== [] && $progress !== null) {
-                        $progress('AVERTISSEMENT : rollback Composer restauré, nettoyage différé (symsvel:cleanup) : '.implode(' ; ', $cleanup['errors']));
-                    }
-                } catch (\Throwable $cleanupFailure) {
-                    if ($progress !== null) {
-                        $progress('AVERTISSEMENT : rollback Composer restauré, nettoyage non enregistré : '.$cleanupFailure->getMessage().'; checkpoint conservé si présent : '.$transaction);
-                    }
-                }
-            } catch (\Throwable $recovery) {
+            } catch (\Throwable $verification) {
+                $recoveryErrors[] = 'Vérification : '.$verification->getMessage();
+            }
+            if ($recoveryErrors !== []) {
                 throw new \RuntimeException(
-                    'Échec Composer : '.$failure->getMessage().'; récupération incomplète : '.$recovery->getMessage().
+                    'Échec Composer : '.$failure->getMessage().'; récupération incomplète : '.implode(' ; ', $recoveryErrors).
                     '; snapshot conservé : '.$transaction,
                     0,
                     $failure,
                 );
+            }
+            // Recovery has been verified. Cleanup is separate housekeeping.
+            try {
+                $registry = new WorkspaceCleanupRegistry($backend);
+                $registry->enqueue([$transaction]);
+                $cleanup = $registry->cleanup();
+                if ($cleanup['errors'] !== [] && $progress !== null) {
+                    $progress('AVERTISSEMENT : rollback Composer restauré, nettoyage différé (symsvel:cleanup) : '.implode(' ; ', $cleanup['errors']));
+                }
+            } catch (\Throwable $cleanupFailure) {
+                if ($progress !== null) {
+                    $progress('AVERTISSEMENT : rollback Composer restauré, nettoyage non enregistré : '.$cleanupFailure->getMessage().'; checkpoint conservé si présent : '.$transaction);
+                }
             }
             throw new \RuntimeException('Opération Composer annulée et dépendances restaurées : '.$failure->getMessage(), 0, $failure);
         }
