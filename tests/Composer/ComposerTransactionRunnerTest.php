@@ -111,6 +111,38 @@ final class ComposerTransactionRunnerTest extends TestCase
         }
     }
 
+    public function testFailedComposerRollbackRemainsVerifiedWhenCleanupRegistryFails(): void
+    {
+        mkdir($this->backend.'/.symsvel', 0700, true);
+        mkdir($this->backend.'/.symsvel/cleanup-pending.json');
+        $messages = [];
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend): void {
+                file_put_contents($backend.'/composer.lock', '{"damaged":true}');
+                throw new \RuntimeException('simulated Composer error');
+            });
+            $failed = false;
+            try {
+                $runner->run($this->backend, ['update', 'existing'], static function (string $message) use (&$messages): void {
+                    $messages[] = $message;
+                });
+            } catch (\RuntimeException $error) {
+                $failed = true;
+                self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+                self::assertStringNotContainsString('récupération incomplète', $error->getMessage());
+            }
+            self::assertTrue($failed);
+            self::assertSame('{"packages":[{"name":"existing"}]}', file_get_contents($this->backend.'/composer.lock'));
+            self::assertCount(1, glob($this->backend.'/.symsvel/transactions/*'));
+            self::assertStringContainsString('rollback Composer restauré, nettoyage non enregistré', implode("\n", $messages));
+        } finally {
+            rmdir($this->backend.'/.symsvel/cleanup-pending.json');
+            foreach (glob($this->backend.'/.symsvel/transactions/*') ?: [] as $directory) {
+                $this->deleteDirectory($directory);
+            }
+        }
+    }
+
     private function deleteDirectory(string $path): void
     {
         if (is_file($path) || is_link($path)) {
