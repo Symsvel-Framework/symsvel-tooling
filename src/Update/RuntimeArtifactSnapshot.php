@@ -74,7 +74,7 @@ final class RuntimeArtifactSnapshot
 
     private function fingerprint(string $directory): string
     {
-        $entries = [];
+        $entries = ['.' => 'dir:'.(fileperms($directory) & 0777)];
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
             \RecursiveIteratorIterator::SELF_FIRST,
@@ -84,7 +84,7 @@ final class RuntimeArtifactSnapshot
             if ($entry->isLink()) {
                 $entries[$path] = 'link:'.readlink($entry->getPathname());
             } elseif ($entry->isDir()) {
-                $entries[$path] = 'dir';
+                $entries[$path] = 'dir:'.($entry->getPerms() & 0777);
             } else {
                 $hash = hash_file('sha256', $entry->getPathname());
                 if ($hash === false) {
@@ -116,6 +116,9 @@ final class RuntimeArtifactSnapshot
             } elseif (!copy($entry->getPathname(), $target) || !chmod($target, $entry->getPerms() & 0777)) {
                 throw new \RuntimeException('Copie fichier runtime impossible : '.$target);
             }
+        }
+        if (!chmod($destination, fileperms($source) & 0777)) {
+            throw new \RuntimeException('Permissions répertoire runtime impossibles : '.$destination);
         }
     }
 
