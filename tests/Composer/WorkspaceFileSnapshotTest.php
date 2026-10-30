@@ -9,6 +9,72 @@ use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 
 final class WorkspaceFileSnapshotTest extends TestCase
 {
+    public function testCorruptedSourceCheckpointDoesNotDeleteNewWorkspaceFiles(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-snapshot-corrupt-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $transaction = $backend.'/.symsvel/transactions/test';
+        mkdir($transaction, 0700, true);
+        file_put_contents($backend.'/source.php', 'original');
+        $snapshot = new WorkspaceFileSnapshot($backend, $transaction);
+        try {
+            $snapshot->capture();
+            file_put_contents($backend.'/source.php', 'mutated');
+            file_put_contents($backend.'/new.php', 'new file');
+            file_put_contents($transaction.'/workspace/backend/source.php', 'corrupted');
+            try {
+                $snapshot->restore();
+                self::fail('Corrupted source checkpoint must abort before any deletion.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('sauvegarde altérée pour backend/source.php', $error->getMessage());
+                self::assertSame('mutated', file_get_contents($backend.'/source.php'));
+                self::assertSame('new file', file_get_contents($backend.'/new.php'));
+            }
+        } finally {
+            $snapshot->discard();
+            @unlink($backend.'/source.php');
+            @unlink($backend.'/new.php');
+            @rmdir($transaction);
+            @rmdir(dirname($transaction));
+            @rmdir(dirname(dirname($transaction)));
+            @rmdir($backend);
+            @rmdir($root);
+        }
+    }
+
+    public function testMissingSourceCheckpointDoesNotDeleteNewWorkspaceFiles(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-snapshot-missing-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $transaction = $backend.'/.symsvel/transactions/test';
+        mkdir($transaction, 0700, true);
+        file_put_contents($backend.'/source.php', 'original');
+        $snapshot = new WorkspaceFileSnapshot($backend, $transaction);
+        try {
+            $snapshot->capture();
+            file_put_contents($backend.'/source.php', 'mutated');
+            file_put_contents($backend.'/new.php', 'new file');
+            unlink($transaction.'/workspace/backend/source.php');
+            try {
+                $snapshot->restore();
+                self::fail('Missing source checkpoint must abort before any deletion.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('sauvegarde altérée pour backend/source.php', $error->getMessage());
+                self::assertSame('mutated', file_get_contents($backend.'/source.php'));
+                self::assertSame('new file', file_get_contents($backend.'/new.php'));
+            }
+        } finally {
+            $snapshot->discard();
+            @unlink($backend.'/source.php');
+            @unlink($backend.'/new.php');
+            @rmdir($transaction);
+            @rmdir(dirname($transaction));
+            @rmdir(dirname(dirname($transaction)));
+            @rmdir($backend);
+            @rmdir($root);
+        }
+    }
+
     public function testCaptureRejectsSymlinkedComponentRoot(): void
     {
         $root = sys_get_temp_dir().'/symsvel-snapshot-root-'.bin2hex(random_bytes(8));
