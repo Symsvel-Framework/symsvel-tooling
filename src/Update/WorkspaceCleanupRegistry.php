@@ -115,6 +115,11 @@ final class WorkspaceCleanupRegistry
         if (is_link($path) || is_link($base) || is_link($backend.'/.symsvel')) {
             throw new \RuntimeException('Lien symbolique interdit dans le registre cleanup.');
         }
+        // The transaction root must be a real directory, not a missing or
+        // redirected path. Never recurse into an unverified cleanup root.
+        if (!is_dir($base) || realpath($base) !== $base) {
+            throw new \RuntimeException('Répertoire de transactions invalide : '.$base);
+        }
     }
 
     private function remove(string $path): void
