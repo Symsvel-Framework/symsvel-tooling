@@ -191,6 +191,40 @@ final class RuntimeArtifactSnapshotTest extends TestCase
         }
     }
 
+    public function testRestoresDirectoryPermissionsAndRejectsTamperedDirectoryMode(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-runtime-directory-mode-'.bin2hex(random_bytes(8));
+        $component = $root.'/bo';
+        $transaction = $root.'/transaction';
+        mkdir($component.'/build/nested', 0755, true);
+        file_put_contents($component.'/build/nested/index.html', 'original');
+        chmod($component.'/build', 0750);
+        chmod($component.'/build/nested', 0755);
+        $snapshot = new RuntimeArtifactSnapshot($component, $transaction);
+        try {
+            $snapshot->capture();
+            self::assertSame(0750, fileperms($transaction.'/runtime/build') & 0777);
+            chmod($component.'/build', 0777);
+            chmod($component.'/build/nested', 0777);
+            $snapshot->restore();
+            self::assertSame(0750, fileperms($component.'/build') & 0777);
+            self::assertSame(0755, fileperms($component.'/build/nested') & 0777);
+
+            chmod($transaction.'/runtime/build/nested', 0700);
+            chmod($component.'/build', 0777);
+            try {
+                $snapshot->restore();
+                self::fail('Modified checkpoint directory mode must be rejected.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('sauvegarde altérée pour build', $error->getMessage());
+                self::assertSame(0777, fileperms($component.'/build') & 0777);
+            }
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
     private function deleteTree(string $path): void
     {
         if (!is_dir($path) || is_link($path)) {
