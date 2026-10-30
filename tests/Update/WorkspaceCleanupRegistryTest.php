@@ -98,6 +98,31 @@ final class WorkspaceCleanupRegistryTest extends TestCase
         }
     }
 
+    public function testRejectsSymlinkedTransactionRootWithoutDeletingTarget(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-cleanup-root-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $outside = $root.'/outside';
+        mkdir($backend.'/.symsvel', 0700, true);
+        mkdir($outside.'/update-'.str_repeat('d', 24), 0700, true);
+        file_put_contents($outside.'/update-'.str_repeat('d', 24).'/important.txt', 'preserve');
+        symlink($outside, $backend.'/.symsvel/transactions');
+        try {
+            $registry = new WorkspaceCleanupRegistry($backend);
+            $failed = false;
+            try {
+                $registry->enqueue([$backend.'/.symsvel/transactions/update-'.str_repeat('d', 24)]);
+            } catch (\\RuntimeException $error) {
+                $failed = true;
+                self::assertStringContainsString('Lien symbolique', $error->getMessage());
+            }
+            self::assertTrue($failed);
+            self::assertSame('preserve', file_get_contents($outside.'/update-'.str_repeat('d', 24).'/important.txt'));
+        } finally {
+            $this->remove($root);
+        }
+    }
+
     private function remove(string $path): void
     {
         if (!file_exists($path) && !is_link($path)) {
