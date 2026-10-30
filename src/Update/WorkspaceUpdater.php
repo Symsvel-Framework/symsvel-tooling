@@ -11,7 +11,7 @@ use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 final class WorkspaceUpdater
 {
     /** @param null|callable(list<string>, string):void $runner */
-    public function __construct(private readonly mixed $runner = null, private readonly bool $snapshotWithRunner = false)
+    public function __construct(private readonly mixed $runner = null, private readonly bool $snapshotWithRunner = false, private readonly ?string $databaseUrl = null)
     {
     }
 
@@ -112,6 +112,20 @@ final class WorkspaceUpdater
                 }
             }
         }
+        $databaseBackup = null;
+        $databaseCheckpoint = null;
+        $effectiveDatabaseUrl = $this->databaseUrl ?? ($_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL') ?: null);
+        if ($this->runner === null || $this->snapshotWithRunner) {
+            if (!is_string($effectiveDatabaseUrl) || $effectiveDatabaseUrl === '') {
+                throw new \\RuntimeException('BACK / BDD : DATABASE_URL explicite obligatoire pour garantir le rollback ; mise à jour annulée avant Composer.');
+            }
+            $databaseBackup = new WorkspaceDatabaseBackup();
+            try {
+                $databaseCheckpoint = $databaseBackup->capture($backendDir, $effectiveDatabaseUrl);
+            } catch (\\Throwable $failure) {
+                throw new \\RuntimeException('BACK / Snapshot BDD impossible : '.$failure->getMessage().'; mise à jour annulée avant Composer.', 0, $failure);
+            }
+        }
         $componentInProgress = 'BACK';
         $stepInProgress = 'Composer update';
         try {
@@ -203,16 +217,26 @@ final class WorkspaceUpdater
                     $rollbackErrors[] = 'BACK / fichiers sources : '.$recovery->getMessage();
                 }
             }
+            if ($databaseBackup !== null && $databaseCheckpoint !== null && is_string($effectiveDatabaseUrl)) {
+                try {
+                    $databaseBackup->restore($effectiveDatabaseUrl, $databaseCheckpoint);
+                } catch (\\Throwable $recovery) {
+                    $rollbackErrors[] = 'BACK / BDD : '.$recovery->getMessage().'; checkpoint conservé : '.$databaseCheckpoint['path'];
+                }
+            }
             $rollbackStatus = $rollbackErrors === []
                 ? ($composerSnapshot === null
                     ? 'Git et artefacts npm/build restaurés ; rollback Composer et BDD non garanti.'
-                    : 'Git, npm/build, vendor et sources restaurés ; ATTENTION : BDD non garantie.')
+                    : 'Git, npm/build, vendor, sources et BDD restaurés.')
                 : 'Rollback incomplet : '.implode(' ; ', $rollbackErrors).'. Rollback global non garanti.';
             throw new \RuntimeException(
                 sprintf('Échec de mise à jour [%s / %s] : %s. %s', $componentInProgress, $stepInProgress, $failure->getMessage(), $rollbackStatus),
                 0,
                 $failure,
             );
+        }
+        if ($databaseBackup !== null && $databaseCheckpoint !== null) {
+            $databaseBackup->discard($databaseCheckpoint);
         }
         if ($workspaceSnapshot !== null && $composerSnapshot !== null && $composerCheckpoint !== null) {
             $workspaceSnapshot->discard();
