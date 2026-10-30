@@ -136,6 +136,29 @@ final class WorkspaceCleanupRegistryTest extends TestCase
         }
     }
 
+    public function testRejectsSymlinkedRegistryDirectory(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-cleanup-link-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $outside = $root.'/outside';
+        mkdir($backend, 0700, true);
+        mkdir($outside, 0700, true);
+        symlink($outside, $backend.'/.symsvel');
+        try {
+            $failed = false;
+            try {
+                (new WorkspaceCleanupRegistry($backend))->cleanup();
+            } catch (\RuntimeException $error) {
+                $failed = true;
+                self::assertStringContainsString('Lien symbolique', $error->getMessage());
+            }
+            self::assertTrue($failed);
+            self::assertFileDoesNotExist($outside.'/cleanup.lock');
+        } finally {
+            $this->remove($root);
+        }
+    }
+
     private function remove(string $path): void
     {
         if (!file_exists($path) && !is_link($path)) {
