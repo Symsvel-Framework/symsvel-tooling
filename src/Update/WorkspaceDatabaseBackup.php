@@ -60,8 +60,13 @@ final class WorkspaceDatabaseBackup
         if ($driver === 'sqlite') {
             $this->run(['sqlite3', $this->sqlitePath($parts), '.restore '.$checkpoint['path']]);
         } elseif ($driver === 'postgresql') {
-            [$connection, $env] = $this->postgresConnection($parts);
-            $this->run(['pg_restore', '--exit-on-error', '--clean', '--if-exists', '--no-owner', '--no-acl', ...$connection, $checkpoint['path']], $env);
+            // pg_restore --clean only removes objects present in the archive.
+            // It cannot undo new tables/schemas created after capture. Never
+            // advertise a partial restore as a whole-database rollback.
+            throw new \RuntimeException(
+                'Restauration PostgreSQL globale non sécurisée : les objets créés après le checkpoint resteraient présents. '.
+                'Checkpoint conservé pour restauration contrôlée : '.$checkpoint['path'],
+            );
         } else {
             throw new \DomainException('Restauration globale non prise en charge pour '.$driver.'.');
         }
