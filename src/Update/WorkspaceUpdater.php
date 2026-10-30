@@ -270,10 +270,10 @@ final class WorkspaceUpdater
         if (is_string($external) && $external !== '') {
             return $external;
         }
-        if (!class_exists(\Symfony\Component\\Dotenv\\Dotenv::class)) {
+        if (!class_exists(\Symfony\Component\Dotenv\Dotenv::class)) {
             return null;
         }
-        $dotenv = new \Symfony\Component\\Dotenv\\Dotenv();
+        $dotenv = new \Symfony\Component\Dotenv\Dotenv();
         $values = [];
         foreach (['.env', '.env.local', '.env.'.$environment, '.env.'.$environment.'.local'] as $file) {
             if ($environment === 'test' && $file === '.env.local') {
@@ -363,12 +363,12 @@ final class WorkspaceUpdater
         if (!is_array($entries)) {
             return false;
         }
-        foreach (preg_split('/\\R/', $status) ?: [] as $line) {
+        foreach (preg_split('/\R/', $status) ?: [] as $line) {
             if (!str_starts_with($line, '?? ')) {
                 return false;
             }
             $relative = substr($line, 3);
-            if ($relative === '' || str_contains($relative, '..') || str_contains($relative, '\\\\') || str_starts_with($relative, '/')) {
+            if ($relative === '' || str_contains($relative, '..') || str_contains($relative, '\\') || str_starts_with($relative, '/')) {
                 return false;
             }
             $path = $directory.'/'.$relative;
@@ -397,8 +397,8 @@ final class WorkspaceUpdater
     {
         $tags = $this->output(['git', 'tag', '--list', 'v[0-9]*'], $directory);
         $versions = array_filter(
-            preg_split('/\\R/', trim($tags)) ?: [],
-            static fn (string $tag): bool => preg_match('/^v\\d+\\.\\d+\\.\\d+$/', $tag) === 1,
+            preg_split('/\R/', trim($tags)) ?: [],
+            static fn (string $tag): bool => preg_match('/^v\d+\.\d+\.\d+$/', $tag) === 1,
         );
         if ($versions === []) {
             throw new \RuntimeException('Aucune release stable (tag vX.Y.Z) disponible dans '.$directory);
