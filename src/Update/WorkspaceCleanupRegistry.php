@@ -86,7 +86,7 @@ final class WorkspaceCleanupRegistry
             }
             try {
                 if (file_put_contents($temp, json_encode($entries, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)) === false
-                    || !rename($temp, $file)) {
+                    || (is_dir($file) && !is_link($file)) || !rename($temp, $file)) {
                     throw new \RuntimeException('Écriture atomique du registre cleanup impossible.');
                 }
             } finally {
