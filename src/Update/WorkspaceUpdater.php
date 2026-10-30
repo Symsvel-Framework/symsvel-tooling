@@ -114,7 +114,7 @@ final class WorkspaceUpdater
         }
         $databaseBackup = null;
         $databaseCheckpoint = null;
-        $effectiveDatabaseUrl = $this->databaseUrl ?? ($_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL') ?: null);
+        $effectiveDatabaseUrl = $this->resolveDatabaseUrl($backendDir, $environment);
         if ($this->runner === null || $this->snapshotWithRunner) {
             if (!is_string($effectiveDatabaseUrl) || $effectiveDatabaseUrl === '') {
                 throw new \RuntimeException('BACK / BDD : DATABASE_URL explicite obligatoire pour garantir le rollback ; mise à jour annulée avant Composer.');
@@ -256,6 +256,39 @@ final class WorkspaceUpdater
         }
     }
 
+
+    /**
+     * Resolve the same environment-specific Dotenv layers used by Symfony.
+     * Explicit constructor injection remains available for isolated tests.
+     */
+    private function resolveDatabaseUrl(string $backendDir, string $environment): ?string
+    {
+        if ($this->databaseUrl !== null) {
+            return $this->databaseUrl;
+        }
+        $external = $_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? getenv('DATABASE_URL');
+        if (is_string($external) && $external !== '') {
+            return $external;
+        }
+        if (!class_exists(\\Symfony\\Component\\Dotenv\\Dotenv::class)) {
+            return null;
+        }
+        $dotenv = new \\Symfony\\Component\\Dotenv\\Dotenv();
+        $values = [];
+        foreach (['.env', '.env.local', '.env.'.$environment, '.env.'.$environment.'.local'] as $file) {
+            if ($environment === 'test' && $file === '.env.local') {
+                continue;
+            }
+            $path = $backendDir.'/'.$file;
+            if (!is_file($path)) {
+                continue;
+            }
+            $parsed = $dotenv->parse((string) file_get_contents($path), $path);
+            $values = array_replace($values, $parsed);
+        }
+        $url = $values['DATABASE_URL'] ?? null;
+        return is_string($url) && $url !== '' ? $url : null;
+    }
 
     /** Publish the framework-managed Composer hook without replacing application scripts. */
     private function installComposerHooks(string $backendDir, ?callable $progress): void
