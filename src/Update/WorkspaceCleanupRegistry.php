@@ -69,6 +69,9 @@ final class WorkspaceCleanupRegistry
         if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
             throw new \RuntimeException('Registre cleanup inaccessible : '.$directory);
         }
+        if (is_link($directory.'/cleanup.lock') || is_link($directory.'/cleanup-pending.json')) {
+            throw new \RuntimeException('Lien symbolique interdit pour les fichiers du registre cleanup.');
+        }
         $lock = fopen($directory.'/cleanup.lock', 'c');
         if ($lock === false || !flock($lock, LOCK_EX)) {
             throw new \RuntimeException('Verrou cleanup indisponible.');
