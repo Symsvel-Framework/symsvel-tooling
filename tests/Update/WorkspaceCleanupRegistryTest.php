@@ -112,7 +112,7 @@ final class WorkspaceCleanupRegistryTest extends TestCase
             $failed = false;
             try {
                 $registry->enqueue([$backend.'/.symsvel/transactions/update-'.str_repeat('d', 24)]);
-            } catch (\\RuntimeException $error) {
+            } catch (\RuntimeException $error) {
                 $failed = true;
                 self::assertStringContainsString('Lien symbolique', $error->getMessage());
             }
