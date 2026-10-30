@@ -270,10 +270,10 @@ final class WorkspaceUpdater
         if (is_string($external) && $external !== '') {
             return $external;
         }
-        if (!class_exists(\\Symfony\\Component\\Dotenv\\Dotenv::class)) {
+        if (!class_exists(\Symfony\Component\\Dotenv\\Dotenv::class)) {
             return null;
         }
-        $dotenv = new \\Symfony\\Component\\Dotenv\\Dotenv();
+        $dotenv = new \Symfony\Component\\Dotenv\\Dotenv();
         $values = [];
         foreach (['.env', '.env.local', '.env.'.$environment, '.env.'.$environment.'.local'] as $file) {
             if ($environment === 'test' && $file === '.env.local') {
