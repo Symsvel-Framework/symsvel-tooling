@@ -26,7 +26,7 @@ Si Composer échoue, le lanceur tente de restaurer les manifests, `vendor/`, les
 
 **Limites importantes :** le lanceur Composer ne sauvegarde **pas** la base de données, ne restaure pas les références Git et ne compense pas les effets sur des services externes. Il ne remplace donc pas le mécanisme global de `symsvel:update`. En particulier, un script tiers ou une action manuelle hors de son périmètre ne bénéficie pas d'une transaction complète.
 
-Après succès, le lanceur supprime normalement ses checkpoints. **À ce stade, son nettoyage n'utilise pas le registre différé de `symsvel:cleanup`**, réservé aux checkpoints des mises à jour globales. Une erreur de suppression après succès peut donc encore remonter comme une erreur de commande ; ne pas la confondre avec un rollback.
+Après succès, le lanceur inscrit son checkpoint dans `backend/.symsvel/cleanup-pending.json` **avant** de lancer son nettoyage. Comme pour `symsvel:update`, une suppression interrompue est reprise par `php bin/console symsvel:cleanup` (éventuellement via cron). Si l'enregistrement échoue, l'opération Composer reste réussie, le checkpoint est conservé et un avertissement est émis via le suivi de progression. Les checkpoints d'une récupération incomplète ne sont jamais inscrits au registre.
 
 ## Mise à jour globale du workspace
 
