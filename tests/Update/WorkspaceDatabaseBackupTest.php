@@ -27,7 +27,7 @@ final class WorkspaceDatabaseBackupTest extends TestCase
         ]);
     }
 
-    public function testPostgresRestoreRefusesPartialRollbackAndRetainsCheckpoint(): void
+    public function testPostgresRestoreRejectsInvalidArchiveAndRetainsCheckpoint(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'symsvel-pg-checkpoint-');
         self::assertNotFalse($path);
@@ -38,9 +38,23 @@ final class WorkspaceDatabaseBackupTest extends TestCase
                 $backup->restore('postgresql://localhost/example', ['driver' => 'postgresql', 'path' => $path]);
                 self::fail('Unsafe PostgreSQL restore must be refused.');
             } catch (\RuntimeException $error) {
-                self::assertStringContainsString('Restauration PostgreSQL globale non sécurisée', $error->getMessage());
+                self::assertStringContainsString('Archive PostgreSQL illisible ou nom de base absent', $error->getMessage());
                 self::assertFileExists($path);
             }
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function testPostgresRestoreRefusesMaintenanceDatabase(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'symsvel-pg-checkpoint-');
+        self::assertNotFalse($path);
+        file_put_contents($path, 'archive placeholder');
+        try {
+            $backup = new WorkspaceDatabaseBackup();
+            $this->expectException(\DomainException::class);
+            $backup->restore('postgresql://localhost/postgres', ['driver' => 'postgresql', 'path' => $path]);
         } finally {
             @unlink($path);
         }
