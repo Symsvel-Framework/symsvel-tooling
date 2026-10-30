@@ -38,6 +38,37 @@ final class ComposerTransactionSnapshotTest extends TestCase
         }
     }
 
+    public function testRejectsSymlinkedTransactionManifestWithoutReadingExternalFile(): void
+    {
+        $backend = sys_get_temp_dir().'/symsvel-composer-link-'.bin2hex(random_bytes(8));
+        mkdir($backend);
+        file_put_contents($backend.'/composer.json', '{}');
+        $snapshot = new ComposerTransactionSnapshot();
+        $transaction = $snapshot->begin($backend);
+        $outside = $backend.'/outside.json';
+        file_put_contents($outside, '{"external":true}');
+        unlink($transaction.'/manifest.json');
+        symlink($outside, $transaction.'/manifest.json');
+        try {
+            $snapshot->restoreManifests($backend, $transaction);
+            self::fail('Symlinked transaction metadata must be rejected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('absent ou symbolique', $error->getMessage());
+            self::assertSame('{"external":true}', file_get_contents($outside));
+        } finally {
+            unlink($transaction.'/manifest.json');
+            foreach (['composer.json', 'composer.lock', 'symfony.lock'] as $name) {
+                @unlink($transaction.'/'.$name);
+            }
+            @rmdir($transaction);
+            @rmdir($backend.'/.symsvel/transactions');
+            @rmdir($backend.'/.symsvel');
+            @unlink($outside);
+            @unlink($backend.'/composer.json');
+            @rmdir($backend);
+        }
+    }
+
     public function testRestoresAbsenceOfOriginalLockFile(): void
     {
         $backend = sys_get_temp_dir().'/symsvel-composer-'.bin2hex(random_bytes(8));
