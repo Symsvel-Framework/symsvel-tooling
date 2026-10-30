@@ -16,6 +16,9 @@ final class WorkspaceFileSnapshot
     /** @var list<string> */
     private array $roots = [];
 
+    /** @var array<string, string> */
+    private array $fingerprints = [];
+
     public function __construct(private readonly string $backend, private readonly string $snapshot)
     {
     }
@@ -65,6 +68,11 @@ final class WorkspaceFileSnapshot
                         throw new \RuntimeException('Permissions impossibles à sauvegarder : '.$key);
                     }
                 }
+                $fingerprint = $this->fingerprint($path);
+                if ($this->fingerprint($target) !== $fingerprint) {
+                    throw new \RuntimeException('Snapshot source incohérent : '.$key);
+                }
+                $this->fingerprints[$key] = $fingerprint;
                 $this->files[$key] = $target;
             }
         }
@@ -72,6 +80,12 @@ final class WorkspaceFileSnapshot
 
     public function restore(): void
     {
+        // Validate every saved source before removing any current workspace file.
+        foreach ($this->files as $key => $source) {
+            if ((!is_file($source) && !is_link($source)) || $this->fingerprint($source) !== $this->fingerprints[$key]) {
+                throw new \RuntimeException('Rollback sources impossible : sauvegarde altérée pour '.$key);
+            }
+        }
         $workspace = dirname($this->backend);
         foreach ($this->roots as $root) {
             $component = $root === $this->backend ? 'backend' : basename($root);
@@ -139,6 +153,18 @@ final class WorkspaceFileSnapshot
         if (!rmdir($root)) {
             throw new \RuntimeException('Nettoyage du snapshot impossible : '.$root);
         }
+    }
+
+    private function fingerprint(string $path): string
+    {
+        if (is_link($path)) {
+            return 'link:'.readlink($path);
+        }
+        $hash = hash_file('sha256', $path);
+        if ($hash === false) {
+            throw new \RuntimeException('Empreinte source impossible : '.$path);
+        }
+        return 'file:'.$hash.':'.(fileperms($path) & 0777);
     }
 
     /** @return array<string, string> */
