@@ -1,10 +1,8 @@
-# Composer transactions (experimental)
+# Transactions Composer SymSvel (expérimental)
 
-The transactional runner is **opt-in**. Native `composer require`, `composer update`, and
-`composer remove` are **not intercepted**.
+Le lanceur transactionnel est **optionnel** : les commandes natives `composer require`, `composer update` et `composer remove` ne sont **pas interceptées**. Le script est publié dans `backend/scripts/` par `symsvel:update`.
 
-Once `symsvel:update` has published the entrypoint into the consumer backend,
-run from `backend/`:
+Depuis `backend/` :
 
 ```bash
 php scripts/symsvel-composer-transaction.php require symsvel-framework/module-test-back:dev-main
@@ -12,20 +10,34 @@ php scripts/symsvel-composer-transaction.php update symsvel-framework/module-tes
 php scripts/symsvel-composer-transaction.php remove symsvel-framework/module-test-back
 ```
 
-The runner snapshots `composer.json`, `composer.lock` and Symfony Flex's\n`symfony.lock` (if present) under
-`.symsvel/transactions/<id>/`. On success, it removes the snapshot.
-If Composer exits with an error, it restores these manifests and executes
-`composer install --no-scripts --no-plugins --no-interaction` to reconcile
-`vendor/` with the **original lockfile**.
+## Périmètre et prérequis
 
-**Limitations:** This is not an atomic transaction. Composer plugins (including
-Symfony Flex) may have modified other files during the original operation.\nThe `symfony.lock` snapshot covers recipe bookkeeping, **not** files written\nby recipes (e.g. config/packages/*.yaml). These must be inspected separately.
-Database migrations, filesystem changes outside Composer's managed files,
-external services and generated Svelte files are not rolled back. A missing
-initial `composer.lock` prevents deterministic vendor restoration.
-If recovery fails, the snapshot is retained and the command exits nonzero.
-Never treat a failed recovery as a successful installation.
+Le lanceur exige un `composer.lock` initial et crée un checkpoint dans `backend/.symsvel/transactions/<id>/`. Il sauvegarde :
 
-This first iteration deliberately does not alter Composer's native commands.
-A Composer plugin or an explicit SymSvel CLI entrypoint would be needed for
-transparent interception of those commands.
+- les manifests `composer.json`, `composer.lock` et `symfony.lock` s'il existe ;
+- les fichiers sources du workspace BACK/BO/APP/FRONT (hors dossiers de dépendances, builds et Git) ;
+- `backend/vendor/` et les artefacts `node_modules/`, `build/`, `dist/`, `.svelte-kit/` des interfaces présentes.
+
+La commande Composer est exécutée avec `--no-scripts --no-plugins` ; ces options ne peuvent pas être fournies directement au lanceur. Les options modifiant le répertoire de travail sont également refusées.
+
+## Échec et restauration
+
+Si Composer échoue, le lanceur tente de restaurer les manifests, `vendor/`, les sources et les artefacts des interfaces. Il compare ensuite les empreintes des fichiers sources à leur état initial. Si une restauration ou une vérification échoue, la commande signale une **récupération incomplète** et conserve le checkpoint. Elle ne prétend pas avoir restauré ce qu'elle n'a pas pu vérifier.
+
+**Limites importantes :** le lanceur Composer ne sauvegarde **pas** la base de données, ne restaure pas les références Git et ne compense pas les effets sur des services externes. Il ne remplace donc pas le mécanisme global de `symsvel:update`. En particulier, un script tiers ou une action manuelle hors de son périmètre ne bénéficie pas d'une transaction complète.
+
+Après succès, le lanceur supprime normalement ses checkpoints. **À ce stade, son nettoyage n'utilise pas le registre différé de `symsvel:cleanup`**, réservé aux checkpoints des mises à jour globales. Une erreur de suppression après succès peut donc encore remonter comme une erreur de commande ; ne pas la confondre avec un rollback.
+
+## Mise à jour globale du workspace
+
+`APP_ENV=core php bin/console symsvel:update` et son équivalent `dev` utilisent un mécanisme distinct : checkpoints Git, Composer, sources, dépendances, builds et **base de données**. PostgreSQL et SQLite sont pris en charge ; une `DATABASE_URL` valide est obligatoire. Les échecs de restauration sont signalés et leurs checkpoints conservés.
+
+Après une **mise à jour globale réussie**, les checkpoints sont inscrits dans `backend/.symsvel/cleanup-pending.json`. Le nettoyage peut être repris par :
+
+```bash
+php bin/console symsvel:cleanup
+```
+
+Cette commande est conçue pour être exécutée périodiquement par cron, mais aucun cron n'est installé automatiquement. Elle ne doit jamais supprimer les checkpoints d'un rollback incomplet.
+
+Voir également [le README](../README.md).
