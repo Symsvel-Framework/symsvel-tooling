@@ -54,13 +54,15 @@ final class WorkspaceCleanupRegistryTest extends TestCase
         // even when tests run with elevated filesystem permissions.
         mkdir($backend.'/.symsvel/cleanup-pending.json');
         try {
+            $failed = false;
             try {
                 (new WorkspaceCleanupRegistry($backend))->enqueue([$path]);
-                self::fail('Registry write should fail.');
             } catch (\Throwable) {
-                self::assertSame('keep', file_get_contents($path.'/snapshot.txt'));
-                self::assertDirectoryExists($path);
+                $failed = true;
             }
+            self::assertTrue($failed, 'Registry write should fail.');
+            self::assertSame('keep', file_get_contents($path.'/snapshot.txt'));
+            self::assertDirectoryExists($path);
         } finally {
             $this->remove(dirname($backend));
         }
