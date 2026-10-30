@@ -161,7 +161,15 @@ final class WorkspaceDatabaseBackup
         $process->setTimeout(900);
         $process->run();
         if (!$process->isSuccessful()) {
-            throw new \RuntimeException('Commande de checkpoint BDD échouée (code '.$process->getExitCode().').');
+            // PostgreSQL diagnostics are essential for diagnosing version,
+            // privilege and connection failures. Never include command args:
+            // they can contain connection information.
+            $diagnostic = trim($process->getErrorOutput());
+            $diagnostic = preg_replace('/(?i)(password|passphrase)\\s*[:=]\\s*\\S+/', '$1=[REDACTED]', $diagnostic);
+            throw new \RuntimeException(
+                'Commande de checkpoint BDD échouée (code '.$process->getExitCode().')'.
+                ($diagnostic !== '' ? ' : '.substr($diagnostic, 0, 1200) : '.'),
+            );
         }
     }
 }
