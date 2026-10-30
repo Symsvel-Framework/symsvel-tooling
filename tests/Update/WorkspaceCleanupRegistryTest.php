@@ -123,6 +123,19 @@ final class WorkspaceCleanupRegistryTest extends TestCase
         }
     }
 
+    public function testRejectsMissingTransactionRoot(): void
+    {
+        $backend = sys_get_temp_dir().'/symsvel-cleanup-missing-'.bin2hex(random_bytes(8)).'/backend';
+        mkdir($backend, 0700, true);
+        try {
+            $registry = new WorkspaceCleanupRegistry($backend);
+            $this->expectException(\RuntimeException::class);
+            $registry->enqueue([$backend.'/.symsvel/transactions/update-'.str_repeat('e', 24)]);
+        } finally {
+            $this->remove(dirname($backend));
+        }
+    }
+
     private function remove(string $path): void
     {
         if (!file_exists($path) && !is_link($path)) {
