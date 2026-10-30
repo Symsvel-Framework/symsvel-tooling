@@ -69,6 +69,53 @@ final class ComposerTransactionSnapshotTest extends TestCase
         }
     }
 
+    public function testRejectsSymbolicComposerManifestBeforeCreatingCheckpoint(): void
+    {
+        $backend = sys_get_temp_dir().'/symsvel-composer-preflight-'.bin2hex(random_bytes(8));
+        mkdir($backend);
+        file_put_contents($backend.'/original.json', '{}');
+        symlink($backend.'/original.json', $backend.'/composer.json');
+        try {
+            try {
+                (new ComposerTransactionSnapshot())->begin($backend);
+                self::fail('Symbolic Composer manifest must be rejected.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('symbolique refusé', $error->getMessage());
+            }
+            self::assertDirectoryDoesNotExist($backend.'/.symsvel');
+        } finally {
+            unlink($backend.'/composer.json');
+            unlink($backend.'/original.json');
+            rmdir($backend);
+        }
+    }
+
+    public function testRejectsSymbolicTransactionRootBeforeCreatingCheckpoint(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-composer-root-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        mkdir($backend.'/.symsvel', 0700, true);
+        mkdir($root.'/other');
+        file_put_contents($backend.'/composer.json', '{}');
+        symlink($root.'/other', $backend.'/.symsvel/transactions');
+        try {
+            try {
+                (new ComposerTransactionSnapshot())->begin($backend);
+                self::fail('Symbolic checkpoint root must be rejected.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('symbolique refusé', $error->getMessage());
+            }
+            self::assertSame([], array_diff(scandir($root.'/other'), ['.', '..']));
+        } finally {
+            unlink($backend.'/.symsvel/transactions');
+            unlink($backend.'/composer.json');
+            rmdir($backend.'/.symsvel');
+            rmdir($backend);
+            rmdir($root.'/other');
+            rmdir($root);
+        }
+    }
+
     public function testRestoresAbsenceOfOriginalLockFile(): void
     {
         $backend = sys_get_temp_dir().'/symsvel-composer-'.bin2hex(random_bytes(8));
