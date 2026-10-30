@@ -28,6 +28,8 @@ final class ComposerTransactionRunnerTest extends TestCase
             @rmdir($dir);
         }
         @rmdir($this->backend.'/.symsvel/transactions');
+        @unlink($this->backend.'/.symsvel/cleanup-pending.json');
+        @unlink($this->backend.'/.symsvel/cleanup.lock');
         @rmdir($this->backend.'/.symsvel');
         @unlink($this->backend.'/composer.json');
         @unlink($this->backend.'/composer.lock');
@@ -84,6 +86,41 @@ final class ComposerTransactionRunnerTest extends TestCase
         });
         $runner->run($this->backend, ['remove', 'unused']);
         self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
+    }
+
+    public function testSuccessfulComposerOperationKeepsCheckpointWhenCleanupRegistryCannotBeWritten(): void
+    {
+        mkdir($this->backend.'/.symsvel', 0700, true);
+        mkdir($this->backend.'/.symsvel/cleanup-pending.json');
+        $messages = [];
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend): void {
+                file_put_contents($backend.'/composer.lock', '{"updated":true}');
+            });
+            $runner->run($this->backend, ['update', 'existing'], static function (string $message) use (&$messages): void {
+                $messages[] = $message;
+            });
+            self::assertSame('{"updated":true}', file_get_contents($this->backend.'/composer.lock'));
+            self::assertCount(1, glob($this->backend.'/.symsvel/transactions/*'));
+            self::assertStringContainsString('opération Composer réussie, nettoyage non enregistré', implode("\n", $messages));
+        } finally {
+            rmdir($this->backend.'/.symsvel/cleanup-pending.json');
+            foreach (glob($this->backend.'/.symsvel/transactions/*') ?: [] as $directory) {
+                $this->deleteDirectory($directory);
+            }
+        }
+    }
+
+    private function deleteDirectory(string $path): void
+    {
+        if (is_file($path) || is_link($path)) {
+            unlink($path);
+            return;
+        }
+        foreach (new \FilesystemIterator($path) as $entry) {
+            $this->deleteDirectory($entry->getPathname());
+        }
+        rmdir($path);
     }
 
     public function testResidualRecipeSymlinkMarksRecoveryIncomplete(): void
