@@ -212,6 +212,35 @@ final class ComposerTransactionRunnerTest extends TestCase
         }
     }
 
+    public function testFailedComposerMutationRestoresVendorBytesAndRemovesNewPackage(): void
+    {
+        mkdir($this->backend.'/vendor/existing', 0775, true);
+        file_put_contents($this->backend.'/vendor/existing/code.php', 'original');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend): void {
+            self::assertContains('--no-scripts', $command);
+            self::assertContains('--no-plugins', $command);
+            file_put_contents($backend.'/composer.lock', '{"packages":[]}');
+            file_put_contents($backend.'/vendor/existing/code.php', 'corrupted');
+            mkdir($backend.'/vendor/new-package');
+            file_put_contents($backend.'/vendor/new-package/code.php', 'new');
+            throw new \RuntimeException('failure after dependency mutation');
+        });
+        try {
+            $runner->run($this->backend, ['update', 'existing']);
+            self::fail('Expected injected failure.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+        } finally {
+            self::assertSame('original', file_get_contents($this->backend.'/vendor/existing/code.php'));
+            self::assertDirectoryDoesNotExist($this->backend.'/vendor/new-package');
+            self::assertSame('{"packages":[{"name":"existing"}]}', file_get_contents($this->backend.'/composer.lock'));
+            self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
+            unlink($this->backend.'/vendor/existing/code.php');
+            rmdir($this->backend.'/vendor/existing');
+            rmdir($this->backend.'/vendor');
+        }
+    }
+
     public function testRejectsMissingOriginalLockWithoutExecutingComposer(): void
     {
         unlink($this->backend.'/composer.lock');
