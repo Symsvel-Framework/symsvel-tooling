@@ -30,7 +30,7 @@ Après succès, le lanceur inscrit son checkpoint dans `backend/.symsvel/cleanup
 
 ## Mise à jour globale du workspace
 
-`APP_ENV=core php bin/console symsvel:update` et son équivalent `dev` utilisent un mécanisme distinct : checkpoints Git, Composer, sources, dépendances, builds et **base de données**. PostgreSQL et SQLite sont pris en charge ; une `DATABASE_URL` valide est obligatoire. Les échecs de restauration sont signalés et leurs checkpoints conservés.
+`php bin/console symsvel:update` (en environnement Symfony `dev`) utilise un mécanisme distinct : checkpoints Git, Composer, sources, dépendances, builds et **base de données**. PostgreSQL et SQLite sont pris en charge ; une `DATABASE_URL` valide est obligatoire. Les échecs de restauration sont signalés et leurs checkpoints conservés.
 
 Après une **mise à jour globale réussie**, les checkpoints sont inscrits dans `backend/.symsvel/cleanup-pending.json`. Le nettoyage peut être repris par :
 
