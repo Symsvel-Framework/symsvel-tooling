@@ -79,6 +79,7 @@ function symsvelRemoveTree(string $dir): void
     }
     rmdir($dir);
 }
+register_shutdown_function(static function () use ($backup): void { symsvelRemoveTree($backup); });
 try {
     $before = symsvelFiles($root, $excluded);
     foreach ($before as $relative => $source) {
@@ -141,6 +142,4 @@ try {
 } catch (Throwable $e) {
     fwrite(STDERR, "[symsvel] Transaction error: ".$e->getMessage()." (manual inspection required).\n");
     exit(1);
-} finally {
-    symsvelRemoveTree($backup);
 }
