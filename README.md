@@ -126,3 +126,9 @@ Le Maker génère désormais `recipe/recipe.json`, un **modèle** de recette Sym
 Les migrations source d'un module restent dans `Migration/`, conformément à `ModuleMigrationCatalog` ; leur compilation et leur exécution relèvent du Tooling, pas du Maker. Un test PHPUnit minimal vérifie que le Bundle généré peut être instancié. Le Maker ne publie ni release, ni recette et n'installe pas le module.
 
 Le profil `dev-main` est déclaré par un alias de branche Composer `1.0.x-dev`, sans modifier le circuit des releases stables.
+
+## Migrations des modules Composer (raccordement en cours)
+
+`ComposerModuleMigrationCatalog` découvre désormais les fichiers `Migration/*.php` des modules Composer installés, dans l'ordre de dépendances établi par `ComposerModuleSynchronizer`. Cette découverte est **sans effet de bord** : elle ne compile ni n'exécute de SQL.
+
+Les composants historiques `ModuleMigrationCompiler`, `ModuleMigrationExecutor` et `ModuleMigrationRegistry` existent, mais leur intégration transactionnelle au flux `symsvel require` n'est **pas encore réalisée**. En particulier, `ComposerTransactionRunner` restaure les fichiers et dépendances, **pas la base de données**. Ne pas considérer le CT KO migration comme prêt tant que sauvegarde BDD, exécution et récupération ne sont pas raccordées et testées.
