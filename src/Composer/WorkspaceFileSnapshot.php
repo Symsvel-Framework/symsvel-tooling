@@ -213,7 +213,7 @@ final class WorkspaceFileSnapshot
         $directory = new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS);
         $filtered = new \RecursiveCallbackFilterIterator($directory, static function (\SplFileInfo $entry): bool {
             if ($entry->isDir() && !$entry->isLink()) {
-                return !in_array($entry->getFilename(), ['vendor', 'node_modules', '.git', '.symsvel', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true);
+                return !in_array($entry->getFilename(), ['vendor', 'node_modules', '.git', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true)\n                    && !($entry->getFilename() === 'transactions' && basename(dirname($entry->getPathname())) === '.symsvel');
             }
 
             return true;
@@ -224,7 +224,7 @@ final class WorkspaceFileSnapshot
                 continue;
             }
             $relative = substr($entry->getPathname(), strlen($root) + 1);
-            if ($root === $this->backend && in_array($relative, ['composer.json', 'composer.lock', 'symfony.lock'], true)) {
+            if ($root === $this->backend && in_array($relative, ['composer.json', 'composer.lock', 'symfony.lock', '.symsvel/cleanup-pending.json'], true)) {
                 continue;
             }
             $files[$relative] = $entry->getPathname();
