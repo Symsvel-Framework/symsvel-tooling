@@ -149,6 +149,36 @@ final class ComposerModulePlannerTest extends TestCase
         self::assertSame($previousMap, file_get_contents($bundleMap));
     }
 
+
+    public function testComposerMigrationCatalogDiscoversSourcesInDependencyOrder(): void
+    {
+        $this->module('my-base');
+        $this->module('my-feature', ['my-base' => '^1.0']);
+        $this->installed(['my-feature', 'my-base']);
+        $base = $this->workspace.'/modules/my-base/Migration';
+        $feature = $this->workspace.'/modules/my-feature/Migration';
+        mkdir($base, 0775, true);
+        mkdir($feature, 0775, true);
+        file_put_contents($base.'/001_create.php', '<?php // base');
+        file_put_contents($feature.'/002_create.php', '<?php // feature');
+
+        $sources = (new \\SymSvel\\Tooling\\Module\\ComposerModuleMigrationCatalog())->discover($this->workspace);
+        self::assertSame(['my-base', 'my-feature'], array_column($sources, 'module'));
+        self::assertSame(['001_create.php', '002_create.php'], array_column($sources, 'name'));
+        self::assertSame(hash_file('sha256', $base.'/001_create.php'), $sources[0]['sha256']);
+        self::assertSame(hash_file('sha256', $feature.'/002_create.php'), $sources[1]['sha256']);
+    }
+
+    public function testComposerMigrationCatalogRejectsSymlinkedMigrationDirectory(): void
+    {
+        $this->module('my-base');
+        $this->installed(['my-base']);
+        symlink($this->workspace.'/vendor/composer', $this->workspace.'/modules/my-base/Migration');
+        $this->expectException(\\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Répertoire Migration invalide');
+        (new \\SymSvel\\Tooling\\Module\\ComposerModuleMigrationCatalog())->discover($this->workspace);
+    }
+
     /** @param array<string, string> $dependencies */
     private function module(string $slug, array $dependencies = []): void
     {
