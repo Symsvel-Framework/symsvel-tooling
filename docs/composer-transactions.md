@@ -15,10 +15,10 @@ php scripts/symsvel-composer-transaction.php remove symsvel-framework/module-tes
 Le lanceur exige un `composer.lock` initial et crée un checkpoint dans `backend/.symsvel/transactions/<id>/`. Il sauvegarde :
 
 - les manifests `composer.json`, `composer.lock` et `symfony.lock` s'il existe ;
-- les fichiers sources du workspace BACK/BO/APP/FRONT (hors dossiers de dépendances, builds et Git) ;
+- les fichiers sources du workspace BACK/BO/APP/FRONT, y compris les inventaires `.symsvel` (hors checkpoints transactionnels, registre de nettoyage, dépendances, builds et Git) ;
 - `backend/vendor/` et les artefacts `node_modules/`, `build/`, `dist/`, `.svelte-kit/` des interfaces présentes.
 
-La commande Composer est exécutée avec `--no-scripts --no-plugins` ; ces options ne peuvent pas être fournies directement au lanceur. Les options modifiant le répertoire de travail sont également refusées.
+La commande Composer est exécutée avec les plugins Flex et les scripts Composer actifs, afin d'inclure les recettes et la synchronisation SymSvel dans la transaction. Les options `--no-scripts` et `--no-plugins` sont refusées par le lanceur. Les options modifiant le répertoire de travail sont également refusées.
 
 ## Échec et restauration
 
