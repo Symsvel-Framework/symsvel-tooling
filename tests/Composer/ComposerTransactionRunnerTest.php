@@ -46,7 +46,7 @@ final class ComposerTransactionRunnerTest extends TestCase
                 file_put_contents($backend.'/composer.lock', '{"packages":[{"name":"broken"}]}');
                 throw new \RuntimeException('Module Composer dépendant introuvable');
             }
-            self::assertSame(['composer', 'require', 'broken:dev-main', '--no-scripts', '--no-plugins'], $command);
+            self::assertSame(['composer', 'require', 'broken:dev-main'], $command);
             self::assertSame('{"require":{"existing":"1.0"}}', file_get_contents($backend.'/composer.json'));
             self::assertSame('{"packages":[{"name":"existing"}]}', file_get_contents($backend.'/composer.lock'));
         });
@@ -82,7 +82,7 @@ final class ComposerTransactionRunnerTest extends TestCase
     public function testSuccessfulOperationRemovesSnapshot(): void
     {
         $runner = new ComposerTransactionRunner(commandRunner: static function (array $command): void {
-            self::assertSame(['composer', 'remove', 'unused', '--no-scripts', '--no-plugins'], $command);
+            self::assertSame(['composer', 'remove', 'unused'], $command);
         });
         $runner->run($this->backend, ['remove', 'unused']);
         self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
@@ -395,8 +395,8 @@ final class ComposerTransactionRunnerTest extends TestCase
         mkdir($this->backend.'/vendor/existing', 0775, true);
         file_put_contents($this->backend.'/vendor/existing/code.php', 'original');
         $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend): void {
-            self::assertContains('--no-scripts', $command);
-            self::assertContains('--no-plugins', $command);
+            self::assertNotContains('--no-scripts', $command);
+            self::assertNotContains('--no-plugins', $command);
             file_put_contents($backend.'/composer.lock', '{"packages":[]}');
             file_put_contents($backend.'/vendor/existing/code.php', 'corrupted');
             mkdir($backend.'/vendor/new-package');
