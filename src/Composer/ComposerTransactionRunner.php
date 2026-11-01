@@ -70,7 +70,7 @@ final class ComposerTransactionRunner
             );
         }
         try {
-            $this->execute(array_merge(['composer'], $arguments, ['--no-scripts', '--no-plugins']), $backend, $progress);
+            $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
         } catch (\Throwable $failure) {
             $recoveryErrors = [];
             // Every recovery step is independent: a failed manifest restore
@@ -181,7 +181,7 @@ final class ComposerTransactionRunner
             $directory,
             static function (\SplFileInfo $entry): bool {
                 if ($entry->isDir() && !$entry->isLink()) {
-                    return !in_array($entry->getFilename(), ['vendor', 'node_modules', '.git', '.symsvel', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true);
+                    return !in_array($entry->getFilename(), ['vendor', 'node_modules', '.git', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true)\n                        && !($entry->getFilename() === 'transactions' && basename(dirname($entry->getPathname())) === '.symsvel');
                 }
 
                 return true;
@@ -193,8 +193,8 @@ final class ComposerTransactionRunner
                 continue;
             }
             $relative = substr($file->getPathname(), strlen($backend) + 1);
-            if (preg_match('~^(?:vendor|node_modules|\\.git|\\.symsvel)/~', $relative)
-                || in_array($relative, ['composer.json', 'composer.lock', 'symfony.lock'], true)) {
+            if (preg_match('~^(?:vendor|node_modules|\\.git|\\.symsvel/transactions)/~', $relative)
+                || in_array($relative, ['composer.json', 'composer.lock', 'symfony.lock', '.symsvel/cleanup-pending.json'], true)) {
                 continue;
             }
             $files[$relative] = $file->isLink()
