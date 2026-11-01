@@ -160,7 +160,7 @@ final class ComposerModulePlannerTest extends TestCase
         file_put_contents($base.'/001_create.php', '<?php // base');
         file_put_contents($feature.'/002_create.php', '<?php // feature');
 
-        $sources = (new \\SymSvel\\Tooling\\Module\\ComposerModuleMigrationCatalog())->discover($this->workspace);
+        $sources = (new \SymSvel\Tooling\Module\ComposerModuleMigrationCatalog())->discover($this->workspace);
         self::assertSame(['my-base', 'my-feature'], array_column($sources, 'module'));
         self::assertSame(['001_create.php', '002_create.php'], array_column($sources, 'name'));
         self::assertSame(hash_file('sha256', $base.'/001_create.php'), $sources[0]['sha256']);
@@ -174,9 +174,9 @@ final class ComposerModulePlannerTest extends TestCase
         unlink($this->workspace.'/modules/my-base/Migration/.gitkeep');
         rmdir($this->workspace.'/modules/my-base/Migration');
         symlink($this->workspace.'/vendor/composer', $this->workspace.'/modules/my-base/Migration');
-        $this->expectException(\\InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Répertoire Migration invalide');
-        (new \\SymSvel\\Tooling\\Module\\ComposerModuleMigrationCatalog())->discover($this->workspace);
+        (new \SymSvel\Tooling\Module\ComposerModuleMigrationCatalog())->discover($this->workspace);
     }
 
     /** @param array<string, string> $dependencies */
