@@ -157,8 +157,6 @@ final class ComposerModulePlannerTest extends TestCase
         $this->installed(['my-feature', 'my-base']);
         $base = $this->workspace.'/modules/my-base/Migration';
         $feature = $this->workspace.'/modules/my-feature/Migration';
-        mkdir($base, 0775, true);
-        mkdir($feature, 0775, true);
         file_put_contents($base.'/001_create.php', '<?php // base');
         file_put_contents($feature.'/002_create.php', '<?php // feature');
 
@@ -173,6 +171,8 @@ final class ComposerModulePlannerTest extends TestCase
     {
         $this->module('my-base');
         $this->installed(['my-base']);
+        unlink($this->workspace.'/modules/my-base/Migration/.gitkeep');
+        rmdir($this->workspace.'/modules/my-base/Migration');
         symlink($this->workspace.'/vendor/composer', $this->workspace.'/modules/my-base/Migration');
         $this->expectException(\\InvalidArgumentException::class);
         $this->expectExceptionMessage('Répertoire Migration invalide');
