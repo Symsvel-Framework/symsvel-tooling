@@ -123,6 +123,24 @@ final class ModuleMaker
         }
         foreach (['bo', 'app', 'front'] as $scope) {
             if (isset($components[$scope])) {
+                // Scoped TypeScript config is for authoring the module, not copied into host SvelteKit apps.
+                $files[$scope.'/tsconfig.json'] = json_encode([
+                    'compilerOptions' => [
+                        'target' => 'ES2022',
+                        'module' => 'ESNext',
+                        'moduleResolution' => 'Bundler',
+                        'lib' => ['ES2022', 'DOM'],
+                        'strict' => true,
+                        'allowJs' => true,
+                        'checkJs' => true,
+                        'resolveJsonModule' => true,
+                        'skipLibCheck' => true,
+                        'isolatedModules' => true,
+                        'noEmit' => true,
+                        'types' => ['svelte'],
+                    ],
+                    'include' => ['src/**/*.ts', 'src/**/*.js', 'src/**/*.svelte', 'tests/**/*.ts'],
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
                 $files[$scope.'/src/lib/modules/'.$name.'/index.ts'] = "export const moduleId = '".$name."';\n";
                 $files[$scope.'/src/lib/modules/'.$name.'/README.md'] = '# '.$class." (".$scope.")\n\nPoint d'intégration SvelteKit du module. Importer les composants et services ici ; aucune route applicative n'est imposée.\n";
                 $files[$scope.'/tests/'.$name.'.test.ts'] = "import { describe, expect, it } from 'vitest';\nimport { moduleId } from '../src/lib/modules/".$name."';\n\ndescribe('".$name." module', () => {\n  it('exports its identifier', () => {\n    expect(moduleId).toBe('".$name."');\n  });\n});\n";
