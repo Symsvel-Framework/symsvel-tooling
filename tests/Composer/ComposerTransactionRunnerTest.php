@@ -321,7 +321,7 @@ final class ComposerTransactionRunnerTest extends TestCase
                 self::assertSame(['composer', 'update', 'existing'], $command);
                 file_put_contents($backend.'/composer.lock', '{"mutated":true}');
                 $sql("UPDATE symsvel_partial_original SET value='after'; CREATE TABLE symsvel_partial_created (id INTEGER); INSERT INTO symsvel_partial_created VALUES (7);");
-                throw new \RuntimeException('simulated migration SQL failure after committed statements');
+                $sql('INSERT INTO symsvel_partial_created (nonexistent_column) VALUES (8);');
             });
             try {
                 $runner->run($this->backend, ['update', 'existing']);
