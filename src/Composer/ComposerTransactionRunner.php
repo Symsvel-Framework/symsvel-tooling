@@ -156,7 +156,20 @@ final class ComposerTransactionRunner
                     $progress('AVERTISSEMENT : rollback Composer restauré, nettoyage non enregistré : '.$cleanupFailure->getMessage().'; checkpoint conservé si présent : '.$transaction);
                 }
             }
-            throw new \RuntimeException('Opération Composer annulée et dépendances restaurées : '.$failure->getMessage(), 0, $failure);
+            // The migration executor cannot certify an interrupted DDL statement on its own.
+            // A successfully restored global database checkpoint supersedes that local warning.
+            $failureMessage = $failure->getMessage();
+            if ($databaseCheckpoint !== null && str_contains($failureMessage, 'Récupération manuelle requise, rollback incomplet')) {
+                $failureMessage = preg_replace(
+                    '/\\. Récupération manuelle requise, rollback incomplet : .*$/s',
+                    '',
+                    $failureMessage,
+                ) ?? $failureMessage;
+                if ($progress !== null) {
+                    $progress('Restauration globale vérifiée : checkpoint PostgreSQL et workspace restaurés ; aucune récupération manuelle requise pour cette transaction.'.PHP_EOL);
+                }
+            }
+            throw new \\RuntimeException('Opération Composer annulée et dépendances restaurées : '.$failureMessage, 0, $failure);
         }
         if ($databaseCheckpoint !== null) {
             $databaseBackup->discard($databaseCheckpoint);
