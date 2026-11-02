@@ -123,8 +123,9 @@ final class ModuleMaker
         }
         foreach (['bo', 'app', 'front'] as $scope) {
             if (isset($components[$scope])) {
-                $files[$scope.'/src/lib/.gitkeep'] = '';
-                $files[$scope.'/tests/.gitkeep'] = '';
+                $files[$scope.'/src/lib/modules/'.$name.'/index.ts'] = "export const moduleId = '".$name."';\n";
+                $files[$scope.'/src/lib/modules/'.$name.'/README.md'] = '# '.$class." (".$scope.")\n\nPoint d'intégration SvelteKit du module. Importer les composants et services ici ; aucune route applicative n'est imposée.\n";
+                $files[$scope.'/tests/'.$name.'.test.ts'] = "import { describe, expect, it } from 'vitest';\nimport { moduleId } from '../src/lib/modules/".$name."';\n\ndescribe('".$name." module', () => {\n  it('exports its identifier', () => {\n    expect(moduleId).toBe('".$name."');\n  });\n});\n";
             }
         }
         $files['back/phpunit.xml.dist'] = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<phpunit bootstrap="../vendor/autoload.php" colors="true"><testsuites><testsuite name="Unit"><directory>tests/Unit</directory></testsuite><testsuite name="Integration"><directory>tests/Integration</directory></testsuite><testsuite name="Functional"><directory>tests/Functional</directory></testsuite></testsuites></phpunit>'."\n";
