@@ -17,6 +17,8 @@ final class ComposerTransactionRunnerTest extends TestCase
         mkdir($this->backend);
         file_put_contents($this->backend.'/composer.json', '{"require":{"existing":"1.0"}}');
         file_put_contents($this->backend.'/composer.lock', '{"packages":[{"name":"existing"}]}');
+        mkdir($this->backend.'/vendor/composer', 0775, true);
+        file_put_contents($this->backend.'/vendor/composer/installed.json', '{"packages":[]}');
     }
 
     protected function tearDown(): void
@@ -33,6 +35,9 @@ final class ComposerTransactionRunnerTest extends TestCase
         @rmdir($this->backend.'/.symsvel');
         @unlink($this->backend.'/composer.json');
         @unlink($this->backend.'/composer.lock');
+        @unlink($this->backend.'/vendor/composer/installed.json');
+        @rmdir($this->backend.'/vendor/composer');
+        @rmdir($this->backend.'/vendor');
         @rmdir($this->backend);
     }
 
