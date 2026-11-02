@@ -8,6 +8,9 @@ use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\RuntimeArtifactSnapshot;
 use SymSvel\Tooling\Update\WorkspaceDatabaseBackup;
 use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
+use SymSvel\Tooling\Module\ComposerModuleMigrationCatalog;
+use SymSvel\Tooling\Module\ModuleMigrationDiff;
+use SymSvel\Tooling\Module\ModuleMigrationRegistry;
 
 /**
  * Opt-in Composer transaction runner.
@@ -78,6 +81,7 @@ final class ComposerTransactionRunner
         }
         try {
             $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
+            $this->applyComposerMigrations($backend, $databaseUrl, $progress);
         } catch (\Throwable $failure) {
             $recoveryErrors = [];
             if ($databaseCheckpoint !== null) {
@@ -167,6 +171,35 @@ final class ComposerTransactionRunner
                 $progress('AVERTISSEMENT : opération Composer réussie, nettoyage non enregistré ou interrompu : '.$cleanupFailure->getMessage().'; checkpoint conservé si présent : '.$transaction);
             }
         }
+    }
+
+    /** @param null|callable(string):void $progress */
+    private function applyComposerMigrations(string $backend, ?string $databaseUrl, ?callable $progress): void
+    {
+        $workspace = dirname($backend);
+        $registry = new ModuleMigrationRegistry();
+        $registered = $registry->read($workspace);
+        $sources = (new ComposerModuleMigrationCatalog())->discover($backend);
+        $changes = (new ModuleMigrationDiff())->compare($sources, $registered);
+        if ($changes['removed'] !== []) {
+            throw new \DomainException(
+                'Désinstallation avec migrations non encore prise en charge : '.implode(', ', $changes['removed']).
+                '. Transaction annulée pour préserver la BDD.'
+            );
+        }
+        if ($changes['pending'] === []) {
+            return;
+        }
+        if ($databaseUrl === null) {
+            throw new \RuntimeException('Migrations détectées sans DATABASE_URL dans .env.local : transaction refusée.');
+        }
+        if ($progress !== null) {
+            $progress('Compilation et exécution des migrations Composer...'.PHP_EOL);
+        }
+        $this->execute([
+            PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile',
+            '--source=composer', '--execute', '--no-interaction',
+        ], $backend, $progress);
     }
 
     /**
