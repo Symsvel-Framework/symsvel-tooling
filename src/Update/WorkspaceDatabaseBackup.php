@@ -81,10 +81,23 @@ final class WorkspaceDatabaseBackup
                 static fn (string $arg): string => str_starts_with($arg, '--dbname=') ? '--dbname=postgres' : $arg,
                 $connection,
             );
-            $this->run([
-                'pg_restore', '--exit-on-error', '--create', '--clean', '--if-exists',
-                '--no-owner', '--no-acl', ...$maintenance, $checkpoint['path'],
-            ], $env);
+            try {
+                $this->run([
+                    'pg_restore', '--exit-on-error', '--create', '--clean', '--if-exists',
+                    '--no-owner', '--no-acl', ...$maintenance, $checkpoint['path'],
+                ], $env);
+            } catch (\RuntimeException $failure) {
+                if (str_contains($failure->getMessage(), 'is being accessed by other users')) {
+                    throw new \RuntimeException(
+                        'Restauration PostgreSQL bloquée : une application utilise encore la base '.
+                        $database.'. Fermez ses connexions (par exemple DbGate) avant de retenter '.
+                        'la récupération ; le checkpoint reste conservé.',
+                        0,
+                        $failure,
+                    );
+                }
+                throw $failure;
+            }
         } else {
             throw new \DomainException('Restauration globale non prise en charge pour '.$driver.'.');
         }
