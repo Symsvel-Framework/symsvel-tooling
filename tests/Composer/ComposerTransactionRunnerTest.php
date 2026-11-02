@@ -255,6 +255,43 @@ final class ComposerTransactionRunnerTest extends TestCase
         }
     }
 
+    public function testMissingComposerMetadataAfterSuccessfulUpdateTriggersFullRollback(): void
+    {
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend): void {
+            self::assertSame(['composer', 'update', 'existing'], $command);
+            unlink($backend.'/vendor/composer/installed.json');
+            file_put_contents($backend.'/composer.lock', '{"damaged":true}');
+        });
+        try {
+            $runner->run($this->backend, ['update', 'existing']);
+            self::fail('Missing installed metadata must abort the transaction.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Métadonnées Composer introuvables', $error->getMessage());
+            self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+        }
+        self::assertSame('{"packages":[{"name":"existing"}]}', file_get_contents($this->backend.'/composer.lock'));
+        self::assertSame('{"packages":[]}', file_get_contents($this->backend.'/vendor/composer/installed.json'));
+        self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
+    }
+
+    public function testInvalidComposerMetadataAfterSuccessfulUpdateTriggersFullRollback(): void
+    {
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend): void {
+            file_put_contents($backend.'/vendor/composer/installed.json', '{"packages":{}}');
+            file_put_contents($backend.'/composer.json', '{"damaged":true}');
+        });
+        try {
+            $runner->run($this->backend, ['update', 'existing']);
+            self::fail('Invalid installed metadata must abort the transaction.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Format installed.json invalide', $error->getMessage());
+            self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+        }
+        self::assertSame('{"require":{"existing":"1.0"}}', file_get_contents($this->backend.'/composer.json'));
+        self::assertSame('{"packages":[]}', file_get_contents($this->backend.'/vendor/composer/installed.json'));
+        self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
+    }
+
     private function deleteDirectory(string $path): void
     {
         if (is_file($path) || is_link($path)) {
