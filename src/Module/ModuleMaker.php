@@ -27,7 +27,7 @@ final class ModuleMaker
         } else {
             $requested = array_map('trim', explode(',', $scopes));
             if (in_array('', $requested, true) || array_diff($requested, ['back', 'bo', 'app', 'front']) !== []) {
-                throw new \\InvalidArgumentException('Scopes invalides : '.$scopes.'. Valeurs : back, bo, app, front, all.');
+                throw new \InvalidArgumentException('Scopes invalides : '.$scopes.'. Valeurs : back, bo, app, front, all.');
             }
             $componentsSelected = array_values(array_unique(array_merge(['back'], $requested)));
         }
