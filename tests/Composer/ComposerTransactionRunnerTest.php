@@ -35,9 +35,9 @@ final class ComposerTransactionRunnerTest extends TestCase
         @rmdir($this->backend.'/.symsvel');
         @unlink($this->backend.'/composer.json');
         @unlink($this->backend.'/composer.lock');
-        @unlink($this->backend.'/vendor/composer/installed.json');
-        @rmdir($this->backend.'/vendor/composer');
-        @rmdir($this->backend.'/vendor');
+        if (is_dir($this->backend.'/vendor')) {
+            $this->deleteDirectory($this->backend.'/vendor');
+        }
         @rmdir($this->backend);
     }
 
@@ -163,7 +163,7 @@ final class ComposerTransactionRunnerTest extends TestCase
             unlink($checkpoint.'/composer.lock');
             unlink($checkpoint.'/backend/runtime/vendor/existing/code.php');
             rmdir($checkpoint.'/backend/runtime/vendor/existing');
-            rmdir($checkpoint.'/backend/runtime/vendor');
+            $this->deleteDirectory($checkpoint.'/backend/runtime/vendor');
             throw new \RuntimeException('injected Composer failure');
         });
         try {
@@ -182,7 +182,7 @@ final class ComposerTransactionRunnerTest extends TestCase
             unlink($this->backend.'/source.txt');
             unlink($this->backend.'/vendor/existing/code.php');
             rmdir($this->backend.'/vendor/existing');
-            rmdir($this->backend.'/vendor');
+            // The shared fixture owns vendor/composer; tearDown removes it.
         }
     }
 
