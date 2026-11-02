@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Tests\Module;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Module\ModuleMaker;
 
 final class ModuleMakerTest extends TestCase
@@ -33,6 +34,14 @@ final class ModuleMakerTest extends TestCase
             self::assertStringContainsString('use SymSvel\\Module\\MyDocuments\\MyDocumentsBundle;', $bundleTest);
             self::assertFileExists($path.'/Migration/.gitkeep');
             self::assertFileExists($path.'/back/tests/Unit/MyDocumentsBundleTest.php');
+            foreach ([
+                $path.'/back/src/MyDocumentsBundle.php',
+                $path.'/back/tests/Unit/MyDocumentsBundleTest.php',
+            ] as $phpFile) {
+                $lint = new Process([PHP_BINARY, '-l', $phpFile]);
+                $lint->run();
+                self::assertTrue($lint->isSuccessful(), $phpFile.': '.$lint->getErrorOutput().$lint->getOutput());
+            }
             $recipe = json_decode((string) file_get_contents($path.'/recipe/recipe.json'), true, 512, JSON_THROW_ON_ERROR);
             $entry = $recipe['manifests']['symsvel-framework/module-my-documents'];
             self::assertSame(['all'], $entry['manifest']['bundles']['SymSvel\\Module\\MyDocuments\\MyDocumentsBundle']);
