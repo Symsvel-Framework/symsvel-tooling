@@ -50,6 +50,8 @@ final class ComposerTransactionRunner
         $databaseUrl = $this->databaseUrl($backend);
         $databaseBackup = new WorkspaceDatabaseBackup();
         $databaseCheckpoint = null;
+        $migrationJournal = dirname($backend).'/.symsvel/migration-recovery.json';
+        $migrationJournalExisted = file_exists($migrationJournal) || is_link($migrationJournal);
         $initialFiles = $this->workspaceFiles($backend);
         $transaction = $this->snapshots->begin($backend);
         $workspaceSnapshot = new WorkspaceFileSnapshot($backend, $transaction);
@@ -131,6 +133,17 @@ final class ComposerTransactionRunner
                 }
             } catch (\Throwable $verification) {
                 $recoveryErrors[] = 'Vérification : '.$verification->getMessage();
+            }
+            // A verified PostgreSQL checkpoint supersedes the migration executor's
+            // interrupted-DDL warning. Only remove a journal created by this transaction.
+            // Keep it if recovery failed, no DB checkpoint exists, or it predates us.
+            if ($recoveryErrors === [] && $databaseCheckpoint !== null && !$migrationJournalExisted
+                && (file_exists($migrationJournal) || is_link($migrationJournal))) {
+                if (is_link($migrationJournal) || !is_file($migrationJournal) || !unlink($migrationJournal)) {
+                    $recoveryErrors[] = 'Migrations / journal de récupération non nettoyé : '.$migrationJournal;
+                } elseif ($progress !== null) {
+                    $progress('Journal de récupération des migrations nettoyé après restauration PostgreSQL vérifiée.'.PHP_EOL);
+                }
             }
             if ($recoveryErrors !== []) {
                 throw new \RuntimeException(
