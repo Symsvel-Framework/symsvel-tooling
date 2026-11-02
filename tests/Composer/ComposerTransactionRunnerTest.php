@@ -292,6 +292,52 @@ final class ComposerTransactionRunnerTest extends TestCase
         self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
     }
 
+    public function testPostgresPartialSqlFailureRestoresDatabaseThroughComposerTransaction(): void
+    {
+        $url = getenv('SYMSVEL_TEST_POSTGRES_URL');
+        if (!is_string($url) || $url === '') {
+            self::markTestSkipped('Dedicated PostgreSQL integration database not configured.');
+        }
+        $parts = parse_url($url);
+        if ($parts === false || ($parts['path'] ?? '') !== '/symsvel_rollback_ci') {
+            self::fail('Destructive integration test requires symsvel_rollback_ci.');
+        }
+        $env = isset($parts['pass']) ? ['PGPASSWORD' => rawurldecode($parts['pass'])] : [];
+        $sql = static function (string $query) use ($parts, $env): string {
+            $process = new \Symfony\Component\Process\Process([
+                'psql', '-X', '-v', 'ON_ERROR_STOP=1',
+                '--host='.($parts['host'] ?? '127.0.0.1'),
+                '--port='.($parts['port'] ?? 5432),
+                '--username='.rawurldecode((string) ($parts['user'] ?? '')),
+                '--dbname=symsvel_rollback_ci', '-Atc', $query,
+            ], null, $env);
+            $process->mustRun();
+            return trim($process->getOutput());
+        };
+        file_put_contents($this->backend.'/.env.local', 'DATABASE_URL="'.$url.'"'."\n");
+        try {
+            $sql("DROP TABLE IF EXISTS symsvel_partial_created; DROP TABLE IF EXISTS symsvel_partial_original; CREATE TABLE symsvel_partial_original (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO symsvel_partial_original VALUES (1, 'before');");
+            $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend) use ($sql): void {
+                self::assertSame(['composer', 'update', 'existing'], $command);
+                file_put_contents($backend.'/composer.lock', '{"mutated":true}');
+                $sql("UPDATE symsvel_partial_original SET value='after'; CREATE TABLE symsvel_partial_created (id INTEGER); INSERT INTO symsvel_partial_created VALUES (7);");
+                throw new \RuntimeException('simulated migration SQL failure after committed statements');
+            });
+            try {
+                $runner->run($this->backend, ['update', 'existing']);
+                self::fail('Partial SQL failure must abort Composer transaction.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+            }
+            self::assertSame('before', $sql('SELECT value FROM symsvel_partial_original WHERE id=1'));
+            self::assertSame('0', $sql("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='symsvel_partial_created'"));
+            self::assertSame('{"packages":[{"name":"existing"}]}', file_get_contents($this->backend.'/composer.lock'));
+        } finally {
+            @unlink($this->backend.'/.env.local');
+            $sql('DROP TABLE IF EXISTS symsvel_partial_created; DROP TABLE IF EXISTS symsvel_partial_original;');
+        }
+    }
+
     private function deleteDirectory(string $path): void
     {
         if (is_file($path) || is_link($path)) {
