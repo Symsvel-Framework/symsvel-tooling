@@ -11,6 +11,7 @@ use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
 use SymSvel\Tooling\Module\ComposerModuleMigrationCatalog;
 use SymSvel\Tooling\Module\ModuleMigrationDiff;
 use SymSvel\Tooling\Module\ModuleMigrationRegistry;
+use SymSvel\Tooling\Module\ModuleMigrationExecutor;
 
 /**
  * Opt-in Composer transaction runner.
@@ -80,6 +81,9 @@ final class ComposerTransactionRunner
             );
         }
         try {
+            if ($arguments[0] === 'remove') {
+                $this->removeModuleMigrations($backend, $arguments, $databaseUrl, $progress);
+            }
             $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
             $this->applyComposerMigrations($backend, $databaseUrl, $progress);
         } catch (\Throwable $failure) {
@@ -171,6 +175,57 @@ final class ComposerTransactionRunner
                 $progress('AVERTISSEMENT : opération Composer réussie, nettoyage non enregistré ou interrompu : '.$cleanupFailure->getMessage().'; checkpoint conservé si présent : '.$transaction);
             }
         }
+    }
+
+    /** @param list<string> $arguments
+     *  @param null|callable(string):void $progress
+     */
+    private function removeModuleMigrations(string $backend, array $arguments, ?string $databaseUrl, ?callable $progress): void
+    {
+        $packages = array_values(array_filter(
+            array_slice($arguments, 1),
+            static fn (string $arg): bool => !str_starts_with($arg, '-'),
+        ));
+        if ($packages === []) {
+            return;
+        }
+        $registry = new ModuleMigrationRegistry();
+        $workspace = dirname($backend);
+        $registered = $registry->read($workspace);
+        $removing = [];
+        foreach ($packages as $package) {
+            if (!preg_match('~^symsvel-framework/module-([a-z][a-z0-9-]*)$~D', $package, $matches)) {
+                continue;
+            }
+            foreach ($registered as $key => $receipt) {
+                if (str_starts_with($key, $matches[1].'/')) {
+                    $removing[$key] = $receipt;
+                }
+            }
+        }
+        if ($removing === []) {
+            return;
+        }
+        if ($databaseUrl === null) {
+            throw new \RuntimeException('Désinstallation avec migrations interdite sans checkpoint BDD.');
+        }
+        $versions = [];
+        foreach ($removing as $receipt) {
+            $versions[$receipt['doctrine']] = true;
+        }
+        foreach ($registered as $key => $receipt) {
+            if (!isset($removing[$key]) && isset($versions[$receipt['doctrine']])) {
+                throw new \DomainException('Migration Doctrine partagée : suppression partielle interdite.');
+            }
+        }
+        $executor = new ModuleMigrationExecutor();
+        foreach (array_reverse(array_keys($versions)) as $version) {
+            if ($progress !== null) {
+                $progress('Doctrine down : '.$version.PHP_EOL);
+            }
+            $executor->execute($backend, $version, 'down');
+        }
+        $registry->write($workspace, $registry->withoutSources($workspace, array_keys($removing)));
     }
 
     /** @param null|callable(string):void $progress */
