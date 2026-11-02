@@ -24,10 +24,10 @@ final class ModuleMakerTest extends TestCase
             self::assertFileExists($path.'/back/src/MyDocumentsBundle.php');
             self::assertFileExists($path.'/back/phpunit.xml.dist');
             $phpunitConfiguration = (string) file_get_contents($path.'/back/phpunit.xml.dist');
-            self::assertStringContainsString('bootstrap="vendor/autoload.php"', $phpunitConfiguration);
-            self::assertStringContainsString('<directory>back/tests/Unit</directory>', $phpunitConfiguration);
-            self::assertStringContainsString('<directory>back/tests/Integration</directory>', $phpunitConfiguration);
-            self::assertStringContainsString('<directory>back/tests/Functional</directory>', $phpunitConfiguration);
+            self::assertStringContainsString('bootstrap="../vendor/autoload.php"', $phpunitConfiguration);
+            self::assertStringContainsString('<directory>tests/Unit</directory>', $phpunitConfiguration);
+            self::assertStringContainsString('<directory>tests/Integration</directory>', $phpunitConfiguration);
+            self::assertStringContainsString('<directory>tests/Functional</directory>', $phpunitConfiguration);
             $bundleTest = (string) file_get_contents($path.'/back/tests/Unit/MyDocumentsBundleTest.php');
             self::assertStringContainsString('namespace SymSvel\\Module\\MyDocuments\\Tests\\Unit;', $bundleTest);
             self::assertStringContainsString('use SymSvel\\Module\\MyDocuments\\MyDocumentsBundle;', $bundleTest);
