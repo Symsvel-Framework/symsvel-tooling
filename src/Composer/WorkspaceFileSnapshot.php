@@ -16,6 +16,9 @@ final class WorkspaceFileSnapshot
     /** @var list<string> */
     private array $roots = [];
 
+    /** @var array<string, true> Directories present before the transaction, including empty ones. */
+    private array $directories = [];
+
     /** @var array<string, string> */
     private array $fingerprints = [];
 
@@ -35,6 +38,9 @@ final class WorkspaceFileSnapshot
                 continue;
             }
             $this->roots[] = $root;
+            foreach ($this->scanDirectories($root) as $relative => $directory) {
+                $this->directories[$component.'/'.$relative] = true;
+            }
             foreach ($this->scan($root) as $relative => $path) {
                 $key = $component.'/'.$relative;
                 $target = $this->snapshot.'/workspace/'.$key;
@@ -146,6 +152,18 @@ final class WorkspaceFileSnapshot
                 }
             }
         }
+        // Remove only directories created by the failed operation, deepest first.
+        // Preserve pre-existing empty directories and never traverse excluded runtime trees.
+        foreach ($this->roots as $root) {
+            $component = $root === $this->backend ? 'backend' : basename($root);
+            $directories = $this->scanDirectories($root);
+            uksort($directories, static fn (string $a, string $b): int => substr_count($b, '/') <=> substr_count($a, '/'));
+            foreach ($directories as $relative => $directory) {
+                if (!isset($this->directories[$component.'/'.$relative]) && !@rmdir($directory)) {
+                    throw new \RuntimeException('Rollback sources : répertoire créé non vide ou impossible à supprimer : '.$directory);
+                }
+            }
+        }
         $this->verifyRestoration();
     }
 
@@ -205,6 +223,27 @@ final class WorkspaceFileSnapshot
             throw new \RuntimeException('Empreinte source impossible : '.$path);
         }
         return 'file:'.$hash.':'.(fileperms($path) & 0777);
+    }
+
+    /** @return array<string, string> */
+    private function scanDirectories(string $root): array
+    {
+        $directory = new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS);
+        $filtered = new \RecursiveCallbackFilterIterator($directory, static function (\SplFileInfo $entry) use ($root): bool {
+            if ($entry->isDir() && !$entry->isLink()) {
+                return !in_array($entry->getFilename(), ['node_modules', '.git', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true)
+                    && !($entry->getFilename() === 'vendor' && $entry->getPath() === $root)
+                    && !($entry->getFilename() === 'transactions' && basename(dirname($entry->getPathname())) === '.symsvel');
+            }
+            return true;
+        });
+        $directories = [];
+        foreach (new \RecursiveIteratorIterator($filtered, \RecursiveIteratorIterator::SELF_FIRST) as $entry) {
+            if ($entry->isDir() && !$entry->isLink()) {
+                $directories[substr($entry->getPathname(), strlen($root) + 1)] = $entry->getPathname();
+            }
+        }
+        return $directories;
     }
 
     /** @return array<string, string> */
