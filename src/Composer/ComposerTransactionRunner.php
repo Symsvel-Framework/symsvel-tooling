@@ -275,7 +275,10 @@ final class ComposerTransactionRunner
         }
         foreach ($contents as $line) {
             if (preg_match('/^\\s*DATABASE_URL\\s*=\\s*(.*?)\\s*$/', $line, $matches)) {
-                $value = trim($matches[1], " \\t\\n\\r\\0\\x0B\\\"'");
+                $value = trim($matches[1]);
+                if (strlen($value) >= 2 && (($value[0] === '"' && substr($value, -1) === '"') || ($value[0] === "'" && substr($value, -1) === "'"))) {
+                    $value = substr($value, 1, -1);
+                }
                 if ($value === '') {
                     throw new \RuntimeException('DATABASE_URL vide dans .env.local.');
                 }
