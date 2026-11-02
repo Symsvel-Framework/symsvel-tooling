@@ -83,6 +83,18 @@ final class ModuleMakerTest extends TestCase
             $manifest = json_decode((string) file_get_contents($path.'/module.json'), true, 512, JSON_THROW_ON_ERROR);
             self::assertSame($components, array_keys($manifest['components']));
             self::assertSame($docs, array_keys($manifest['documentation']));
+            foreach (['bo', 'app', 'front'] as $scope) {
+                if (in_array($scope, $components, true)) {
+                    self::assertFileExists($path.'/'.$scope.'/tsconfig.json');
+                    self::assertFileExists($path.'/'.$scope.'/src/lib/modules/test-profile/index.ts');
+                    self::assertFileExists($path.'/'.$scope.'/tests/test-profile.test.ts');
+                    $tsconfig = json_decode((string) file_get_contents($path.'/'.$scope.'/tsconfig.json'), true, 512, JSON_THROW_ON_ERROR);
+                    self::assertTrue($tsconfig['compilerOptions']['strict']);
+                    self::assertSame('Bundler', $tsconfig['compilerOptions']['moduleResolution']);
+                } else {
+                    self::assertDirectoryDoesNotExist($path.'/'.$scope);
+                }
+            }
             foreach ($docs as $doc) {
                 self::assertFileExists($path.'/docs/'.$doc.'/index.md');
             }
