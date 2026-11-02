@@ -83,11 +83,13 @@ final class ComposerTransactionRunner
             );
         }
         try {
+            $removedVersions = [];
             if ($arguments[0] === 'remove') {
-                $this->removeModuleMigrations($backend, $arguments, $databaseUrl, $progress);
+                $removedVersions = $this->removeModuleMigrations($backend, $arguments, $databaseUrl, $progress);
             }
             $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
             $this->applyComposerMigrations($backend, $databaseUrl, $progress);
+            $this->removeCompiledMigrations($backend, $removedVersions);
         } catch (\Throwable $failure) {
             $recoveryErrors = [];
             if ($databaseCheckpoint !== null) {
@@ -205,15 +207,16 @@ final class ComposerTransactionRunner
 
     /** @param list<string> $arguments
      *  @param null|callable(string):void $progress
+     *  @return list<string> Doctrine versions removed by this transaction
      */
-    private function removeModuleMigrations(string $backend, array $arguments, ?string $databaseUrl, ?callable $progress): void
+    private function removeModuleMigrations(string $backend, array $arguments, ?string $databaseUrl, ?callable $progress): array
     {
         $packages = array_values(array_filter(
             array_slice($arguments, 1),
             static fn (string $arg): bool => !str_starts_with($arg, '-'),
         ));
         if ($packages === []) {
-            return;
+            return [];
         }
         $registry = new ModuleMigrationRegistry();
         $workspace = dirname($backend);
@@ -230,7 +233,7 @@ final class ComposerTransactionRunner
             }
         }
         if ($removing === []) {
-            return;
+            return [];
         }
         if ($databaseUrl === null) {
             throw new \RuntimeException('Désinstallation avec migrations interdite sans checkpoint BDD.');
@@ -254,6 +257,24 @@ final class ComposerTransactionRunner
             $executor->execute($backend, $version, 'down');
         }
         $registry->write($workspace, $registry->withoutSources($workspace, array_keys($removing)));
+        return $orderedVersions;
+    }
+
+    /** @param list<string> $versions */
+    private function removeCompiledMigrations(string $backend, array $versions): void
+    {
+        foreach ($versions as $version) {
+            if (!preg_match('/^DoctrineMigrations\\\\\\\\(Version[A-Za-z0-9_]+)$/D', $version, $matches)) {
+                throw new \RuntimeException('Version Doctrine invalide : '.$version);
+            }
+            $path = $backend.'/migrations/'.$matches[1].'.php';
+            if (is_link($path)) {
+                throw new \RuntimeException('Migration symbolique interdite : '.$path);
+            }
+            if (!is_file($path) || !unlink($path)) {
+                throw new \RuntimeException('Nettoyage de migration impossible : '.$path);
+            }
+        }
     }
 
     /** @param null|callable(string):void $progress */
