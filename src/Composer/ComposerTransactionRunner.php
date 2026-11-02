@@ -318,9 +318,10 @@ final class ComposerTransactionRunner
         $directory = new \RecursiveDirectoryIterator($backend, \FilesystemIterator::SKIP_DOTS);
         $filtered = new \RecursiveCallbackFilterIterator(
             $directory,
-            static function (\SplFileInfo $entry): bool {
+            static function (\SplFileInfo $entry) use ($backend): bool {
                 if ($entry->isDir() && !$entry->isLink()) {
-                    return !in_array($entry->getFilename(), ['vendor', 'node_modules', '.git', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true)
+                    return !in_array($entry->getFilename(), ['node_modules', '.git', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true)
+                    && !($entry->getFilename() === 'vendor' && $entry->getPath() === $backend)
                         && !($entry->getFilename() === 'transactions' && basename(dirname($entry->getPathname())) === '.symsvel');
                 }
 
