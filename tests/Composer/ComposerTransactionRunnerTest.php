@@ -277,7 +277,7 @@ final class ComposerTransactionRunnerTest extends TestCase
     public function testInvalidComposerMetadataAfterSuccessfulUpdateTriggersFullRollback(): void
     {
         $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend): void {
-            file_put_contents($backend.'/vendor/composer/installed.json', '{"packages":{}}');
+            file_put_contents($backend.'/vendor/composer/installed.json', '{"packages":{"invalid":{"name":"test"}}}');
             file_put_contents($backend.'/composer.json', '{"damaged":true}');
         });
         try {
