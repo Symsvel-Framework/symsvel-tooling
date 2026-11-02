@@ -57,6 +57,8 @@ final class ModuleMakerTest extends TestCase
             'app' => [['back', 'bo', 'app'], ['dev', 'admin', 'user']],
             'front' => [['back', 'bo', 'front'], ['dev', 'admin', 'user']],
             'all' => [['back', 'bo', 'app', 'front'], ['dev', 'admin', 'user']],
+            'back,front' => [['back', 'front'], ['dev', 'user']],
+            'bo,front' => [['back', 'bo', 'front'], ['dev', 'admin', 'user']],
         ] as $profile => [$components, $docs]) {
             $workspace = sys_get_temp_dir().'/symsvel-profiles-'.bin2hex(random_bytes(6));
             mkdir($workspace);
@@ -81,7 +83,7 @@ final class ModuleMakerTest extends TestCase
     public function testRejectsUnknownProfile(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        (new ModuleMaker())->create(sys_get_temp_dir(), 'test-profile', 'symsvel-framework', 'back,bo');
+        (new ModuleMaker())->create(sys_get_temp_dir(), 'test-profile', 'symsvel-framework', 'back,unknown');
     }
 
     public function testRejectsUnsafeNames(): void
