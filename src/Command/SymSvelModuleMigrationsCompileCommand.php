@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Module\ModuleMigrationCatalog;
+use SymSvel\Tooling\Module\ComposerModuleMigrationCatalog;
 use SymSvel\Tooling\Module\ModuleMigrationCompiler;
 use SymSvel\Tooling\Module\ModuleMigrationDiff;
 use SymSvel\Tooling\Module\ModuleMigrationRegistry;
@@ -23,6 +24,7 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
     public function __construct(
         #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
         private readonly ModuleMigrationCatalog $catalog = new ModuleMigrationCatalog(),
+        private readonly ComposerModuleMigrationCatalog $composerCatalog = new ComposerModuleMigrationCatalog(),
         private readonly ModuleMigrationDiff $diff = new ModuleMigrationDiff(),
         private readonly ModuleMigrationRegistry $registry = new ModuleMigrationRegistry(),
         private readonly ModuleMigrationCompiler $compiler = new ModuleMigrationCompiler(),
@@ -34,6 +36,7 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
     protected function configure(): void
     {
         $this->addOption('workspace', null, InputOption::VALUE_REQUIRED, 'Workspace root');
+        $this->addOption('source', null, InputOption::VALUE_REQUIRED, 'Migration sources: workspace or composer', 'workspace');
         $this->addOption('execute', null, InputOption::VALUE_NONE, 'Execute compiled migrations using Doctrine and record receipts');
     }
 
@@ -46,8 +49,15 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
             if (file_exists($journalPath) || is_link($journalPath)) {
                 throw new \RuntimeException('Migration recovery pending: '.$journalPath);
             }
+            $source = $input->getOption('source');
+            if (!in_array($source, ['workspace', 'composer'], true)) {
+                throw new \InvalidArgumentException('Source de migrations invalide : '.(string) $source);
+            }
             $registered = $this->registry->read((string) $workspace);
-            $changes = $this->diff->compare($this->catalog->discover((string) $workspace), $registered);
+            $sources = $source === 'composer'
+                ? $this->composerCatalog->discover($this->projectDir)
+                : $this->catalog->discover((string) $workspace);
+            $changes = $this->diff->compare($sources, $registered);
             if ($changes['removed'] !== []) {
                 throw new \DomainException('Sources intégrées absentes : '.implode(', ', $changes['removed']).'. Utilisez le cycle de désinstallation.');
             }
