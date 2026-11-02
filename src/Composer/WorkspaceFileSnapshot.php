@@ -211,9 +211,10 @@ final class WorkspaceFileSnapshot
     private function scan(string $root): array
     {
         $directory = new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS);
-        $filtered = new \RecursiveCallbackFilterIterator($directory, static function (\SplFileInfo $entry): bool {
+        $filtered = new \RecursiveCallbackFilterIterator($directory, static function (\SplFileInfo $entry) use ($root): bool {
             if ($entry->isDir() && !$entry->isLink()) {
-                return !in_array($entry->getFilename(), ['vendor', 'node_modules', '.git', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true)
+                return !in_array($entry->getFilename(), ['node_modules', '.git', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true)
+                    && !($entry->getFilename() === 'vendor' && $entry->getPath() === $root)
                     && !($entry->getFilename() === 'transactions' && basename(dirname($entry->getPathname())) === '.symsvel');
             }
 
