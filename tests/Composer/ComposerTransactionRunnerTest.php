@@ -420,7 +420,7 @@ final class ComposerTransactionRunnerTest extends TestCase
             self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
             unlink($this->backend.'/vendor/existing/code.php');
             rmdir($this->backend.'/vendor/existing');
-            rmdir($this->backend.'/vendor');
+            // vendor/composer belongs to the shared fixture and is removed in tearDown().
         }
     }
 
