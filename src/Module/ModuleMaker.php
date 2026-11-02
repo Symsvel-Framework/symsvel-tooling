@@ -14,6 +14,7 @@ final class ModuleMaker
         if (!preg_match('/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/', $vendor)) {
             throw new \InvalidArgumentException('Vendor Composer invalide.');
         }
+        // Accept independent scopes while preserving legacy profile semantics.
         $profiles = [
             'back' => ['back'],
             'bo' => ['back', 'bo'],
@@ -21,10 +22,15 @@ final class ModuleMaker
             'front' => ['back', 'bo', 'front'],
             'all' => ['back', 'bo', 'app', 'front'],
         ];
-        if (!isset($profiles[$scopes])) {
-            throw new \InvalidArgumentException('Profil inconnu : '.$scopes.'. Valeurs : bo, app, front, all (back par défaut).');
+        if (isset($profiles[$scopes])) {
+            $componentsSelected = $profiles[$scopes];
+        } else {
+            $requested = array_map('trim', explode(',', $scopes));
+            if (in_array('', $requested, true) || array_diff($requested, ['back', 'bo', 'app', 'front']) !== []) {
+                throw new \InvalidArgumentException('Scopes invalides : '.$scopes.'. Valeurs : back, bo, app, front, all.');
+            }
+            $componentsSelected = array_values(array_unique(array_merge(['back'], $requested)));
         }
-        $componentsSelected = $profiles[$scopes];
         $docsSelected = ['dev'];
         if (in_array('bo', $componentsSelected, true)) {
             $docsSelected[] = 'admin';
@@ -117,13 +123,32 @@ final class ModuleMaker
         }
         foreach (['bo', 'app', 'front'] as $scope) {
             if (isset($components[$scope])) {
-                $files[$scope.'/src/lib/.gitkeep'] = '';
-                $files[$scope.'/tests/.gitkeep'] = '';
+                // Scoped TypeScript config is for authoring the module, not copied into host SvelteKit apps.
+                $files[$scope.'/tsconfig.json'] = json_encode([
+                    'compilerOptions' => [
+                        'target' => 'ES2022',
+                        'module' => 'ESNext',
+                        'moduleResolution' => 'Bundler',
+                        'lib' => ['ES2022', 'DOM'],
+                        'strict' => true,
+                        'allowJs' => true,
+                        'checkJs' => true,
+                        'resolveJsonModule' => true,
+                        'skipLibCheck' => true,
+                        'isolatedModules' => true,
+                        'noEmit' => true,
+                        'types' => ['svelte'],
+                    ],
+                    'include' => ['src/**/*.ts', 'src/**/*.js', 'src/**/*.svelte', 'tests/**/*.ts'],
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
+                $files[$scope.'/src/lib/modules/'.$name.'/index.ts'] = "export const moduleId = '".$name."';\n";
+                $files[$scope.'/src/lib/modules/'.$name.'/README.md'] = '# '.$class." (".$scope.")\n\nPoint d'intégration SvelteKit du module. Importer les composants et services ici ; aucune route applicative n'est imposée.\n";
+                $files[$scope.'/tests/'.$name.'.test.ts'] = "import { describe, expect, it } from 'vitest';\nimport { moduleId } from '../src/lib/modules/".$name."';\n\ndescribe('".$name." module', () => {\n  it('exports its identifier', () => {\n    expect(moduleId).toBe('".$name."');\n  });\n});\n";
             }
         }
         $files['back/phpunit.xml.dist'] = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<phpunit bootstrap="../vendor/autoload.php" colors="true"><testsuites><testsuite name="Unit"><directory>tests/Unit</directory></testsuite><testsuite name="Integration"><directory>tests/Integration</directory></testsuite><testsuite name="Functional"><directory>tests/Functional</directory></testsuite></testsuites></phpunit>'."\n";
         $files['.github/workflows/qa.yml'] = "name: QA\non: [push, pull_request]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: shivammathur/setup-php@v2\n        with:\n          php-version: '8.4'\n      - run: composer install --no-interaction --prefer-dist\n      - run: composer qa\n";
-        $files['back/tests/Unit/'.$class.'BundleTest.php'] = "<?php\\n\\ndeclare(strict_types=1);\\n\\nnamespace ".$namespace."\\\\Tests\\\\Unit;\\n\\nuse PHPUnit\\\\Framework\\\\TestCase;\\nuse ".$namespace."\\\\".$class."Bundle;\\n\\nfinal class ".$class."BundleTest extends TestCase\\n{\\n    public function testBundleCanBeInstantiated(): void\\n    {\\n        self::assertInstanceOf(".$class."Bundle::class, new ".$class."Bundle());\\n    }\\n}\\n";
+        $files['back/tests/Unit/'.$class.'BundleTest.php'] = "<?php\n\ndeclare(strict_types=1);\n\nnamespace ".$namespace."\\Tests\\Unit;\n\nuse PHPUnit\\Framework\\TestCase;\nuse ".$namespace."\\".$class."Bundle;\n\nfinal class ".$class."BundleTest extends TestCase\n{\n    public function testBundleCanBeInstantiated(): void\n    {\n        self::assertInstanceOf(".$class."Bundle::class, new ".$class."Bundle());\n    }\n}\n";
         $files['back/tests/Unit/.gitkeep'] = '';
         $files['back/tests/Integration/.gitkeep'] = '';
         $files['back/tests/Functional/.gitkeep'] = '';

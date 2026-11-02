@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Tests\Module;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Module\ModuleMaker;
 
 final class ModuleMakerTest extends TestCase
@@ -23,8 +24,24 @@ final class ModuleMakerTest extends TestCase
             self::assertSame('symsvel-framework/module-my-documents', $composer['name']);
             self::assertFileExists($path.'/back/src/MyDocumentsBundle.php');
             self::assertFileExists($path.'/back/phpunit.xml.dist');
+            $phpunitConfiguration = (string) file_get_contents($path.'/back/phpunit.xml.dist');
+            self::assertStringContainsString('bootstrap="../vendor/autoload.php"', $phpunitConfiguration);
+            self::assertStringContainsString('<directory>tests/Unit</directory>', $phpunitConfiguration);
+            self::assertStringContainsString('<directory>tests/Integration</directory>', $phpunitConfiguration);
+            self::assertStringContainsString('<directory>tests/Functional</directory>', $phpunitConfiguration);
+            $bundleTest = (string) file_get_contents($path.'/back/tests/Unit/MyDocumentsBundleTest.php');
+            self::assertStringContainsString('namespace SymSvel\\Module\\MyDocuments\\Tests\\Unit;', $bundleTest);
+            self::assertStringContainsString('use SymSvel\\Module\\MyDocuments\\MyDocumentsBundle;', $bundleTest);
             self::assertFileExists($path.'/Migration/.gitkeep');
             self::assertFileExists($path.'/back/tests/Unit/MyDocumentsBundleTest.php');
+            foreach ([
+                $path.'/back/src/MyDocumentsBundle.php',
+                $path.'/back/tests/Unit/MyDocumentsBundleTest.php',
+            ] as $phpFile) {
+                $lint = new Process([PHP_BINARY, '-l', $phpFile]);
+                $lint->run();
+                self::assertTrue($lint->isSuccessful(), $phpFile.': '.$lint->getErrorOutput().$lint->getOutput());
+            }
             $recipe = json_decode((string) file_get_contents($path.'/recipe/recipe.json'), true, 512, JSON_THROW_ON_ERROR);
             $entry = $recipe['manifests']['symsvel-framework/module-my-documents'];
             self::assertSame(['all'], $entry['manifest']['bundles']['SymSvel\\Module\\MyDocuments\\MyDocumentsBundle']);
@@ -57,6 +74,8 @@ final class ModuleMakerTest extends TestCase
             'app' => [['back', 'bo', 'app'], ['dev', 'admin', 'user']],
             'front' => [['back', 'bo', 'front'], ['dev', 'admin', 'user']],
             'all' => [['back', 'bo', 'app', 'front'], ['dev', 'admin', 'user']],
+            'back,front' => [['back', 'front'], ['dev', 'user']],
+            'bo,front' => [['back', 'bo', 'front'], ['dev', 'admin', 'user']],
         ] as $profile => [$components, $docs]) {
             $workspace = sys_get_temp_dir().'/symsvel-profiles-'.bin2hex(random_bytes(6));
             mkdir($workspace);
@@ -64,6 +83,18 @@ final class ModuleMakerTest extends TestCase
             $manifest = json_decode((string) file_get_contents($path.'/module.json'), true, 512, JSON_THROW_ON_ERROR);
             self::assertSame($components, array_keys($manifest['components']));
             self::assertSame($docs, array_keys($manifest['documentation']));
+            foreach (['bo', 'app', 'front'] as $scope) {
+                if (in_array($scope, $components, true)) {
+                    self::assertFileExists($path.'/'.$scope.'/tsconfig.json');
+                    self::assertFileExists($path.'/'.$scope.'/src/lib/modules/test-profile/index.ts');
+                    self::assertFileExists($path.'/'.$scope.'/tests/test-profile.test.ts');
+                    $tsconfig = json_decode((string) file_get_contents($path.'/'.$scope.'/tsconfig.json'), true, 512, JSON_THROW_ON_ERROR);
+                    self::assertTrue($tsconfig['compilerOptions']['strict']);
+                    self::assertSame('Bundler', $tsconfig['compilerOptions']['moduleResolution']);
+                } else {
+                    self::assertDirectoryDoesNotExist($path.'/'.$scope);
+                }
+            }
             foreach ($docs as $doc) {
                 self::assertFileExists($path.'/docs/'.$doc.'/index.md');
             }
@@ -81,7 +112,7 @@ final class ModuleMakerTest extends TestCase
     public function testRejectsUnknownProfile(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        (new ModuleMaker())->create(sys_get_temp_dir(), 'test-profile', 'symsvel-framework', 'back,bo');
+        (new ModuleMaker())->create(sys_get_temp_dir(), 'test-profile', 'symsvel-framework', 'back,unknown');
     }
 
     public function testRejectsUnsafeNames(): void

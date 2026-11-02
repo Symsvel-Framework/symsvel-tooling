@@ -28,7 +28,7 @@ final class SymSvelMakeModuleCommand extends Command
     {
         $this->addArgument('name', InputArgument::REQUIRED, 'Module slug (e.g. documents)');
         $this->addOption('workspace', null, InputOption::VALUE_REQUIRED, 'Workspace root (defaults to parent of backend/)');
-        $this->addOption('scopes', null, InputOption::VALUE_REQUIRED, 'Profile: bo, app, front or all (default: back)', 'back');
+        $this->addOption('scopes', null, InputOption::VALUE_REQUIRED, 'Scopes: back, bo, app, front, all or comma-separated combinations (default: back)', 'back');
         $this->addOption('vendor', null, InputOption::VALUE_REQUIRED, 'Composer vendor', 'symsvel-framework');
     }
 

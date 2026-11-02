@@ -106,10 +106,11 @@ Le socle obligatoire est `back` + `docs/dev`. Sans option, seul ce socle est gé
 ```bash
 ./symsvel make:module documents
 ./symsvel make:module documents --scopes=app
+symsvel make:module documents --scopes=back,front
 php bin/console symsvel:make:module documents --scopes=all
 ```
 
-Les anciens scopes séparés ou combinés ne sont plus acceptés. Le maker génère les points d'extension des composants, la configuration PHPUnit et le workflow QA.
+Les profils historiques restent acceptés. Les combinaisons explicites comme `back,front` et `bo,front` sont également possibles ; `back` est toujours inclus. Le maker génère les points d'extension des composants, la configuration PHPUnit et le workflow QA.
 
 ## Contrat architectural des modules PHP (intégration à venir)
 
