@@ -169,7 +169,7 @@ final class ComposerTransactionRunner
                     $progress('Restauration globale vérifiée : checkpoint PostgreSQL et workspace restaurés ; aucune récupération manuelle requise pour cette transaction.'.PHP_EOL);
                 }
             }
-            throw new \\RuntimeException('Opération Composer annulée et dépendances restaurées : '.$failureMessage, 0, $failure);
+            throw new \RuntimeException('Opération Composer annulée et dépendances restaurées : '.$failureMessage, 0, $failure);
         }
         if ($databaseCheckpoint !== null) {
             $databaseBackup->discard($databaseCheckpoint);
