@@ -219,7 +219,9 @@ final class ComposerTransactionRunner
             }
         }
         $executor = new ModuleMigrationExecutor();
-        foreach (array_reverse(array_keys($versions)) as $version) {
+        $orderedVersions = array_keys($versions);
+        rsort($orderedVersions, SORT_STRING);
+        foreach ($orderedVersions as $version) {
             if ($progress !== null) {
                 $progress('Doctrine down : '.$version.PHP_EOL);
             }
@@ -238,7 +240,7 @@ final class ComposerTransactionRunner
         $changes = (new ModuleMigrationDiff())->compare($sources, $registered);
         if ($changes['removed'] !== []) {
             throw new \DomainException(
-                'Désinstallation avec migrations non encore prise en charge : '.implode(', ', $changes['removed']).
+                'Sources de migrations absentes après opération Composer : '.implode(', ', $changes['removed']).
                 '. Transaction annulée pour préserver la BDD.'
             );
         }
