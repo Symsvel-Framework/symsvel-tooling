@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Composer;
 
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\RuntimeArtifactSnapshot;
+use SymSvel\Tooling\Update\WorkspaceDatabaseBackup;
 use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
 
 /**
@@ -42,6 +43,9 @@ final class ComposerTransactionRunner
         if (!is_file($backend.'/composer.lock')) {
             throw new \RuntimeException('composer.lock initial obligatoire pour garantir la restauration des dépendances.');
         }
+        $databaseUrl = $this->databaseUrl($backend);
+        $databaseBackup = new WorkspaceDatabaseBackup();
+        $databaseCheckpoint = null;
         $initialFiles = $this->workspaceFiles($backend);
         $transaction = $this->snapshots->begin($backend);
         $workspaceSnapshot = new WorkspaceFileSnapshot($backend, $transaction);
@@ -49,6 +53,9 @@ final class ComposerTransactionRunner
         /** @var list<RuntimeArtifactSnapshot> $runtimeSnapshots */
         $runtimeSnapshots = [];
         try {
+            if ($databaseUrl !== null) {
+                $databaseCheckpoint = $databaseBackup->capture($backend, $databaseUrl);
+            }
             $workspaceSnapshot->capture();
             $vendorSnapshot->capture();
             foreach (['bo', 'app', 'front'] as $component) {
@@ -73,6 +80,13 @@ final class ComposerTransactionRunner
             $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
         } catch (\Throwable $failure) {
             $recoveryErrors = [];
+            if ($databaseCheckpoint !== null) {
+                try {
+                    $databaseBackup->restore($databaseUrl, $databaseCheckpoint);
+                } catch (\Throwable $recovery) {
+                    $recoveryErrors[] = 'BDD / PostgreSQL : '.$recovery->getMessage();
+                }
+            }
             // Every recovery step is independent: a failed manifest restore
             // must not prevent vendor, sources or frontend artifacts recovery.
             try {
@@ -118,6 +132,9 @@ final class ComposerTransactionRunner
                     $failure,
                 );
             }
+            if ($databaseCheckpoint !== null) {
+                $databaseBackup->discard($databaseCheckpoint);
+            }
             // Recovery has been verified. Cleanup is separate housekeeping.
             try {
                 $registry = new WorkspaceCleanupRegistry($backend);
@@ -133,6 +150,9 @@ final class ComposerTransactionRunner
             }
             throw new \RuntimeException('Opération Composer annulée et dépendances restaurées : '.$failure->getMessage(), 0, $failure);
         }
+        if ($databaseCheckpoint !== null) {
+            $databaseBackup->discard($databaseCheckpoint);
+        }
         // Composer has succeeded. Register the checkpoint before deleting anything:
         // an interrupted cleanup can be retried without turning success into failure.
         try {
@@ -147,6 +167,32 @@ final class ComposerTransactionRunner
                 $progress('AVERTISSEMENT : opération Composer réussie, nettoyage non enregistré ou interrompu : '.$cleanupFailure->getMessage().'; checkpoint conservé si présent : '.$transaction);
             }
         }
+    }
+
+    /**
+     * Only enable database checkpoints when a concrete local DATABASE_URL is set.
+     * Never attempt a destructive restore against a default/example .env.
+     */
+    private function databaseUrl(string $backend): ?string
+    {
+        $file = $backend.'/.env.local';
+        if (!is_file($file) || is_link($file)) {
+            return null;
+        }
+        $contents = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($contents === false) {
+            throw new \RuntimeException('Lecture de .env.local impossible.');
+        }
+        foreach ($contents as $line) {
+            if (preg_match('/^\\s*DATABASE_URL\\s*=\\s*(.*?)\\s*$/', $line, $matches)) {
+                $value = trim($matches[1], " \\t\\n\\r\\0\\x0B\\\"'");
+                if ($value === '') {
+                    throw new \RuntimeException('DATABASE_URL vide dans .env.local.');
+                }
+                return $value;
+            }
+        }
+        return null;
     }
 
     /**
