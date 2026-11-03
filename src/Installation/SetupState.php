@@ -1,0 +1,84 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SymSvel\Tooling\Installation;
+
+/** Persistent setup lifecycle, independent of database configuration. */
+final class SetupState
+{
+    public const PENDING = 'pending';
+    public const RUNNING = 'running';
+    public const COMPLETED = 'completed';
+
+    public function read(string $workspace): ?string
+    {
+        $path = $this->path($workspace);
+        if (is_link($path) || is_link(dirname($path))) {
+            throw new \RuntimeException('État setup symbolique interdit.');
+        }
+        if (!file_exists($path)) {
+            return null;
+        }
+        $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($data) || ($data['schema'] ?? null) !== 1
+            || !in_array($data['status'] ?? null, [self::PENDING, self::RUNNING, self::COMPLETED], true)) {
+            throw new \RuntimeException('État setup invalide.');
+        }
+        return $data['status'];
+    }
+
+    public function initialize(string $workspace): void
+    {
+        if ($this->read($workspace) !== null) {
+            return;
+        }
+        $this->write($workspace, self::PENDING);
+    }
+
+    public function transition(string $workspace, string $expected, string $next): void
+    {
+        if (!in_array([$expected, $next], [
+            [self::PENDING, self::RUNNING],
+            [self::RUNNING, self::COMPLETED],
+        ], true)) {
+            throw new \DomainException('Transition setup interdite.');
+        }
+        if ($this->read($workspace) !== $expected) {
+            throw new \DomainException('État setup inattendu.');
+        }
+        $this->write($workspace, $next);
+    }
+
+    private function write(string $workspace, string $status): void
+    {
+        $path = $this->path($workspace);
+        $directory = dirname($path);
+        if (is_link($directory) || is_link($path)) {
+            throw new \RuntimeException('État setup symbolique interdit.');
+        }
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+            throw new \RuntimeException('Répertoire setup inaccessible.');
+        }
+        $temporary = tempnam($directory, '.setup-');
+        if ($temporary === false) {
+            throw new \RuntimeException('Écriture setup impossible.');
+        }
+        try {
+            $json = json_encode(['schema' => 1, 'status' => $status], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n";
+            if (file_put_contents($temporary, $json) === false || !rename($temporary, $path)) {
+                throw new \RuntimeException('Publication setup impossible.');
+            }
+        } finally {
+            if (is_file($temporary)) {
+                unlink($temporary);
+            }
+        }
+    }
+
+    private function path(string $workspace): string
+    {
+        $root = realpath($workspace) ?: throw new \RuntimeException('Workspace introuvable.');
+        return $root.'/.symsvel/setup.json';
+    }
+}
