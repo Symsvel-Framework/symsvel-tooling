@@ -9,6 +9,7 @@ final class WorkspaceInitializer
 {
     public function initialize(string $root): void
     {
+        (new SetupState())->initialize($root);
         $docs = $root.'/dev-doc';
         $secrets = $root.'/secrets';
         foreach ([$docs.'/docs', $secrets] as $dir) {
@@ -19,6 +20,16 @@ final class WorkspaceInitializer
         $this->writeIfMissing($docs.'/mkdocs.yml', "site_name: SymSvel - Documentation développeur\ndocs_dir: docs\nsite_dir: site\nnav:\n  - Accueil: index.md\n");
         $this->writeIfMissing($docs.'/docs/index.md', "# Documentation développeur SymSvel\n\nÀ compléter.\n");
         $this->writeIfMissing($docs.'/.gitignore', "/.venv/\n/site/\n");
+        // The one-time setup credential is stored outside the public backend.
+        // Never regenerate it when resuming an interrupted installation.
+        $setupToken = $root.'/.symsvel/setup-token';
+        if (!file_exists($setupToken) && !is_link($setupToken)) {
+            $token = bin2hex(random_bytes(32));
+            if (file_put_contents($setupToken, $token."\n", LOCK_EX) === false) {
+                throw new \RuntimeException('Impossible de créer le jeton de setup.');
+            }
+            chmod($setupToken, 0600);
+        }
         $this->writeIfMissing($secrets.'/.env.example', "# Variables privées SymSvel, à compléter selon les besoins\n");
         $venv = $docs.'/.venv';
         if (!is_file($venv.'/bin/mkdocs')) {

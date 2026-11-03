@@ -14,6 +14,9 @@ final class ComposerTransactionRunnerTest extends TestCase
     protected function setUp(): void
     {
         $this->backend = sys_get_temp_dir().'/symsvel-runner-'.bin2hex(random_bytes(8));
+        mkdir($this->backend, 0775, true);
+        $workspace = $this->backend;
+        $this->backend = $workspace.'/backend';
         mkdir($this->backend);
         file_put_contents($this->backend.'/composer.json', '{"require":{"existing":"1.0"}}');
         file_put_contents($this->backend.'/composer.lock', '{"packages":[{"name":"existing"}]}');
@@ -39,6 +42,89 @@ final class ComposerTransactionRunnerTest extends TestCase
             $this->deleteDirectory($this->backend.'/vendor');
         }
         @rmdir($this->backend);
+        @unlink(dirname($this->backend).'/.symsvel/setup.json');
+        @rmdir(dirname($this->backend).'/.symsvel');
+        @rmdir(dirname($this->backend));
+    }
+
+    public function testBootstrapRejectsUpdateAndRemovalBeforeComposer(): void
+    {
+        $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+            self::fail('Composer must not run for forbidden bootstrap operations.');
+        });
+        foreach ([['update'], ['remove', 'symsvel-framework/module-roles']] as $arguments) {
+            try {
+                $runner->run($this->backend, $arguments, bootstrap: true);
+                self::fail('Bootstrap accepted a forbidden operation.');
+            } catch (\InvalidArgumentException $error) {
+                self::assertStringContainsString('Bootstrap réservé', $error->getMessage());
+            }
+        }
+    }
+
+    public function testBootstrapRejectsMissingNativeManifestBeforeComposer(): void
+    {
+        (new \SymSvel\Tooling\Installation\SetupState())->initialize(dirname($this->backend));
+        $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+            self::fail('Composer must not run without native manifest.');
+        });
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Manifeste des modules natifs introuvable');
+        $runner->run($this->backend, ['require', 'symsvel-framework/module-roles'], bootstrap: true);
+    }
+
+    public function testBootstrapRejectsPackageNotDeclaredNative(): void
+    {
+        (new \SymSvel\Tooling\Installation\SetupState())->initialize(dirname($this->backend));
+        mkdir($this->backend.'/config');
+        file_put_contents($this->backend.'/config/symsvel-native-modules.json', json_encode([
+            'schema' => 1,
+            'modules' => ['symsvel-framework/module-roles'],
+        ], JSON_THROW_ON_ERROR));
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+                self::fail('Composer must not run for non-native package.');
+            });
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Bootstrap interdit pour un module non natif');
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-acls'], bootstrap: true);
+        } finally {
+            unlink($this->backend.'/config/symsvel-native-modules.json');
+            rmdir($this->backend.'/config');
+        }
+    }
+
+    public function testBootstrapRejectsCompletedSetupBeforeComposer(): void
+    {
+        $state = new \SymSvel\Tooling\Installation\SetupState();
+        $workspace = dirname($this->backend);
+        $state->initialize($workspace);
+        $state->transition($workspace, $state::PENDING, $state::RUNNING);
+        file_put_contents($this->backend.'/.env.local', "DATABASE_URL=postgresql://localhost/test\n");
+        $state->transition($workspace, $state::RUNNING, $state::COMPLETED);
+        $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+            self::fail('Composer must not run after setup completion.');
+        });
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Bootstrap interdit hors setup initial');
+        $runner->run($this->backend, ['require', 'symsvel-framework/module-roles'], bootstrap: true);
+    }
+
+    public function testBootstrapRejectsConfiguredDatabaseBeforeComposer(): void
+    {
+        $workspace = dirname($this->backend);
+        (new \SymSvel\Tooling\Installation\SetupState())->initialize($workspace);
+        file_put_contents($this->backend.'/.env.local', "DATABASE_URL=postgresql://localhost/test\n");
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+                self::fail('Composer must not run with configured database.');
+            });
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Bootstrap interdit hors setup initial');
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-roles'], bootstrap: true);
+        } finally {
+            unlink($this->backend.'/.env.local');
+        }
     }
 
     public function testFailedInstallRestoresOriginalManifestsAndRunsSafeInstall(): void

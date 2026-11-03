@@ -15,8 +15,12 @@ if ($operation !== 'update' && ($args === [] || str_starts_with($args[0], '-')))
     exit(2);
 }
 $dev = false;
+$bootstrap = false;
 foreach ($args as $index => $argument) {
-    if ($argument === '--dev') {
+    if ($argument === '--bootstrap') {
+        $bootstrap = true;
+        unset($args[$index]);
+    } elseif ($argument === '--dev') {
         $dev = true;
         unset($args[$index]);
     }
@@ -32,6 +36,7 @@ try {
         $backend,
         array_merge([$operation], $args),
         static function (string $output): void { echo $output; },
+        bootstrap: $bootstrap,
     );
 } catch (Throwable $error) {
     fwrite(STDERR, "[symsvel] ".$error->getMessage().PHP_EOL);

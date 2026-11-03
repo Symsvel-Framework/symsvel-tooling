@@ -12,6 +12,7 @@ use SymSvel\Tooling\Module\ComposerModuleMigrationCatalog;
 use SymSvel\Tooling\Module\ModuleMigrationDiff;
 use SymSvel\Tooling\Module\ModuleMigrationRegistry;
 use SymSvel\Tooling\Module\ModuleMigrationExecutor;
+use SymSvel\Tooling\Installation\SetupState;
 
 /**
  * Opt-in Composer transaction runner.
@@ -32,10 +33,13 @@ final class ComposerTransactionRunner
      * @param list<string> $arguments Composer arguments, starting with require/update/remove
      * @param null|callable(string):void $progress
      */
-    public function run(string $backend, array $arguments, ?callable $progress = null): void
+    public function run(string $backend, array $arguments, ?callable $progress = null, bool $bootstrap = false): void
     {
         if (!in_array($arguments[0] ?? '', ['require', 'update', 'remove'], true)) {
             throw new \InvalidArgumentException('Opération Composer non prise en charge.');
+        }
+        if ($bootstrap && ($arguments[0] !== 'require' || count($arguments) < 2)) {
+            throw new \InvalidArgumentException('Bootstrap réservé à l’installation de modules natifs.');
         }
         foreach ($arguments as $argument) {
             if (in_array($argument, ['--no-scripts', '--no-plugins', '--working-dir', '-d'], true)
@@ -44,6 +48,24 @@ final class ComposerTransactionRunner
             }
         }
         $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
+        if ($bootstrap) {
+            if (!$this->isUnconfiguredWorkspace($backend)) {
+                throw new \RuntimeException('Bootstrap interdit hors setup initial en attente.');
+            }
+            $manifest = $backend.'/config/symsvel-native-modules.json';
+            if (!is_file($manifest) || is_link($manifest)) {
+                throw new \RuntimeException('Manifeste des modules natifs introuvable.');
+            }
+            $configuration = json_decode((string) file_get_contents($manifest), true, 512, JSON_THROW_ON_ERROR);
+            $allowed = $configuration['modules'] ?? null;
+            if (($configuration['schema'] ?? null) !== 1 || !is_array($allowed) || !array_is_list($allowed)) {
+                throw new \RuntimeException('Manifeste des modules natifs invalide.');
+            }
+            $package = explode(':', $arguments[1], 2)[0];
+            if (!in_array($package, $allowed, true)) {
+                throw new \RuntimeException('Bootstrap interdit pour un module non natif : '.$package);
+            }
+        }
         if (!is_file($backend.'/composer.lock')) {
             throw new \RuntimeException('composer.lock initial obligatoire pour garantir la restauration des dépendances.');
         }
@@ -88,7 +110,7 @@ final class ComposerTransactionRunner
                 $removedVersions = $this->removeModuleMigrations($backend, $arguments, $databaseUrl, $progress);
             }
             $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
-            $this->applyComposerMigrations($backend, $databaseUrl, $progress);
+            $this->applyComposerMigrations($backend, $databaseUrl, $progress, $bootstrap);
             $this->removeCompiledMigrations($backend, $removedVersions);
         } catch (\Throwable $failure) {
             $recoveryErrors = [];
@@ -278,7 +300,7 @@ final class ComposerTransactionRunner
     }
 
     /** @param null|callable(string):void $progress */
-    private function applyComposerMigrations(string $backend, ?string $databaseUrl, ?callable $progress): void
+    private function applyComposerMigrations(string $backend, ?string $databaseUrl, ?callable $progress, bool $bootstrap): void
     {
         $workspace = dirname($backend);
         $registry = new ModuleMigrationRegistry();
@@ -295,6 +317,12 @@ final class ComposerTransactionRunner
             return;
         }
         if ($databaseUrl === null) {
+            if ($bootstrap && $this->isUnconfiguredWorkspace($backend)) {
+                if ($progress !== null) {
+                    $progress('Bootstrap : migrations conservées en attente du Setup Wizard.'.PHP_EOL);
+                }
+                return;
+            }
             throw new \RuntimeException('Migrations détectées sans DATABASE_URL dans .env.local : transaction refusée.');
         }
         if ($progress !== null) {
@@ -304,6 +332,16 @@ final class ComposerTransactionRunner
             PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile',
             '--source=composer', '--execute', '--no-interaction',
         ], $backend, $progress);
+    }
+
+    /** An explicit bootstrap request is valid only before any module migration receipt exists. */
+    private function isUnconfiguredWorkspace(string $backend): bool
+    {
+        $registry = new ModuleMigrationRegistry();
+        return (new SetupState())->read(dirname($backend)) === SetupState::PENDING
+            && $registry->read(dirname($backend)) === []
+            && !is_file($backend.'/.env.local')
+            && !is_link($backend.'/.env.local');
     }
 
     /**
