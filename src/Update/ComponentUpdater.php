@@ -15,6 +15,7 @@ final class ComponentUpdater
         private readonly SvelteModuleSynchronizer $synchronizer = new SvelteModuleSynchronizer(),
         private readonly ComponentNativeSource $native = new ComponentNativeSource(),
         private readonly ComponentUpdatePreflight $preflight = new ComponentUpdatePreflight(),
+        private readonly LegacyComponentBaseline $legacy = new LegacyComponentBaseline(),
     ) {
     }
 
@@ -34,7 +35,7 @@ final class ComponentUpdater
         $manifest = new ComponentManifest($backend);
         $baseline = $manifest->get($component);
         if ($baseline === null) {
-            throw new \RuntimeException('Référence native absente pour '.$component.'. Initialisation de migration requise avant mise à jour.');
+            $baseline = $this->legacy->recover($directory, $component);
         }
 
         $transaction = $backend.'/.symsvel/transactions/update-'.bin2hex(random_bytes(12));
