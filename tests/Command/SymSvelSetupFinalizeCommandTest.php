@@ -11,6 +11,32 @@ use SymSvel\Tooling\Installation\SetupState;
 
 final class SymSvelSetupFinalizeCommandTest extends TestCase
 {
+    public function testFailedDatabaseConnectionLeavesSetupRunning(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-finalize-db-fail-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        mkdir($root.'/backend/bin');
+        file_put_contents($root.'/backend/.env.local', "DATABASE_URL=postgresql://localhost/test\n");
+        file_put_contents($root.'/backend/bin/console', "<?php fwrite(STDERR, 'database unavailable'); exit(1);\n");
+        try {
+            $state = new SetupState();
+            $state->initialize($root);
+            $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
+            self::assertSame(1, $tester->execute([]));
+            self::assertSame(SetupState::RUNNING, $state->read($root));
+            self::assertStringContainsString('Connexion BDD impossible', $tester->getDisplay());
+        } finally {
+            @unlink($root.'/.symsvel/setup.json');
+            @rmdir($root.'/.symsvel');
+            @unlink($root.'/backend/bin/console');
+            @rmdir($root.'/backend/bin');
+            @unlink($root.'/backend/.env.local');
+            @rmdir($root.'/backend');
+            @rmdir($root);
+        }
+    }
+
     public function testMigrationFailureLeavesSetupRunningForRetry(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-fail-'.bin2hex(random_bytes(8));
