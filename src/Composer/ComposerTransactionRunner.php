@@ -38,6 +38,9 @@ final class ComposerTransactionRunner
         if (!in_array($arguments[0] ?? '', ['require', 'update', 'remove'], true)) {
             throw new \InvalidArgumentException('Opération Composer non prise en charge.');
         }
+        if ($bootstrap && ($arguments[0] !== 'require' || count($arguments) < 2)) {
+            throw new \InvalidArgumentException('Bootstrap réservé à l’installation de modules natifs.');
+        }
         foreach ($arguments as $argument) {
             if (in_array($argument, ['--no-scripts', '--no-plugins', '--working-dir', '-d'], true)
                 || str_starts_with($argument, '--working-dir=')) {
