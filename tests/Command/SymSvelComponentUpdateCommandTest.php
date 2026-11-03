@@ -50,7 +50,8 @@ final class SymSvelComponentUpdateCommandTest extends TestCase
     private function tester(): CommandTester
     {
         $app = new Application();
-        $app->add(new SymSvelComponentUpdateCommand($this->workspace.'/backend'));
+        $command = new SymSvelComponentUpdateCommand($this->workspace.'/backend');
+        $app->addCommand($command);
         return new CommandTester($app->find('symsvel:component:update'));
     }
 }
