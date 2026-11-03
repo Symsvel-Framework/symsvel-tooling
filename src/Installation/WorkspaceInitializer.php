@@ -9,6 +9,7 @@ final class WorkspaceInitializer
 {
     public function initialize(string $root): void
     {
+        (new SetupState())->initialize($root);
         $docs = $root.'/dev-doc';
         $secrets = $root.'/secrets';
         foreach ([$docs.'/docs', $secrets] as $dir) {
