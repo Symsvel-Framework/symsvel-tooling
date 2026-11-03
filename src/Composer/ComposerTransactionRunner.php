@@ -296,7 +296,9 @@ final class ComposerTransactionRunner
         }
         if ($databaseUrl === null) {
             if ($bootstrap && $this->isUnconfiguredWorkspace($backend)) {
-                $progress?.__invoke('Bootstrap : migrations conservées en attente du Setup Wizard.'.PHP_EOL);
+                if ($progress !== null) {
+                    $progress('Bootstrap : migrations conservées en attente du Setup Wizard.'.PHP_EOL);
+                }
                 return;
             }
             throw new \RuntimeException('Migrations détectées sans DATABASE_URL dans .env.local : transaction refusée.');
