@@ -17,7 +17,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 /**
  * Entry point for the CLI's component lifecycle.
  *
- * Existing components are updated through a Git/source/runtime checkpoint.
+ * Existing components are updated through a native-file manifest and source/runtime checkpoints.
  */
 #[AsCommand(name: 'symsvel:component:update', description: 'Installe ou met à jour une interface SvelteKit')]
 final class SymSvelComponentUpdateCommand extends Command

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Installation;
 
 use Symfony\Component\Process\Process;
+use SymSvel\Tooling\Update\ComponentManifest;
+use SymSvel\Tooling\Update\ComponentNativeSource;
 
 final class ComponentInstaller
 {
@@ -63,6 +65,10 @@ final class ComponentInstaller
                 if (!$process->isSuccessful()) {
                     throw new \RuntimeException(trim($process->getErrorOutput()) ?: 'Échec du clonage Git.');
                 }
+                $nativeFiles = (new ComponentNativeSource())->files($target);
+                $revisionProcess = new Process(['git', 'rev-parse', 'HEAD'], $target);
+                $revisionProcess->mustRun();
+                $revision = trim($revisionProcess->getOutput());
                 foreach ([['npm', 'ci'], ['npm', 'run', 'build']] as $command) {
                     $step = new Process($command, $target);
                     $step->setTimeout(600);
@@ -76,6 +82,7 @@ final class ComponentInstaller
                         ));
                     }
                 }
+                (new ComponentManifest($projectDir.'/backend'))->set($component, $revision, $nativeFiles);
             }
         } catch (\Throwable $exception) {
             foreach (array_reverse($created) as $path) {
