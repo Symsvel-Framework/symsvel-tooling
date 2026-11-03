@@ -11,6 +11,11 @@ use Symfony\Component\Process\Process;
  */
 final class ComponentNativeSource
 {
+    /** @param array<string, string>|null $repositories */
+    public function __construct(private readonly ?array $repositories = null)
+    {
+    }
+
     private const REPOSITORIES = [
         'bo' => 'git@github.com:Symsvel-Framework/symsvel-bo.git',
         'app' => 'git@github.com:Symsvel-Framework/symsvel-app.git',
@@ -19,7 +24,7 @@ final class ComponentNativeSource
 
     public function fetch(string $component, string $directory): string
     {
-        $repository = self::REPOSITORIES[$component] ?? throw new \InvalidArgumentException('Composant inconnu.');
+        $repository = ($this->repositories ?? self::REPOSITORIES)[$component] ?? throw new \InvalidArgumentException('Composant inconnu.');
         $process = new Process(['git', 'clone', '--depth', '1', '--', $repository, $directory]);
         $process->setTimeout(300);
         $process->mustRun();
