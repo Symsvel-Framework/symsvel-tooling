@@ -57,7 +57,7 @@ final class ComponentInstaller
                     $progress($component);
                 }
                 $created[] = $target;
-                $process = new Process(['git', 'clone', '--depth', '1', self::REPOSITORIES[$component], $target]);
+                $process = new Process(['git', 'clone', '--depth', '1', ($this->repositories ?? self::REPOSITORIES)[$component], $target]);
                 $process->setTimeout(300);
                 $process->run();
                 if (!$process->isSuccessful()) {
