@@ -44,7 +44,16 @@ final class SymSvelSetupFinalizeCommand extends Command
                 throw new \RuntimeException('Configurez DATABASE_URL dans backend/.env.local avant la finalisation.');
             }
             $lines = file($environment, FILE_IGNORE_NEW_LINES);
-            if ($lines === false || !array_filter($lines, static fn (string $line): bool => preg_match('/^\s*DATABASE_URL\s*=\s*["\']?\S+/', $line) === 1)) {
+            $databaseUrl = null;
+            if ($lines !== false) {
+                foreach ($lines as $line) {
+                    if (preg_match('/^\\s*DATABASE_URL\\s*=\\s*(.*?)\\s*$/', $line, $matches) !== 1) {
+                        continue;
+                    }
+                    $databaseUrl = trim($matches[1], " \\t\\n\\r\\0\\x0B\\\"'");
+                }
+            }
+            if ($databaseUrl === null || $databaseUrl === '') {
                 throw new \RuntimeException('DATABASE_URL manquant dans backend/.env.local.');
             }
             if ($status === SetupState::PENDING) {
