@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Command;
 
-use SymSvel\Tooling\Installation\ComponentInstaller;
 use SymSvel\Tooling\Update\ComponentUpdater;
 use SymSvel\Tooling\Installation\ComponentLifecycleInstaller;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -25,7 +24,6 @@ final class SymSvelComponentUpdateCommand extends Command
 {
     public function __construct(
         #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
-        private readonly ComponentInstaller $installer = new ComponentInstaller(),
         private readonly ComponentUpdater $updater = new ComponentUpdater(),
         private readonly ComponentLifecycleInstaller $lifecycleInstaller = new ComponentLifecycleInstaller(),
     ) {
