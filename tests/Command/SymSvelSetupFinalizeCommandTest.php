@@ -11,6 +11,37 @@ use SymSvel\Tooling\Installation\SetupState;
 
 final class SymSvelSetupFinalizeCommandTest extends TestCase
 {
+    public function testSetupCanResumeAfterDatabaseBecomesAvailable(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-finalize-retry-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        mkdir($root.'/backend/bin');
+        file_put_contents($root.'/backend/.env.local', "DATABASE_URL=postgresql://localhost/test\n");
+        $console = $root.'/backend/bin/console';
+        file_put_contents($console, "<?php exit(1);\n");
+        try {
+            $state = new SetupState();
+            $state->initialize($root);
+            $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
+            self::assertSame(1, $tester->execute([]));
+            self::assertSame(SetupState::RUNNING, $state->read($root));
+            file_put_contents($console, "<?php exit(0);\n");
+            self::assertSame(0, $tester->execute([]));
+            self::assertSame(SetupState::COMPLETED, $state->read($root));
+            self::assertSame(0, $tester->execute([]));
+            self::assertSame(SetupState::COMPLETED, $state->read($root));
+        } finally {
+            @unlink($root.'/.symsvel/setup.json');
+            @rmdir($root.'/.symsvel');
+            @unlink($console);
+            @rmdir($root.'/backend/bin');
+            @unlink($root.'/backend/.env.local');
+            @rmdir($root.'/backend');
+            @rmdir($root);
+        }
+    }
+
     public function testDatabaseFailureDoesNotInvokeMigrationCommand(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-no-replay-'.bin2hex(random_bytes(8));
