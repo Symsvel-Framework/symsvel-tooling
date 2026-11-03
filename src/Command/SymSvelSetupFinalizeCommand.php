@@ -50,7 +50,7 @@ final class SymSvelSetupFinalizeCommand extends Command
                     if (preg_match('/^\\s*DATABASE_URL\\s*=\\s*(.*?)\\s*$/', $line, $matches) !== 1) {
                         continue;
                     }
-                    $databaseUrl = trim($matches[1], " \\t\\n\\r\\0\\x0B\\\"'");
+                    $databaseUrl = trim(trim($matches[1]), "\"'");
                 }
             }
             if ($databaseUrl === null || $databaseUrl === '') {
