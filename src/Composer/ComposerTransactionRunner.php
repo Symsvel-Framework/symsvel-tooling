@@ -12,6 +12,7 @@ use SymSvel\Tooling\Module\ComposerModuleMigrationCatalog;
 use SymSvel\Tooling\Module\ModuleMigrationDiff;
 use SymSvel\Tooling\Module\ModuleMigrationRegistry;
 use SymSvel\Tooling\Module\ModuleMigrationExecutor;
+use SymSvel\Tooling\Installation\SetupState;
 
 /**
  * Opt-in Composer transaction runner.
@@ -316,7 +317,8 @@ final class ComposerTransactionRunner
     private function isUnconfiguredWorkspace(string $backend): bool
     {
         $registry = new ModuleMigrationRegistry();
-        return $registry->read(dirname($backend)) === []
+        return (new SetupState())->read(dirname($backend)) === SetupState::PENDING
+            && $registry->read(dirname($backend)) === []
             && !is_file($backend.'/.env.local')
             && !is_link($backend.'/.env.local');
     }
