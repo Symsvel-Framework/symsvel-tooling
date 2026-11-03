@@ -31,7 +31,17 @@ final class LegacyComponentBaseline
         }
         $branch = trim($this->git($directory, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], false));
         if ($branch === '') {
-            $branch = 'refs/remotes/origin/main';
+            $upstream = trim($this->git($directory, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], false));
+            if ($upstream !== '' && str_starts_with($upstream, 'origin/')) {
+                $branch = 'refs/remotes/'.$upstream;
+            } else {
+                $remoteRefs = trim($this->git($directory, ['for-each-ref', '--format=%(refname)', 'refs/remotes/origin/']));
+                $candidates = array_values(array_filter(explode("\n", $remoteRefs), static fn (string $ref): bool => $ref !== '' && $ref !== 'refs/remotes/origin/HEAD'));
+                if (count($candidates) !== 1) {
+                    throw new \RuntimeException('Migration impossible : branche native distante ambiguë ou absente.');
+                }
+                $branch = $candidates[0];
+            }
         }
         $revision = trim($this->git($directory, ['merge-base', 'HEAD', $branch]));
         if (!preg_match('/^[a-f0-9]{40}$/D', $revision)) {
