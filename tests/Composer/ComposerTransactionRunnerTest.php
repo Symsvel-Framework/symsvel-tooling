@@ -44,7 +44,7 @@ final class ComposerTransactionRunnerTest extends TestCase
     public function testBootstrapRequiresMissingLocalEnvironmentAndEmptyMigrationRegistry(): void
     {
         $runner = new ComposerTransactionRunner();
-        $method = new \\ReflectionMethod($runner, 'isUnconfiguredWorkspace');
+        $method = new \ReflectionMethod($runner, 'isUnconfiguredWorkspace');
         self::assertTrue($method->invoke($runner, $this->backend));
 
         file_put_contents($this->backend.'/.env.local', 'APP_ENV=dev');
