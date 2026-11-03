@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Installation\ComponentInstaller;
 use SymSvel\Tooling\Update\ComponentUpdater;
+use SymSvel\Tooling\Installation\ComponentLifecycleInstaller;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -26,6 +27,7 @@ final class SymSvelComponentUpdateCommand extends Command
         #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
         private readonly ComponentInstaller $installer = new ComponentInstaller(),
         private readonly ComponentUpdater $updater = new ComponentUpdater(),
+        private readonly ComponentLifecycleInstaller $lifecycleInstaller = new ComponentLifecycleInstaller(),
     ) {
         parent::__construct();
     }
@@ -64,9 +66,7 @@ final class SymSvelComponentUpdateCommand extends Command
         }
 
         try {
-            $this->installer->install($workspace, [$component], static function (string $name) use ($io): void {
-                $io->text('Installation de '.$name.'...');
-            });
+            $this->lifecycleInstaller->install($this->projectDir, $component);
         } catch (\Throwable $exception) {
             $io->error($exception->getMessage());
             return Command::FAILURE;
