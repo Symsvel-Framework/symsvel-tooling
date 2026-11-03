@@ -13,6 +13,8 @@ final class SetupStateTest extends TestCase
     {
         $root = sys_get_temp_dir().'/symsvel-setup-recovery-'.bin2hex(random_bytes(8));
         mkdir($root);
+        mkdir($root.'/backend');
+        file_put_contents($root.'/backend/.env.local', "DATABASE_URL=postgresql://localhost/test\n");
         try {
             $state = new SetupState();
             $state->initialize($root);
@@ -33,6 +35,8 @@ final class SetupStateTest extends TestCase
             @unlink($root.'/.symsvel/migration-recovery.json');
             @unlink($root.'/.symsvel/setup.json');
             @rmdir($root.'/.symsvel');
+            @unlink($root.'/backend/.env.local');
+            @rmdir($root.'/backend');
             @rmdir($root);
         }
     }
@@ -41,6 +45,8 @@ final class SetupStateTest extends TestCase
     {
         $root = sys_get_temp_dir().'/symsvel-setup-'.bin2hex(random_bytes(8));
         mkdir($root);
+        mkdir($root.'/backend');
+        file_put_contents($root.'/backend/.env.local', "DATABASE_URL=postgresql://localhost/test\n");
         try {
             $state = new SetupState();
             self::assertNull($state->read($root));
@@ -56,6 +62,8 @@ final class SetupStateTest extends TestCase
         } finally {
             @unlink($root.'/.symsvel/setup.json');
             @rmdir($root.'/.symsvel');
+            @unlink($root.'/backend/.env.local');
+            @rmdir($root.'/backend');
             @rmdir($root);
         }
     }
