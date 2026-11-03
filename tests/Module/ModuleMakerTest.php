@@ -122,9 +122,9 @@ final class ModuleMakerTest extends TestCase
             self::assertSame('Languages', $manifest['name']);
             self::assertFileExists($path.'/back/src/LanguagesBundle.php');
         } finally {
-            $iterator = new \\RecursiveIteratorIterator(
-                new \\RecursiveDirectoryIterator($workspace, \\FilesystemIterator::SKIP_DOTS),
-                \\RecursiveIteratorIterator::CHILD_FIRST,
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($workspace, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
             );
             foreach ($iterator as $item) {
                 $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
