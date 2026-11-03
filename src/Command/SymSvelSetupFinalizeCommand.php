@@ -81,6 +81,10 @@ final class SymSvelSetupFinalizeCommand extends Command
                 throw new \RuntimeException('Migrations non finalisées : '.trim($process->getErrorOutput().' '.$process->getOutput()));
             }
             $this->state->transition($workspace, SetupState::RUNNING, SetupState::COMPLETED);
+            $tokenFile = $workspace.'/.symsvel/setup-token';
+            if (is_file($tokenFile) && !is_link($tokenFile)) {
+                unlink($tokenFile);
+            }
             $io->success('Setup terminé : migrations des modules Composer appliquées.');
             return Command::SUCCESS;
         } catch (\Throwable $exception) {
