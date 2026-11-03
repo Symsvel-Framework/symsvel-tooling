@@ -36,6 +36,7 @@ use SymSvel\Tooling\Module\ModuleInventoryWriter;
 use SymSvel\Tooling\Module\ModuleBundleResolver;
 use SymSvel\Tooling\Module\ModuleBundleMapWriter;
 use SymSvel\Tooling\Command\SymSvelUpdateCommand;
+use SymSvel\Tooling\Command\SymSvelComponentUpdateCommand;
 use SymSvel\Tooling\Update\WorkspaceUpdater;
 use SymSvel\Tooling\Installation\ComponentInstaller;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -147,6 +148,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelUpdateCommand::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelComponentUpdateCommand::class)
             ->autowire()
             ->autoconfigure();
     }
