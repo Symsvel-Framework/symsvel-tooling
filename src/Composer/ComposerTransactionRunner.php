@@ -48,6 +48,21 @@ final class ComposerTransactionRunner
             }
         }
         $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
+        if ($bootstrap) {
+            $manifest = $backend.'/config/symsvel-native-modules.json';
+            if (!is_file($manifest) || is_link($manifest)) {
+                throw new \RuntimeException('Manifeste des modules natifs introuvable.');
+            }
+            $configuration = json_decode((string) file_get_contents($manifest), true, 512, JSON_THROW_ON_ERROR);
+            $allowed = $configuration['modules'] ?? null;
+            if (($configuration['schema'] ?? null) !== 1 || !is_array($allowed) || !array_is_list($allowed)) {
+                throw new \RuntimeException('Manifeste des modules natifs invalide.');
+            }
+            $package = explode(':', $arguments[1], 2)[0];
+            if (!in_array($package, $allowed, true)) {
+                throw new \RuntimeException('Bootstrap interdit pour un module non natif : '.$package);
+            }
+        }
         if (!is_file($backend.'/composer.lock')) {
             throw new \RuntimeException('composer.lock initial obligatoire pour garantir la restauration des dépendances.');
         }
