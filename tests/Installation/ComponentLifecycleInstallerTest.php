@@ -51,6 +51,29 @@ final class ComponentLifecycleInstallerTest extends TestCase
         self::assertSame('untouched', file_get_contents($this->workspace.'/backend/marker.txt'));
     }
 
+
+    public function testInstallsValidComponentSuccessfully(): void
+    {
+        $repository = $this->workspace.'/fixture-success';
+        mkdir($repository.'/src/routes', 0775, true);
+        mkdir($repository.'/src/lib', 0775, true);
+        file_put_contents($repository.'/src/routes/.gitkeep', '');
+        file_put_contents($repository.'/src/lib/.gitkeep', '');
+        foreach ([['git', 'init'], ['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
+            (new Process($command, $repository))->mustRun();
+        }
+        file_put_contents($repository.'/package.json', '{"name":"symsvel-fixture","version":"1.0.0","scripts":{"build":"echo build-ok"}}');
+        file_put_contents($repository.'/package-lock.json', '{"name":"symsvel-fixture","version":"1.0.0","lockfileVersion":3,"requires":true,"packages":{"":{"name":"symsvel-fixture","version":"1.0.0"}}}');
+        (new Process(['git', 'add', '.'], $repository))->mustRun();
+        (new Process(['git', 'commit', '-m', 'fixture'], $repository))->mustRun();
+
+        (new ComponentLifecycleInstaller(new ComponentInstaller(['app' => $repository])))
+            ->install($this->workspace.'/backend', 'app');
+
+        self::assertDirectoryExists($this->workspace.'/app/.git');
+        self::assertFileExists($this->workspace.'/backend/.symsvel/svelte-files.json');
+    }
+
     public function testRejectsUnknownComponentWithoutTouchingWorkspace(): void
     {
         try {
