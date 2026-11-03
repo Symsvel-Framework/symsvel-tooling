@@ -100,6 +100,7 @@ final class ComposerTransactionRunnerTest extends TestCase
         $workspace = dirname($this->backend);
         $state->initialize($workspace);
         $state->transition($workspace, $state::PENDING, $state::RUNNING);
+        file_put_contents($this->backend.'/.env.local', "DATABASE_URL=postgresql://localhost/test\n");
         $state->transition($workspace, $state::RUNNING, $state::COMPLETED);
         $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
             self::fail('Composer must not run after setup completion.');
