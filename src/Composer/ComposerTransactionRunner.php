@@ -49,6 +49,9 @@ final class ComposerTransactionRunner
         }
         $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
         if ($bootstrap) {
+            if (!$this->isUnconfiguredWorkspace($backend)) {
+                throw new \RuntimeException('Bootstrap interdit hors setup initial en attente.');
+            }
             $manifest = $backend.'/config/symsvel-native-modules.json';
             if (!is_file($manifest) || is_link($manifest)) {
                 throw new \RuntimeException('Manifeste des modules natifs introuvable.');
