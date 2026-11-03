@@ -31,10 +31,8 @@ final class ComponentUpdater
         if (is_link($directory) || !is_dir($directory) || !is_dir($directory.'/.git')) {
             throw new \RuntimeException('Composant Git absent ou invalide : '.$component);
         }
-        $status = trim($this->run(['git', 'status', '--porcelain', '--untracked-files=all'], $directory));
-        if ($status !== '') {
-            throw new \RuntimeException('Modifications locales présentes dans '.$component.' : mise à jour refusée.');
-        }
+        $status = $this->run(['git', 'status', '--porcelain=v1', '-z', '--untracked-files=all'], $directory);
+        (new GeneratedSvelteStatusGuard())->assertSafe($backend, $directory, $status);
         $checkpoint = new GitComponentCheckpoint($directory);
         $checkpoint->capture();
         $transaction = $backend.'/.symsvel/transactions/update-'.bin2hex(random_bytes(12));
