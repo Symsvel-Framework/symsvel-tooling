@@ -63,6 +63,14 @@ final class SymSvelSetupFinalizeCommand extends Command
             if ($status === SetupState::PENDING) {
                 $this->state->transition($workspace, SetupState::PENDING, SetupState::RUNNING);
             }
+            $connectionCheck = new Process([
+                PHP_BINARY, 'bin/console', 'doctrine:query:sql', 'SELECT 1', '--no-interaction',
+            ], $this->projectDir);
+            $connectionCheck->setTimeout(60);
+            $connectionCheck->run();
+            if (!$connectionCheck->isSuccessful()) {
+                throw new \RuntimeException('Connexion BDD impossible : '.trim($connectionCheck->getErrorOutput().' '.$connectionCheck->getOutput()));
+            }
             $process = new Process([
                 PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile',
                 '--source=composer', '--execute', '--no-interaction',
