@@ -62,6 +62,28 @@ final class SymSvelSetupFinalizeCommandTest extends TestCase
         }
     }
 
+    public function testQuotedEmptyDatabaseUrlDoesNotStartMigrations(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-finalize-empty-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        file_put_contents($root.'/backend/.env.local', "DATABASE_URL=\"\"\n");
+        try {
+            $state = new SetupState();
+            $state->initialize($root);
+            $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
+            self::assertSame(1, $tester->execute([]));
+            self::assertSame(SetupState::PENDING, $state->read($root));
+            self::assertStringContainsString('DATABASE_URL manquant', $tester->getDisplay());
+        } finally {
+            @unlink($root.'/.symsvel/setup.json');
+            @rmdir($root.'/.symsvel');
+            @unlink($root.'/backend/.env.local');
+            @rmdir($root.'/backend');
+            @rmdir($root);
+        }
+    }
+
     public function testCannotFinalizeBeforeDatabaseConfiguration(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-'.bin2hex(random_bytes(8));
