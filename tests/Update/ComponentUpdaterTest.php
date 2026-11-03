@@ -35,6 +35,45 @@ final class ComponentUpdaterTest extends TestCase
         }
     }
 
+
+    public function testRestoresGitAndSourcesWhenNpmCiFails(): void
+    {
+        $remote = $this->workspace.'/remote.git';
+        (new Process(['git', 'init', '--bare', $remote]))->mustRun();
+        $component = $this->workspace.'/app';
+        (new Process(['git', 'clone', $remote, $component]))->mustRun();
+        foreach ([['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
+            (new Process($command, $component))->mustRun();
+        }
+        file_put_contents($component.'/README.md', 'before');
+        file_put_contents($component.'/package.json', '{"name":"symsvel-test","version":"1.0.0","scripts":{"build":"echo ok"}}');
+        (new Process(['git', 'add', '.'], $component))->mustRun();
+        (new Process(['git', 'commit', '-m', 'before'], $component))->mustRun();
+        (new Process(['git', 'push', '-u', 'origin', 'HEAD'], $component))->mustRun();
+        $head = trim((new Process(['git', 'rev-parse', 'HEAD'], $component))->mustRun()->getOutput());
+
+        $other = $this->workspace.'/publisher';
+        (new Process(['git', 'clone', $remote, $other]))->mustRun();
+        foreach ([['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
+            (new Process($command, $other))->mustRun();
+        }
+        file_put_contents($other.'/README.md', 'after');
+        // No package-lock.json: npm ci must fail after Git fast-forward.
+        (new Process(['git', 'add', '.'], $other))->mustRun();
+        (new Process(['git', 'commit', '-m', 'after'], $other))->mustRun();
+        (new Process(['git', 'push', 'origin', 'HEAD'], $other))->mustRun();
+
+        try {
+            (new ComponentUpdater())->update($this->workspace.'/backend', 'app');
+            self::fail('npm ci without a lockfile must fail.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('état précédent restauré', $error->getMessage());
+        }
+        self::assertSame('before', file_get_contents($component.'/README.md'));
+        self::assertSame($head, trim((new Process(['git', 'rev-parse', 'HEAD'], $component))->mustRun()->getOutput()));
+        self::assertSame('', trim((new Process(['git', 'status', '--porcelain'], $component))->mustRun()->getOutput()));
+    }
+
     public function testRejectsDirtyGitComponentWithoutChangingIt(): void
     {
         $component = $this->workspace.'/app';
