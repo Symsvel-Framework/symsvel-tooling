@@ -39,6 +39,10 @@ final class SymSvelSetupFinalizeCommand extends Command
             if ($status !== SetupState::PENDING && $status !== SetupState::RUNNING) {
                 throw new \RuntimeException('Setup non initialisé.');
             }
+            if (file_exists($workspace.'/.symsvel/migration-recovery.json')
+                || is_link($workspace.'/.symsvel/migration-recovery.json')) {
+                throw new \RuntimeException('Récupération de migrations en attente : résolvez le journal avant de finaliser.');
+            }
             $environment = $this->projectDir.'/.env.local';
             if (is_link($environment) || !is_file($environment)) {
                 throw new \RuntimeException('Configurez DATABASE_URL dans backend/.env.local avant la finalisation.');
