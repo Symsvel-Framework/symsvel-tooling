@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Update;
 
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
+use SymSvel\Tooling\Module\SvelteModuleSynchronizer;
 
 /**
  * Transactional update of one already installed Svelte interface.
@@ -13,6 +14,10 @@ use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
  */
 final class ComponentUpdater
 {
+    public function __construct(private readonly SvelteModuleSynchronizer $synchronizer = new SvelteModuleSynchronizer())
+    {
+    }
+
     public function update(string $backend, string $component): void
     {
         if (!in_array($component, ['bo', 'app', 'front'], true)) {
@@ -52,6 +57,7 @@ final class ComponentUpdater
             }
             $this->run(['git', 'merge', '--ff-only', 'origin/'.$branch], $directory);
             $this->run(['npm', 'ci'], $directory);
+            $this->synchronizer->sync($backend);
             $this->run(['npm', 'run', 'build'], $directory);
         } catch (\Throwable $failure) {
             $errors = [];
