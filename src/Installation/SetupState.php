@@ -47,6 +47,10 @@ final class SetupState
         if ($this->read($workspace) !== $expected) {
             throw new \DomainException('État setup inattendu.');
         }
+        if ($next === self::COMPLETED && (file_exists(rtrim($workspace, '/').'/.symsvel/migration-recovery.json')
+            || is_link(rtrim($workspace, '/').'/.symsvel/migration-recovery.json'))) {
+            throw new \DomainException('Setup impossible à terminer : récupération de migrations en attente.');
+        }
         $this->write($workspace, $next);
     }
 
