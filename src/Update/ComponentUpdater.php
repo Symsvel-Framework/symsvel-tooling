@@ -32,9 +32,15 @@ final class ComponentUpdater
         }
         $checkpoint = new GitComponentCheckpoint($directory);
         $checkpoint->capture();
-        $transaction = $backend.'/.symsvel/transactions/component-'.bin2hex(random_bytes(12));
+        $transaction = $backend.'/.symsvel/transactions/update-'.bin2hex(random_bytes(12));
+        if (!is_dir(dirname($transaction)) && !mkdir(dirname($transaction), 0700, true) && !is_dir(dirname($transaction))) {
+            throw new \RuntimeException('Répertoire de transactions indisponible.');
+        }
+        if (!mkdir($transaction, 0700)) {
+            throw new \RuntimeException('Création du checkpoint impossible.');
+        }
         $sources = new WorkspaceFileSnapshot($backend, $transaction);
-        $runtime = new RuntimeArtifactSnapshot($directory, $transaction.'/'.$component);
+        $runtime = new RuntimeArtifactSnapshot($directory, $transaction);
         // Snapshot failures occur before any mutation and must retain evidence.
         $sources->capture();
         $runtime->capture();
@@ -65,8 +71,7 @@ final class ComponentUpdater
             }
             throw new \RuntimeException('Mise à jour annulée, état précédent restauré : '.$failure->getMessage(), 0, $failure);
         }
-        // Retain the checkpoint for the cleanup mechanism; no automatic deletion
-        // of recovery evidence until it is registered for deferred cleanup.
+        // Clean up only after the update has committed successfully.
         (new WorkspaceCleanupRegistry($backend))->enqueue([$transaction]);
         (new WorkspaceCleanupRegistry($backend))->cleanup();
     }
