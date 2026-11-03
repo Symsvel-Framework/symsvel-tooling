@@ -47,6 +47,10 @@ final class SetupState
         if ($this->read($workspace) !== $expected) {
             throw new \DomainException('État setup inattendu.');
         }
+        if ($next === self::COMPLETED && (!is_file(rtrim($workspace, '/').'/backend/.env.local')
+            || is_link(rtrim($workspace, '/').'/backend/.env.local'))) {
+            throw new \DomainException('Setup impossible à terminer : configuration BDD absente.');
+        }
         if ($next === self::COMPLETED && (file_exists(rtrim($workspace, '/').'/.symsvel/migration-recovery.json')
             || is_link(rtrim($workspace, '/').'/.symsvel/migration-recovery.json'))) {
             throw new \DomainException('Setup impossible à terminer : récupération de migrations en attente.');
