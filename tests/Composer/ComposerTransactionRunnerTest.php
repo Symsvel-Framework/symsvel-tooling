@@ -41,6 +41,20 @@ final class ComposerTransactionRunnerTest extends TestCase
         @rmdir($this->backend);
     }
 
+    public function testBootstrapRequiresMissingLocalEnvironmentAndEmptyMigrationRegistry(): void
+    {
+        $runner = new ComposerTransactionRunner();
+        $method = new \\ReflectionMethod($runner, 'isUnconfiguredWorkspace');
+        self::assertTrue($method->invoke($runner, $this->backend));
+
+        file_put_contents($this->backend.'/.env.local', 'APP_ENV=dev');
+        try {
+            self::assertFalse($method->invoke($runner, $this->backend));
+        } finally {
+            unlink($this->backend.'/.env.local');
+        }
+    }
+
     public function testFailedInstallRestoresOriginalManifestsAndRunsSafeInstall(): void
     {
         $commands = [];
