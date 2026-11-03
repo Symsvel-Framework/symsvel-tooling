@@ -76,6 +76,39 @@ final class ComponentLifecycleInstallerTest extends TestCase
         self::assertFileExists($this->workspace.'/backend/.symsvel/svelte-files.json');
     }
 
+
+    public function testRollsBackWhenPostSyncBuildFails(): void
+    {
+        $repository = $this->workspace.'/fixture-build-failure';
+        mkdir($repository.'/src/routes', 0775, true);
+        mkdir($repository.'/src/lib', 0775, true);
+        file_put_contents($repository.'/src/routes/.gitkeep', '');
+        file_put_contents($repository.'/src/lib/.gitkeep', '');
+        foreach ([['git', 'init'], ['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
+            (new Process($command, $repository))->mustRun();
+        }
+        // ComponentInstaller builds once; lifecycle installer rebuilds after Svelte sync.
+        // The second build deliberately fails to exercise the later rollback path.
+        file_put_contents($repository.'/package.json', '{"name":"symsvel-fixture","version":"1.0.0","scripts":{"build":"test ! -f build-once && touch build-once"}}');
+        file_put_contents($repository.'/package-lock.json', '{"name":"symsvel-fixture","version":"1.0.0","lockfileVersion":3,"requires":true,"packages":{"":{"name":"symsvel-fixture","version":"1.0.0"}}}');
+        (new Process(['git', 'add', '.'], $repository))->mustRun();
+        (new Process(['git', 'commit', '-m', 'fixture'], $repository))->mustRun();
+        file_put_contents($this->workspace.'/backend/marker.txt', 'before');
+
+        try {
+            (new ComponentLifecycleInstaller(new ComponentInstaller(['app' => $repository])))
+                ->install($this->workspace.'/backend', 'app');
+            self::fail('The second build must fail.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('état précédent restauré', $error->getMessage());
+            self::assertStringContainsString('Build après synchronisation impossible', $error->getMessage());
+        }
+
+        self::assertDirectoryDoesNotExist($this->workspace.'/app');
+        self::assertSame('before', file_get_contents($this->workspace.'/backend/marker.txt'));
+        self::assertFileDoesNotExist($this->workspace.'/backend/.symsvel/svelte-files.json');
+    }
+
     public function testRejectsUnknownComponentWithoutTouchingWorkspace(): void
     {
         try {
