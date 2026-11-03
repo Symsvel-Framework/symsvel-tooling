@@ -62,6 +62,30 @@ final class SymSvelSetupFinalizeCommandTest extends TestCase
         }
     }
 
+    public function testPendingRecoveryJournalPreventsMigrationReplay(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-finalize-recovery-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        file_put_contents($root.'/backend/.env.local', "DATABASE_URL=postgresql://localhost/test\n");
+        try {
+            $state = new SetupState();
+            $state->initialize($root);
+            file_put_contents($root.'/.symsvel/migration-recovery.json', '{}');
+            $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
+            self::assertSame(1, $tester->execute([]));
+            self::assertSame(SetupState::PENDING, $state->read($root));
+            self::assertStringContainsString('Récupération de migrations', $tester->getDisplay());
+        } finally {
+            @unlink($root.'/.symsvel/migration-recovery.json');
+            @unlink($root.'/.symsvel/setup.json');
+            @rmdir($root.'/.symsvel');
+            @unlink($root.'/backend/.env.local');
+            @rmdir($root.'/backend');
+            @rmdir($root);
+        }
+    }
+
     public function testQuotedEmptyDatabaseUrlDoesNotStartMigrations(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-empty-'.bin2hex(random_bytes(8));
