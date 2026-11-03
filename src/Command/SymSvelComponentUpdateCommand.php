@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Installation\ComponentInstaller;
+use SymSvel\Tooling\Update\ComponentUpdater;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -16,8 +17,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 /**
  * Entry point for the CLI's component lifecycle.
  *
- * The existing-component update path is intentionally not enabled until
- * transactional Git/npm rollback is integrated and covered by tests.
+ * Existing components are updated through a Git/source/runtime checkpoint.
  */
 #[AsCommand(name: 'symsvel:component:update', description: 'Installe ou met à jour une interface SvelteKit')]
 final class SymSvelComponentUpdateCommand extends Command
@@ -25,6 +25,7 @@ final class SymSvelComponentUpdateCommand extends Command
     public function __construct(
         #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
         private readonly ComponentInstaller $installer = new ComponentInstaller(),
+        private readonly ComponentUpdater $updater = new ComponentUpdater(),
     ) {
         parent::__construct();
     }
@@ -52,8 +53,14 @@ final class SymSvelComponentUpdateCommand extends Command
         $workspace = dirname($this->projectDir);
         $target = $workspace.'/'.$component;
         if (file_exists($target) || is_link($target)) {
-            $io->error('Mise à jour du composant existant non encore disponible : transaction Git/npm en cours d’intégration.');
-            return Command::FAILURE;
+            try {
+                $this->updater->update($this->projectDir, $component);
+                $io->success('Composant '.$component.' mis à jour.');
+                return Command::SUCCESS;
+            } catch (\Throwable $exception) {
+                $io->error($exception->getMessage());
+                return Command::FAILURE;
+            }
         }
 
         try {
