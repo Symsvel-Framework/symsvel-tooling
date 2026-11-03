@@ -1,0 +1,70 @@
+<?php
+
+declare(strict_types=1);
+
+namespace SymSvel\Tooling\Command;
+
+use SymSvel\Tooling\Installation\SetupState;
+use Symfony\Component\Console\Attribute\AsCommand;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Process\Process;
+
+#[AsCommand(name: 'symsvel:setup:finalize', description: 'Execute deferred native module migrations and complete initial setup')]
+final class SymSvelSetupFinalizeCommand extends Command
+{
+    public function __construct(
+        #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
+        private readonly SetupState $state = new SetupState(),
+    ) {
+        parent::__construct();
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $io = new SymfonyStyle($input, $output);
+        try {
+            if (basename($this->projectDir) !== 'backend') {
+                throw new \RuntimeException('Le backend doit se trouver dans backend/.');
+            }
+            $workspace = dirname($this->projectDir);
+            $status = $this->state->read($workspace);
+            if ($status === SetupState::COMPLETED) {
+                $io->success('Setup déjà terminé.');
+                return Command::SUCCESS;
+            }
+            if ($status !== SetupState::PENDING && $status !== SetupState::RUNNING) {
+                throw new \RuntimeException('Setup non initialisé.');
+            }
+            $environment = $this->projectDir.'/.env.local';
+            if (is_link($environment) || !is_file($environment)) {
+                throw new \RuntimeException('Configurez DATABASE_URL dans backend/.env.local avant la finalisation.');
+            }
+            $lines = file($environment, FILE_IGNORE_NEW_LINES);
+            if ($lines === false || !array_filter($lines, static fn (string $line): bool => preg_match('/^\s*DATABASE_URL\s*=\s*["\']?\S+/', $line) === 1)) {
+                throw new \RuntimeException('DATABASE_URL manquant dans backend/.env.local.');
+            }
+            if ($status === SetupState::PENDING) {
+                $this->state->transition($workspace, SetupState::PENDING, SetupState::RUNNING);
+            }
+            $process = new Process([
+                PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile',
+                '--source=composer', '--execute', '--no-interaction',
+            ], $this->projectDir);
+            $process->setTimeout(null);
+            $process->run();
+            if (!$process->isSuccessful()) {
+                throw new \RuntimeException('Migrations non finalisées : '.trim($process->getErrorOutput().' '.$process->getOutput()));
+            }
+            $this->state->transition($workspace, SetupState::RUNNING, SetupState::COMPLETED);
+            $io->success('Setup terminé : migrations des modules Composer appliquées.');
+            return Command::SUCCESS;
+        } catch (\Throwable $exception) {
+            $io->error($exception->getMessage());
+            return Command::FAILURE;
+        }
+    }
+}
