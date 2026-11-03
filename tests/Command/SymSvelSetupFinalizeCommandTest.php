@@ -172,9 +172,11 @@ PHP
         try {
             $state = new SetupState();
             $state->initialize($root);
+            file_put_contents($root.'/.symsvel/setup-token', 'test-secret');
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(0, $tester->execute([]));
             self::assertSame(SetupState::COMPLETED, $state->read($root));
+            self::assertFileDoesNotExist($root.'/.symsvel/setup-token');
         } finally {
             @unlink($root.'/.symsvel/setup.json');
             @rmdir($root.'/.symsvel');
