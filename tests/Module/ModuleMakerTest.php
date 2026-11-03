@@ -109,6 +109,30 @@ final class ModuleMakerTest extends TestCase
         }
     }
 
+    public function testNormalizesRepositoryStyleModuleName(): void
+    {
+        $workspace = sys_get_temp_dir().'/symsvel-prefixed-'.bin2hex(random_bytes(6));
+        mkdir($workspace);
+        try {
+            $path = (new ModuleMaker())->create($workspace, 'symsvel-module-languages');
+            self::assertSame($workspace.'/modules/languages', $path);
+            $composer = json_decode((string) file_get_contents($path.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+            $manifest = json_decode((string) file_get_contents($path.'/module.json'), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame('symsvel-framework/module-languages', $composer['name']);
+            self::assertSame('Languages', $manifest['name']);
+            self::assertFileExists($path.'/back/src/LanguagesBundle.php');
+        } finally {
+            $iterator = new \\RecursiveIteratorIterator(
+                new \\RecursiveDirectoryIterator($workspace, \\FilesystemIterator::SKIP_DOTS),
+                \\RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($iterator as $item) {
+                $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+            }
+            rmdir($workspace);
+        }
+    }
+
     public function testRejectsUnknownProfile(): void
     {
         $this->expectException(\InvalidArgumentException::class);

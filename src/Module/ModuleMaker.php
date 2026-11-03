@@ -14,6 +14,10 @@ final class ModuleMaker
         if (!preg_match('/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/', $vendor)) {
             throw new \InvalidArgumentException('Vendor Composer invalide.');
         }
+        // Normalize repository-style names (symsvel-module-foo) to the canonical module ID (foo).
+        if (str_starts_with($name, 'symsvel-module-')) {
+            $name = substr($name, strlen('symsvel-module-'));
+        }
         // Accept independent scopes while preserving legacy profile semantics.
         $profiles = [
             'back' => ['back'],
