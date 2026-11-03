@@ -14,6 +14,9 @@ final class ComposerTransactionRunnerTest extends TestCase
     protected function setUp(): void
     {
         $this->backend = sys_get_temp_dir().'/symsvel-runner-'.bin2hex(random_bytes(8));
+        mkdir($this->backend, 0775, true);
+        $workspace = $this->backend;
+        $this->backend = $workspace.'/backend';
         mkdir($this->backend);
         file_put_contents($this->backend.'/composer.json', '{"require":{"existing":"1.0"}}');
         file_put_contents($this->backend.'/composer.lock', '{"packages":[{"name":"existing"}]}');
@@ -39,6 +42,9 @@ final class ComposerTransactionRunnerTest extends TestCase
             $this->deleteDirectory($this->backend.'/vendor');
         }
         @rmdir($this->backend);
+        @unlink(dirname($this->backend).'/.symsvel/setup.json');
+        @rmdir(dirname($this->backend).'/.symsvel');
+        @rmdir(dirname($this->backend));
     }
 
     public function testBootstrapRejectsUpdateAndRemovalBeforeComposer(): void
@@ -58,6 +64,7 @@ final class ComposerTransactionRunnerTest extends TestCase
 
     public function testBootstrapRejectsMissingNativeManifestBeforeComposer(): void
     {
+        (new \SymSvel\Tooling\Installation\SetupState())->initialize(dirname($this->backend));
         $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
             self::fail('Composer must not run without native manifest.');
         });
@@ -68,6 +75,7 @@ final class ComposerTransactionRunnerTest extends TestCase
 
     public function testBootstrapRejectsPackageNotDeclaredNative(): void
     {
+        (new \SymSvel\Tooling\Installation\SetupState())->initialize(dirname($this->backend));
         mkdir($this->backend.'/config');
         file_put_contents($this->backend.'/config/symsvel-native-modules.json', json_encode([
             'schema' => 1,
