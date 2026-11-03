@@ -9,6 +9,24 @@ use SymSvel\Tooling\Installation\SetupState;
 
 final class SetupStateTest extends TestCase
 {
+    public function testCannotCompleteWithoutDatabaseConfiguration(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-setup-no-db-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        try {
+            $state = new SetupState();
+            $state->initialize($root);
+            $state->transition($root, SetupState::PENDING, SetupState::RUNNING);
+            $this->expectException(\DomainException::class);
+            $this->expectExceptionMessage('configuration BDD absente');
+            $state->transition($root, SetupState::RUNNING, SetupState::COMPLETED);
+        } finally {
+            @unlink($root.'/.symsvel/setup.json');
+            @rmdir($root.'/.symsvel');
+            @rmdir($root);
+        }
+    }
+
     public function testCannotCompleteSetupWithPendingMigrationRecovery(): void
     {
         $root = sys_get_temp_dir().'/symsvel-setup-recovery-'.bin2hex(random_bytes(8));
