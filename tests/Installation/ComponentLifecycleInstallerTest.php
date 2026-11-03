@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Tests\Installation;
 
 use PHPUnit\Framework\TestCase;
 use SymSvel\Tooling\Installation\ComponentLifecycleInstaller;
+use SymSvel\Tooling\Installation\ComponentInstaller;
 use Symfony\Component\Process\Process;
 
 final class ComponentLifecycleInstallerTest extends TestCase
@@ -22,6 +23,32 @@ final class ComponentLifecycleInstallerTest extends TestCase
     protected function tearDown(): void
     {
         (new Process(['rm', '-rf', '--', $this->workspace]))->mustRun();
+    }
+
+
+    public function testRollsBackNewComponentAfterSvelteSyncFailure(): void
+    {
+        $repository = $this->workspace.'/fixture';
+        mkdir($repository);
+        foreach ([['git', 'init'], ['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
+            (new Process($command, $repository))->mustRun();
+        }
+        file_put_contents($repository.'/package.json', '{"name":"symsvel-fixture","version":"1.0.0","scripts":{"build":"echo build-ok"}}');
+        file_put_contents($repository.'/package-lock.json', '{"name":"symsvel-fixture","version":"1.0.0","lockfileVersion":3,"requires":true,"packages":{"":{"name":"symsvel-fixture","version":"1.0.0"}}}');
+        // Deliberately omit src/lib and src/routes: npm succeeds but Svelte sync must fail.
+        (new Process(['git', 'add', '.'], $repository))->mustRun();
+        (new Process(['git', 'commit', '-m', 'fixture'], $repository))->mustRun();
+        file_put_contents($this->workspace.'/backend/marker.txt', 'untouched');
+
+        $installer = new ComponentLifecycleInstaller(new ComponentInstaller(['app' => $repository]));
+        try {
+            $installer->install($this->workspace.'/backend', 'app');
+            self::fail('Invalid Svelte layout must fail after clone and npm.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('état précédent restauré', $error->getMessage());
+        }
+        self::assertDirectoryDoesNotExist($this->workspace.'/app');
+        self::assertSame('untouched', file_get_contents($this->workspace.'/backend/marker.txt'));
     }
 
     public function testRejectsUnknownComponentWithoutTouchingWorkspace(): void
