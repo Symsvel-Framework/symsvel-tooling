@@ -50,7 +50,7 @@ final class ComponentUpdaterTest extends TestCase
             $this->updater()->update($this->workspace.'/backend', 'app');
             self::fail('Missing baseline must be refused.');
         } catch (\RuntimeException $error) {
-            self::assertStringContainsString('Référence native absente', $error->getMessage());
+            self::assertStringContainsString('historique Git natif absent', $error->getMessage());
         }
         self::assertSame('local', file_get_contents($this->component.'/README.md'));
     }
