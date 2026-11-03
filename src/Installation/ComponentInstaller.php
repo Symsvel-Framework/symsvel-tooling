@@ -14,6 +14,11 @@ final class ComponentInstaller
         'front' => 'git@github.com:Symsvel-Framework/symsvel-front.git',
     ];
 
+    /** @param array<string, string>|null $repositories */
+    public function __construct(private readonly ?array $repositories = null)
+    {
+    }
+
     /** @return list<string> */
     public function componentsForChoice(string $choice): array
     {
@@ -35,7 +40,7 @@ final class ComponentInstaller
     public function install(string $projectDir, array $components, ?callable $progress = null): void
     {
         foreach ($components as $component) {
-            if (!isset(self::REPOSITORIES[$component])) {
+            if (!isset(($this->repositories ?? self::REPOSITORIES)[$component])) {
                 throw new \InvalidArgumentException(sprintf('Composant inconnu : %s', $component));
             }
             $target = $projectDir.'/'.$component;
@@ -52,7 +57,7 @@ final class ComponentInstaller
                     $progress($component);
                 }
                 $created[] = $target;
-                $process = new Process(['git', 'clone', '--depth', '1', self::REPOSITORIES[$component], $target]);
+                $process = new Process(['git', 'clone', '--depth', '1', ($this->repositories ?? self::REPOSITORIES)[$component], $target]);
                 $process->setTimeout(300);
                 $process->run();
                 if (!$process->isSuccessful()) {
