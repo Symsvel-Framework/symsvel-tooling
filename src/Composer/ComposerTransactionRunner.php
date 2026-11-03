@@ -32,7 +32,7 @@ final class ComposerTransactionRunner
      * @param list<string> $arguments Composer arguments, starting with require/update/remove
      * @param null|callable(string):void $progress
      */
-    public function run(string $backend, array $arguments, ?callable $progress = null): void
+    public function run(string $backend, array $arguments, ?callable $progress = null, bool $bootstrap = false): void
     {
         if (!in_array($arguments[0] ?? '', ['require', 'update', 'remove'], true)) {
             throw new \InvalidArgumentException('Opération Composer non prise en charge.');
@@ -88,7 +88,7 @@ final class ComposerTransactionRunner
                 $removedVersions = $this->removeModuleMigrations($backend, $arguments, $databaseUrl, $progress);
             }
             $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
-            $this->applyComposerMigrations($backend, $databaseUrl, $progress);
+            $this->applyComposerMigrations($backend, $databaseUrl, $progress, $bootstrap);
             $this->removeCompiledMigrations($backend, $removedVersions);
         } catch (\Throwable $failure) {
             $recoveryErrors = [];
@@ -278,7 +278,7 @@ final class ComposerTransactionRunner
     }
 
     /** @param null|callable(string):void $progress */
-    private function applyComposerMigrations(string $backend, ?string $databaseUrl, ?callable $progress): void
+    private function applyComposerMigrations(string $backend, ?string $databaseUrl, ?callable $progress, bool $bootstrap): void
     {
         $workspace = dirname($backend);
         $registry = new ModuleMigrationRegistry();
@@ -295,6 +295,10 @@ final class ComposerTransactionRunner
             return;
         }
         if ($databaseUrl === null) {
+            if ($bootstrap && $this->isUnconfiguredWorkspace($backend)) {
+                $progress?.__invoke('Bootstrap : migrations conservées en attente du Setup Wizard.'.PHP_EOL);
+                return;
+            }
             throw new \RuntimeException('Migrations détectées sans DATABASE_URL dans .env.local : transaction refusée.');
         }
         if ($progress !== null) {
@@ -304,6 +308,15 @@ final class ComposerTransactionRunner
             PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile',
             '--source=composer', '--execute', '--no-interaction',
         ], $backend, $progress);
+    }
+
+    /** An explicit bootstrap request is valid only before any module migration receipt exists. */
+    private function isUnconfiguredWorkspace(string $backend): bool
+    {
+        $registry = new ModuleMigrationRegistry();
+        return $registry->read(dirname($backend)) === []
+            && !is_file($backend.'/.env.local')
+            && !is_link($backend.'/.env.local');
     }
 
     /**
