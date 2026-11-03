@@ -27,6 +27,6 @@ Pré-analyser tous les conflits avant mutation. En cas de conflit, refuser la mi
 
 ## Compatibilité
 
-Les installations existantes sans manifeste nécessitent une initialisation prudente de la référence native avant la première mise à jour. Ne jamais supposer que le HEAD Git du projet correspond au HEAD du framework.
+Pour une installation historique sans manifeste, la CLI vérifie que `origin` pointe encore vers le dépôt officiel SymSvel, puis récupère en lecture seule l'ancêtre commun entre `HEAD` et la référence distante locale. Les fichiers natifs de cet ancêtre deviennent la référence de départ. Aucune branche ni aucun fichier Git du projet n'est modifié. Si la provenance est inconnue (par exemple dépôt Choralys déjà indépendant), la migration automatique est refusée : il faut initialiser une référence native fiable, sans assimiler arbitrairement les fichiers du projet à ceux du framework.
 
 > Statut : contrat de conception. L'implémentation et les tests de migration sont à réaliser dans cette PR avant tout merge.
