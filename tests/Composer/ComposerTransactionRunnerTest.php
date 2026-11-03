@@ -41,6 +41,51 @@ final class ComposerTransactionRunnerTest extends TestCase
         @rmdir($this->backend);
     }
 
+    public function testBootstrapRejectsUpdateAndRemovalBeforeComposer(): void
+    {
+        $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+            self::fail('Composer must not run for forbidden bootstrap operations.');
+        });
+        foreach ([['update'], ['remove', 'symsvel-framework/module-roles']] as $arguments) {
+            try {
+                $runner->run($this->backend, $arguments, bootstrap: true);
+                self::fail('Bootstrap accepted a forbidden operation.');
+            } catch (\InvalidArgumentException $error) {
+                self::assertStringContainsString('Bootstrap réservé', $error->getMessage());
+            }
+        }
+    }
+
+    public function testBootstrapRejectsMissingNativeManifestBeforeComposer(): void
+    {
+        $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+            self::fail('Composer must not run without native manifest.');
+        });
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Manifeste des modules natifs introuvable');
+        $runner->run($this->backend, ['require', 'symsvel-framework/module-roles'], bootstrap: true);
+    }
+
+    public function testBootstrapRejectsPackageNotDeclaredNative(): void
+    {
+        mkdir($this->backend.'/config');
+        file_put_contents($this->backend.'/config/symsvel-native-modules.json', json_encode([
+            'schema' => 1,
+            'modules' => ['symsvel-framework/module-roles'],
+        ], JSON_THROW_ON_ERROR));
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+                self::fail('Composer must not run for non-native package.');
+            });
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Bootstrap interdit pour un module non natif');
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-acls'], bootstrap: true);
+        } finally {
+            unlink($this->backend.'/config/symsvel-native-modules.json');
+            rmdir($this->backend.'/config');
+        }
+    }
+
     public function testFailedInstallRestoresOriginalManifestsAndRunsSafeInstall(): void
     {
         $commands = [];
