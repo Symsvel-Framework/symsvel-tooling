@@ -125,6 +125,54 @@ final class ComponentUpdaterTest extends TestCase
         );
     }
 
+
+    public function testRemoteCollisionWithGeneratedFileLeavesWorkspaceIntact(): void
+    {
+        $remote = $this->workspace.'/remote.git';
+        (new Process(['git', 'init', '--bare', $remote]))->mustRun();
+        $component = $this->workspace.'/app';
+        (new Process(['git', 'clone', $remote, $component]))->mustRun();
+        foreach ([['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
+            (new Process($command, $component))->mustRun();
+        }
+        file_put_contents($component.'/README.md', 'original');
+        (new Process(['git', 'add', '.'], $component))->mustRun();
+        (new Process(['git', 'commit', '-m', 'initial'], $component))->mustRun();
+        (new Process(['git', 'push', '-u', 'origin', 'HEAD'], $component))->mustRun();
+        $head = trim((new Process(['git', 'rev-parse', 'HEAD'], $component))->mustRun()->getOutput());
+
+        $generated = $component.'/src/lib/vendor/demo/widget.svelte';
+        mkdir(dirname($generated), 0775, true);
+        file_put_contents($generated, 'module-owned');
+        mkdir($this->workspace.'/backend/.symsvel', 0775, true);
+        file_put_contents($this->workspace.'/backend/.symsvel/svelte-files.json', json_encode([
+            $generated => hash_file('sha256', $generated),
+        ], JSON_THROW_ON_ERROR));
+
+        $publisher = $this->workspace.'/publisher';
+        (new Process(['git', 'clone', $remote, $publisher]))->mustRun();
+        foreach ([['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
+            (new Process($command, $publisher))->mustRun();
+        }
+        mkdir($publisher.'/src/lib/vendor/demo', 0775, true);
+        file_put_contents($publisher.'/src/lib/vendor/demo/widget.svelte', 'remote-owned');
+        (new Process(['git', 'add', '.'], $publisher))->mustRun();
+        (new Process(['git', 'commit', '-m', 'conflicting remote file'], $publisher))->mustRun();
+        (new Process(['git', 'push', 'origin', 'HEAD'], $publisher))->mustRun();
+
+        try {
+            (new ComponentUpdater())->update($this->workspace.'/backend', 'app');
+            self::fail('Remote Git must not overwrite a module-generated file.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('état précédent restauré', $error->getMessage());
+        }
+
+        self::assertSame($head, trim((new Process(['git', 'rev-parse', 'HEAD'], $component))->mustRun()->getOutput()));
+        self::assertSame('module-owned', file_get_contents($generated));
+        self::assertSame('original', file_get_contents($component.'/README.md'));
+        self::assertSame('?? src/', trim((new Process(['git', 'status', '--porcelain'], $component))->mustRun()->getOutput()));
+    }
+
     public function testRejectsDirtyGitComponentWithoutChangingIt(): void
     {
         $component = $this->workspace.'/app';
