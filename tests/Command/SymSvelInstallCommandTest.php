@@ -93,6 +93,11 @@ final class SymSvelInstallCommandTest extends TestCase
             self::assertFileExists($projectDir.'/dev-doc/site/index.html');
         } finally {
             (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $projectDir.'/dev-doc', $projectDir.'/secrets']))->run();
+            // Workspace bootstrap creates persistent setup state and a one-time token.
+            // Remove both test-owned artifacts before deleting the temporary workspace.
+            @unlink($projectDir.'/.symsvel/setup-token');
+            @unlink($projectDir.'/.symsvel/setup.json');
+            @rmdir($projectDir.'/.symsvel');
             unlink($projectDir.'/bo/keep.txt');
             rmdir($projectDir.'/bo');
             unlink($projectDir.'/backend/composer.json');
