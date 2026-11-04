@@ -78,6 +78,34 @@ final class ComponentUpdaterTest extends TestCase
         $this->assertNoPendingTransactions();
     }
 
+    public function testRuntimeSnapshotCaptureFailureDiscardsPartialCheckpoint(): void
+    {
+        $this->seed(['README.md' => 'before']);
+        $this->publish(['README.md' => 'upstream']);
+        $manifest = $this->workspace.'/backend/.symsvel/components.json';
+        $before = file_get_contents($manifest);
+        $head = $this->gitHead($this->component);
+
+        $outside = $this->workspace.'/external-node-modules';
+        mkdir($outside);
+        file_put_contents($outside.'/marker.txt', 'untouched');
+        symlink($outside, $this->component.'/node_modules');
+
+        try {
+            $this->updater()->update($this->workspace.'/backend', 'app');
+            self::fail('A symbolic runtime dependency directory must abort capture.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Snapshot runtime refusé', $error->getMessage());
+        }
+
+        self::assertSame('before', file_get_contents($this->component.'/README.md'));
+        self::assertSame($head, $this->gitHead($this->component));
+        self::assertSame($before, file_get_contents($manifest));
+        self::assertTrue(is_link($this->component.'/node_modules'));
+        self::assertSame('untouched', file_get_contents($outside.'/marker.txt'));
+        $this->assertNoPendingTransactions();
+    }
+
     public function testNativeFileConflictDoesNotChangeProjectGit(): void
     {
         $this->seed(['README.md' => 'before']);
