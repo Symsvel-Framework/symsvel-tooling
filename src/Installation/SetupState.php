@@ -74,7 +74,9 @@ final class SetupState
         }
         try {
             $json = json_encode(['schema' => 1, 'status' => $status], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n";
-            if (file_put_contents($temporary, $json) === false || !rename($temporary, $path)) {
+            if (!chmod($temporary, 0600)
+                || file_put_contents($temporary, $json) === false
+                || !rename($temporary, $path)) {
                 throw new \RuntimeException('Publication setup impossible.');
             }
         } finally {
