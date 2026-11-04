@@ -70,6 +70,7 @@ final class ComponentUpdaterTest extends TestCase
         }
         self::assertSame('local edit', file_get_contents($this->component.'/README.md'));
         self::assertSame($head, $this->gitHead($this->component));
+        $this->assertNoPendingTransactions();
     }
 
     public function testRemoteAdditionAndLocalCommittedRouteCoexistEvenWhenBuildFails(): void
@@ -113,6 +114,13 @@ final class ComponentUpdaterTest extends TestCase
         }
         self::assertSame('module-owned', file_get_contents($generated));
         self::assertSame($head, $this->gitHead($this->component));
+        $this->assertNoPendingTransactions();
+    }
+
+    private function assertNoPendingTransactions(): void
+    {
+        $directory = $this->workspace.'/backend/.symsvel/transactions';
+        self::assertSame([], glob($directory.'/update-*') ?: [], 'Preflight must clean its transaction checkpoint.');
     }
 
     /** @param array<string, string> $files */
