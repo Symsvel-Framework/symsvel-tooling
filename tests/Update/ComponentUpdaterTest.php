@@ -55,6 +55,29 @@ final class ComponentUpdaterTest extends TestCase
         self::assertSame('local', file_get_contents($this->component.'/README.md'));
     }
 
+    public function testFailedUpstreamFetchCleansCheckpointAndPreservesManifest(): void
+    {
+        $this->seed(['README.md' => 'before']);
+        $manifest = $this->workspace.'/backend/.symsvel/components.json';
+        $before = file_get_contents($manifest);
+        $head = $this->gitHead($this->component);
+
+        // The baseline is valid, but the remote is no longer accessible.
+        (new Process(['rm', '-rf', '--', $this->remote]))->mustRun();
+
+        try {
+            $this->updater()->update($this->workspace.'/backend', 'app');
+            self::fail('A missing upstream must abort the update.');
+        } catch (\RuntimeException $error) {
+            self::assertNotSame('', $error->getMessage());
+        }
+
+        self::assertSame('before', file_get_contents($this->component.'/README.md'));
+        self::assertSame($head, $this->gitHead($this->component));
+        self::assertSame($before, file_get_contents($manifest));
+        $this->assertNoPendingTransactions();
+    }
+
     public function testNativeFileConflictDoesNotChangeProjectGit(): void
     {
         $this->seed(['README.md' => 'before']);
