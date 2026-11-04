@@ -88,7 +88,6 @@ final class SymSvelSetupFinalizeCommand extends Command
             if (!$bootstrap->isSuccessful()) {
                 throw new \RuntimeException('Création du premier administrateur impossible. Données temporaires conservées pour une nouvelle tentative.');
             }
-            $this->state->transition($workspace, SetupState::RUNNING, SetupState::COMPLETED);
             $pendingAdmin = $workspace.'/.symsvel/pending-admin.json';
             if (is_link($pendingAdmin) || !is_file($pendingAdmin)) {
                 throw new \RuntimeException('Données administrateur temporaires indisponibles après finalisation.');
@@ -96,6 +95,7 @@ final class SymSvelSetupFinalizeCommand extends Command
             if (!unlink($pendingAdmin)) {
                 throw new \RuntimeException('Impossible de supprimer les données administrateur temporaires.');
             }
+            $this->state->transition($workspace, SetupState::RUNNING, SetupState::COMPLETED);
             $tokenFile = $workspace.'/.symsvel/setup-token';
             if (is_file($tokenFile) && !is_link($tokenFile)) {
                 unlink($tokenFile);
