@@ -45,12 +45,32 @@ final class ComponentUpdater
         if (!mkdir($transaction, 0700)) {
             throw new \RuntimeException('Création du checkpoint impossible.');
         }
-        $upstream = $transaction.'/upstream';
-        $revision = $this->native->fetch($component, $upstream);
-        $incoming = $this->native->files($upstream);
-        $local = $this->native->files($directory);
-        $plan = $this->preflight->inspect($baseline['files'], $incoming, $local);
-        $this->preflight->assertSafe($plan);
+        try {
+            $upstream = $transaction.'/upstream';
+            $revision = $this->native->fetch($component, $upstream);
+            $incoming = $this->native->files($upstream);
+            $local = $this->native->files($directory);
+            $plan = $this->preflight->inspect($baseline['files'], $incoming, $local);
+            $this->preflight->assertSafe($plan);
+        } catch (\Throwable $failure) {
+            // Preflight has not modified the workspace. Discard only its checkpoint.
+            // Keep the original failure if cleanup succeeds; report both otherwise.
+            try {
+                $cleanup = new WorkspaceCleanupRegistry($backend);
+                $cleanup->enqueue([$transaction]);
+                $result = $cleanup->cleanup();
+                if ($result['remaining'] > 0) {
+                    throw new \RuntimeException(implode(' ; ', $result['errors']));
+                }
+            } catch (\Throwable $cleanupFailure) {
+                throw new \RuntimeException(
+                    'Préflight échoué ; nettoyage du checkpoint impossible : '.$cleanupFailure->getMessage().'; snapshot : '.$transaction,
+                    0,
+                    $failure,
+                );
+            }
+            throw $failure;
+        }
 
         $sources = new WorkspaceFileSnapshot($backend, $transaction);
         $runtime = new RuntimeArtifactSnapshot($directory, $transaction);
