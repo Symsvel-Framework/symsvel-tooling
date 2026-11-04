@@ -23,12 +23,28 @@ final class WorkspaceInitializer
         // The one-time setup credential is stored outside the public backend.
         // Never regenerate it when resuming an interrupted installation.
         $setupToken = $root.'/.symsvel/setup-token';
-        if (!file_exists($setupToken) && !is_link($setupToken)) {
-            $token = bin2hex(random_bytes(32));
-            if (file_put_contents($setupToken, $token."\n", LOCK_EX) === false) {
-                throw new \RuntimeException('Impossible de créer le jeton de setup.');
+        if (is_link(dirname($setupToken)) || is_link($setupToken)) {
+            throw new \RuntimeException('Chemin symbolique du jeton de setup interdit.');
+        }
+        if (!file_exists($setupToken)) {
+            $temporary = tempnam(dirname($setupToken), '.setup-token-');
+            if ($temporary === false) {
+                throw new \RuntimeException('Impossible de préparer le jeton de setup.');
             }
-            chmod($setupToken, 0600);
+            try {
+                $token = bin2hex(random_bytes(32));
+                if (!chmod($temporary, 0600)
+                    || file_put_contents($temporary, $token."\n", LOCK_EX) === false
+                    || !rename($temporary, $setupToken)) {
+                    throw new \RuntimeException('Impossible de créer le jeton de setup.');
+                }
+            } finally {
+                if (is_file($temporary)) {
+                    unlink($temporary);
+                }
+            }
+        } elseif (!is_file($setupToken)) {
+            throw new \RuntimeException('Jeton de setup existant invalide.');
         }
         $this->writeIfMissing($secrets.'/.env.example', "# Variables privées SymSvel, à compléter selon les besoins\n");
         $venv = $docs.'/.venv';
