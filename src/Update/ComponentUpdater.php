@@ -74,8 +74,28 @@ final class ComponentUpdater
 
         $sources = new WorkspaceFileSnapshot($backend, $transaction);
         $runtime = new RuntimeArtifactSnapshot($directory, $transaction);
-        $sources->capture();
-        $runtime->capture();
+        try {
+            $sources->capture();
+            $runtime->capture();
+        } catch (\Throwable $failure) {
+            // Capturing checkpoints never changes project sources or runtime.
+            // A partially written snapshot must not be treated as a valid rollback.
+            try {
+                $cleanup = new WorkspaceCleanupRegistry($backend);
+                $cleanup->enqueue([$transaction]);
+                $result = $cleanup->cleanup();
+                if ($result['remaining'] > 0) {
+                    throw new \RuntimeException(implode(' ; ', $result['errors']));
+                }
+            } catch (\Throwable $cleanupFailure) {
+                throw new \RuntimeException(
+                    'Snapshot échoué ; nettoyage du checkpoint impossible : '.$cleanupFailure->getMessage().'; snapshot : '.$transaction,
+                    0,
+                    $failure,
+                );
+            }
+            throw $failure;
+        }
         try {
             foreach (['add', 'replace'] as $action) {
                 foreach ($plan[$action] as $path) {
