@@ -80,7 +80,22 @@ final class SymSvelSetupFinalizeCommand extends Command
             if (!$process->isSuccessful()) {
                 throw new \RuntimeException('Migrations non finalisées : '.trim($process->getErrorOutput().' '.$process->getOutput()));
             }
+            $bootstrap = new Process([
+                PHP_BINARY, 'bin/console', 'symsvel:admins:bootstrap', '--no-interaction',
+            ], $this->projectDir);
+            $bootstrap->setTimeout(60);
+            $bootstrap->run();
+            if (!$bootstrap->isSuccessful()) {
+                throw new \RuntimeException('Création du premier administrateur impossible. Données temporaires conservées pour une nouvelle tentative.');
+            }
             $this->state->transition($workspace, SetupState::RUNNING, SetupState::COMPLETED);
+            $pendingAdmin = $workspace.'/.symsvel/pending-admin.json';
+            if (is_link($pendingAdmin) || !is_file($pendingAdmin)) {
+                throw new \RuntimeException('Données administrateur temporaires indisponibles après finalisation.');
+            }
+            if (!unlink($pendingAdmin)) {
+                throw new \RuntimeException('Impossible de supprimer les données administrateur temporaires.');
+            }
             $tokenFile = $workspace.'/.symsvel/setup-token';
             if (is_file($tokenFile) && !is_link($tokenFile)) {
                 unlink($tokenFile);
