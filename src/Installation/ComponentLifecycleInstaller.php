@@ -40,7 +40,26 @@ final class ComponentLifecycleInstaller
             throw new \RuntimeException('Création du checkpoint impossible.');
         }
         $sources = new WorkspaceFileSnapshot($backend, $transaction);
-        $sources->capture();
+        try {
+            $sources->capture();
+        } catch (\Throwable $failure) {
+            // No component has been installed yet; discard the partial checkpoint.
+            try {
+                $cleanup = new WorkspaceCleanupRegistry($backend);
+                $cleanup->enqueue([$transaction]);
+                $result = $cleanup->cleanup();
+                if ($result['remaining'] > 0) {
+                    throw new \RuntimeException(implode(' ; ', $result['errors']));
+                }
+            } catch (\Throwable $cleanupFailure) {
+                throw new \RuntimeException(
+                    'Snapshot installation échoué ; nettoyage impossible : '.$cleanupFailure->getMessage().'; snapshot : '.$transaction,
+                    0,
+                    $failure,
+                );
+            }
+            throw $failure;
+        }
         try {
             $this->installer->install($workspace, [$component]);
             $this->synchronizer->sync($backend);
