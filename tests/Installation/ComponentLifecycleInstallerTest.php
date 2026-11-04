@@ -28,6 +28,26 @@ final class ComponentLifecycleInstallerTest extends TestCase
     }
 
 
+    public function testSnapshotCaptureFailureDiscardsCheckpointBeforeInstall(): void
+    {
+        $outside = $this->workspace.'/outside';
+        mkdir($outside);
+        file_put_contents($outside.'/keep.txt', 'untouched');
+        symlink($outside, $this->workspace.'/bo');
+
+        try {
+            (new ComponentLifecycleInstaller())->install($this->workspace.'/backend', 'app');
+            self::fail('A symbolic workspace component must prevent snapshot capture.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Snapshot refusé', $error->getMessage());
+        }
+
+        self::assertDirectoryDoesNotExist($this->workspace.'/app');
+        self::assertSame('untouched', file_get_contents($outside.'/keep.txt'));
+        self::assertTrue(is_link($this->workspace.'/bo'));
+        self::assertSame([], glob($this->workspace.'/backend/.symsvel/transactions/update-*') ?: []);
+    }
+
     public function testRollsBackNewComponentAfterSvelteSyncFailure(): void
     {
         $repository = $this->workspace.'/fixture';
