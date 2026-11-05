@@ -77,6 +77,40 @@ PHP
         }
     }
 
+    public function testDatabaseCreationFailureStopsBeforeConnectionCheck(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-finalize-db-create-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        mkdir($root.'/backend/bin');
+        file_put_contents($root.'/backend/.env.local', "DATABASE_URL=postgresql://localhost/test\n");
+        file_put_contents($root.'/backend/bin/console', <<<'PHP'
+<?php
+file_put_contents(dirname(__DIR__).'/commands.log', implode(' ', array_slice($argv, 1))."\n", FILE_APPEND);
+fwrite(STDERR, 'permission denied');
+exit(1);
+PHP
+        );
+        try {
+            $state = new SetupState();
+            $state->initialize($root);
+            $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
+            self::assertSame(1, $tester->execute([]));
+            self::assertSame(SetupState::RUNNING, $state->read($root));
+            self::assertSame(['doctrine:database:create --if-not-exists --no-interaction'], file($root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
+            self::assertStringContainsString('Création BDD impossible', $tester->getDisplay());
+        } finally {
+            @unlink($root.'/.symsvel/setup.json');
+            @rmdir($root.'/.symsvel');
+            @unlink($root.'/backend/commands.log');
+            @unlink($root.'/backend/bin/console');
+            @rmdir($root.'/backend/bin');
+            @unlink($root.'/backend/.env.local');
+            @rmdir($root.'/backend');
+            @rmdir($root);
+        }
+    }
+
     public function testDatabaseCheckPrecedesMigrationExecution(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-order-'.bin2hex(random_bytes(8));
