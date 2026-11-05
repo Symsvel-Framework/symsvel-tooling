@@ -90,6 +90,16 @@ final class ComponentLifecycleInstaller
                         throw new \RuntimeException('Installation du module natif App impossible : '.trim($require->getErrorOutput() ?: $require->getOutput()));
                     }
                 }
+
+            }
+            $this->synchronizer->sync($backend);
+            $build = new Process(['npm', 'run', 'build'], $target);
+            $build->setTimeout(600);
+            $build->run();
+            if (!$build->isSuccessful()) {
+                throw new \RuntimeException('Build après synchronisation impossible : '.trim($build->getErrorOutput() ?: $build->getOutput()));
+            }
+            if ($component === 'app') {
                 // The initial Setup Wizard executes migrations separately; after
                 // a completed setup, the newly installed module needs its tables.
                 $stateFile = $workspace.'/.symsvel/setup.json';
@@ -104,13 +114,6 @@ final class ComponentLifecycleInstaller
                         }
                     }
                 }
-            }
-            $this->synchronizer->sync($backend);
-            $build = new Process(['npm', 'run', 'build'], $target);
-            $build->setTimeout(600);
-            $build->run();
-            if (!$build->isSuccessful()) {
-                throw new \RuntimeException('Build après synchronisation impossible : '.trim($build->getErrorOutput() ?: $build->getOutput()));
             }
         } catch (\Throwable $failure) {
             $errors = [];
