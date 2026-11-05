@@ -94,6 +94,41 @@ final class ComposerTransactionRunnerTest extends TestCase
         }
     }
 
+    public function testBootstrapAllowsUsersOnlyWhenAppIsInstalled(): void
+    {
+        $workspace = dirname($this->backend);
+        (new \SymSvel\Tooling\Installation\SetupState())->initialize($workspace);
+        mkdir($this->backend.'/config');
+        file_put_contents($this->backend.'/config/symsvel-native-modules.json', json_encode([
+            'schema' => 1,
+            'modules' => ['symsvel-framework/module-admins'],
+            'components' => ['app' => ['symsvel-framework/module-users']],
+        ], JSON_THROW_ON_ERROR));
+        $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+            throw new \RuntimeException('Composer reached');
+        });
+        try {
+            try {
+                $runner->run($this->backend, ['require', 'symsvel-framework/module-users'], bootstrap: true);
+                self::fail('Users must be rejected when App is absent.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('Bootstrap interdit', $error->getMessage());
+            }
+            mkdir($workspace.'/app');
+            try {
+                $runner->run($this->backend, ['require', 'symsvel-framework/module-users'], bootstrap: true);
+                self::fail('Composer runner should be invoked.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('Composer reached', $error->getMessage());
+                self::assertStringNotContainsString('Bootstrap interdit', $error->getMessage());
+            }
+        } finally {
+            @rmdir($workspace.'/app');
+            unlink($this->backend.'/config/symsvel-native-modules.json');
+            rmdir($this->backend.'/config');
+        }
+    }
+
     public function testBootstrapRejectsCompletedSetupBeforeComposer(): void
     {
         $state = new \SymSvel\Tooling\Installation\SetupState();
