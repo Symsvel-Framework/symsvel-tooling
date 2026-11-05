@@ -63,6 +63,17 @@ final class SymSvelSetupFinalizeCommand extends Command
             if ($status === SetupState::PENDING) {
                 $this->state->transition($workspace, SetupState::PENDING, SetupState::RUNNING);
             }
+            // Doctrine connects to the maintenance database when creating a missing
+            // PostgreSQL database. The operation is safe to repeat on setup retries.
+            $databaseCreate = new Process([
+                PHP_BINARY, 'bin/console', 'doctrine:database:create',
+                '--if-not-exists', '--no-interaction',
+            ], $this->projectDir);
+            $databaseCreate->setTimeout(60);
+            $databaseCreate->run();
+            if (!$databaseCreate->isSuccessful()) {
+                throw new \RuntimeException('Création BDD impossible : '.trim($databaseCreate->getErrorOutput().' '.$databaseCreate->getOutput()));
+            }
             $connectionCheck = new Process([
                 PHP_BINARY, 'bin/console', 'doctrine:query:sql', 'SELECT 1', '--no-interaction',
             ], $this->projectDir);
