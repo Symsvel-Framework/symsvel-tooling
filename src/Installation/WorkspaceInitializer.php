@@ -46,10 +46,6 @@ final class WorkspaceInitializer
         } elseif (!is_file($setupToken)) {
             throw new \RuntimeException('Jeton de setup existant invalide.');
         }
-        $sharedGroup = getenv('SYMSVEL_SETUP_SHARED_GROUP');
-        if (is_string($sharedGroup) && $sharedGroup !== '') {
-            (new SetupGroupAccess())->configure($root, $sharedGroup);
-        }
         $this->writeIfMissing($secrets.'/.env.example', "# Variables privées SymSvel, à compléter selon les besoins\n");
         $venv = $docs.'/.venv';
         if (!is_file($venv.'/bin/mkdocs')) {
