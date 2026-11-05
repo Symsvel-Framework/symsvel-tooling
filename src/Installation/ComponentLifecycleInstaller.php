@@ -60,6 +60,7 @@ final class ComponentLifecycleInstaller
             }
             throw $failure;
         }
+        $databaseMigrationStarted = false;
         try {
             $this->installer->install($workspace, [$component]);
             if ($component === 'app') {
@@ -90,7 +91,6 @@ final class ComponentLifecycleInstaller
                         throw new \RuntimeException('Installation du module natif App impossible : '.trim($require->getErrorOutput() ?: $require->getOutput()));
                     }
                 }
-
             }
             $this->synchronizer->sync($backend);
             $build = new Process(['npm', 'run', 'build'], $target);
@@ -106,6 +106,7 @@ final class ComponentLifecycleInstaller
                 if (is_file($stateFile) && !is_link($stateFile)) {
                     $state = json_decode((string) file_get_contents($stateFile), true, 512, JSON_THROW_ON_ERROR);
                     if (($state['status'] ?? null) === 'completed') {
+                        $databaseMigrationStarted = true;
                         $migrate = new Process([PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--no-interaction'], $backend);
                         $migrate->setTimeout(600);
                         $migrate->run();
@@ -116,6 +117,15 @@ final class ComponentLifecycleInstaller
                 }
             }
         } catch (\Throwable $failure) {
+            if ($databaseMigrationStarted) {
+                // Database changes are outside WorkspaceFileSnapshot. Never roll back
+                // Composer/module sources while migrations may have been applied.
+                throw new \RuntimeException(
+                    'Installation App interrompue pendant les migrations ; sources et checkpoint conservés pour diagnostic et reprise. Ne pas relancer automatiquement. Checkpoint : '.$transaction,
+                    0,
+                    $failure,
+                );
+            }
             $errors = [];
             if (is_dir($target) && !is_link($target)) {
                 $remove = new Process(['rm', '-rf', '--', $target]);
