@@ -61,6 +61,24 @@ final class ComposerTransactionRunner
             if (($configuration['schema'] ?? null) !== 1 || !is_array($allowed) || !array_is_list($allowed)) {
                 throw new \RuntimeException('Manifeste des modules natifs invalide.');
             }
+            $componentModules = $configuration['components'] ?? [];
+            if (!is_array($componentModules)) {
+                throw new \RuntimeException('Modules natifs de composants invalides.');
+            }
+            foreach ($componentModules as $component => $packages) {
+                if (!is_string($component) || !in_array($component, ['bo', 'app', 'front'], true)
+                    || !is_array($packages) || !array_is_list($packages)) {
+                    throw new \RuntimeException('Modules natifs de composants invalides.');
+                }
+                foreach ($packages as $componentPackage) {
+                    if (!is_string($componentPackage) || !preg_match('~^symsvel-framework/module-[a-z][a-z0-9-]*$~D', $componentPackage)) {
+                        throw new \RuntimeException('Package natif de composant invalide.');
+                    }
+                }
+                if (is_dir(dirname($backend).'/'.$component)) {
+                    array_push($allowed, ...$packages);
+                }
+            }
             $package = explode(':', $arguments[1], 2)[0];
             if (!in_array($package, $allowed, true)) {
                 throw new \RuntimeException('Bootstrap interdit pour un module non natif : '.$package);
