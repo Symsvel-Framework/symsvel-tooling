@@ -62,6 +62,16 @@ final class SetupState
         $this->write($workspace, $next);
     }
 
+    /** A failed initial setup starts again from a blank wizard. */
+    public function reset(string $workspace): void
+    {
+        $status = $this->read($workspace);
+        if ($status === self::COMPLETED || $status === null) {
+            throw new \DomainException('Impossible de réinitialiser un setup terminé ou absent.');
+        }
+        $this->write($workspace, self::PENDING);
+    }
+
     private function write(string $workspace, string $status): void
     {
         $path = $this->path($workspace);
