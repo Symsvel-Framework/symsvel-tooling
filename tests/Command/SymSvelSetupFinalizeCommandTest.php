@@ -23,6 +23,7 @@ final class SymSvelSetupFinalizeCommandTest extends TestCase
         try {
             $state = new SetupState();
             $state->initialize($root);
+            file_put_contents($root.'/.symsvel/pending-admin.json', '{"schema":1}');
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(1, $tester->execute([]));
             self::assertSame(SetupState::RUNNING, $state->read($root));
@@ -32,6 +33,8 @@ final class SymSvelSetupFinalizeCommandTest extends TestCase
             self::assertSame(0, $tester->execute([]));
             self::assertSame(SetupState::COMPLETED, $state->read($root));
         } finally {
+            @unlink($root.'/.symsvel/pending-admin.json');
+            @unlink($root.'/.symsvel/setup-token');
             @unlink($root.'/.symsvel/setup.json');
             @rmdir($root.'/.symsvel');
             @unlink($console);
@@ -90,14 +93,18 @@ PHP
         try {
             $state = new SetupState();
             $state->initialize($root);
+            file_put_contents($root.'/.symsvel/pending-admin.json', '{"schema":1}');
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(0, $tester->execute([]));
             self::assertSame(SetupState::COMPLETED, $state->read($root));
             self::assertSame([
                 'doctrine:query:sql SELECT 1 --no-interaction',
                 'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
+                'symsvel:admins:bootstrap --no-interaction',
             ], file($root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
         } finally {
+            @unlink($root.'/.symsvel/pending-admin.json');
+            @unlink($root.'/.symsvel/setup-token');
             @unlink($root.'/.symsvel/setup.json');
             @rmdir($root.'/.symsvel');
             @unlink($root.'/backend/commands.log');
@@ -172,15 +179,57 @@ PHP
         try {
             $state = new SetupState();
             $state->initialize($root);
+            file_put_contents($root.'/.symsvel/pending-admin.json', '{"schema":1}');
             file_put_contents($root.'/.symsvel/setup-token', 'test-secret');
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(0, $tester->execute([]));
             self::assertSame(SetupState::COMPLETED, $state->read($root));
             self::assertFileDoesNotExist($root.'/.symsvel/setup-token');
         } finally {
+            @unlink($root.'/.symsvel/pending-admin.json');
+            @unlink($root.'/.symsvel/setup-token');
             @unlink($root.'/.symsvel/setup.json');
             @rmdir($root.'/.symsvel');
             @unlink($root.'/backend/bin/console');
+            @rmdir($root.'/backend/bin');
+            @unlink($root.'/backend/.env.local');
+            @rmdir($root.'/backend');
+            @rmdir($root);
+        }
+    }
+
+    public function testBootstrapFailurePreservesStagedCredentialsForRetry(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-finalize-bootstrap-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        mkdir($root.'/backend/bin');
+        file_put_contents($root.'/backend/.env.local', "DATABASE_URL=postgresql://localhost/test\n");
+        $console = $root.'/backend/bin/console';
+        file_put_contents($console, <<<'PHP'
+<?php
+$command = $argv[1] ?? '';
+exit($command === 'symsvel:admins:bootstrap' ? 1 : 0);
+PHP
+        );
+        try {
+            $state = new SetupState();
+            $state->initialize($root);
+            $path = $root.'/.symsvel/pending-admin.json';
+            file_put_contents($path, '{"schema":1}');
+            $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
+            self::assertSame(1, $tester->execute([]));
+            self::assertSame(SetupState::RUNNING, $state->read($root));
+            self::assertFileExists($path);
+            file_put_contents($console, "<?php exit(0);\n");
+            self::assertSame(0, $tester->execute([]));
+            self::assertSame(SetupState::COMPLETED, $state->read($root));
+            self::assertFileDoesNotExist($path);
+        } finally {
+            @unlink($root.'/.symsvel/pending-admin.json');
+            @unlink($root.'/.symsvel/setup.json');
+            @rmdir($root.'/.symsvel');
+            @unlink($console);
             @rmdir($root.'/backend/bin');
             @unlink($root.'/backend/.env.local');
             @rmdir($root.'/backend');
