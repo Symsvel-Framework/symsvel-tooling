@@ -11,6 +11,14 @@ use SymSvel\Tooling\Installation\SetupState;
 
 final class SymSvelSetupFinalizeCommandTest extends TestCase
 {
+    public function testFinalizeDoesNotCallRemovedDoctrineSqlCommand(): void
+    {
+        $source = file_get_contents(__DIR__.'/../../src/Command/SymSvelSetupFinalizeCommand.php');
+        self::assertIsString($source);
+        self::assertStringNotContainsString('doctrine:query:'.'sql', $source);
+        self::assertStringContainsString('symsvel:module:migrations:compile', $source);
+    }
+
     public function testSetupCanRestartAfterDatabaseBecomesAvailable(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-retry-'.bin2hex(random_bytes(8));
