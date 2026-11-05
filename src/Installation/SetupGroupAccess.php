@@ -56,14 +56,10 @@ final class SetupGroupAccess
         if (is_link($pending) || (file_exists($pending) && !is_file($pending))) {
             throw new \RuntimeException('Données administrateur temporaires invalides.');
         }
-        // A group-writable backend is not sufficient if its existing .env.local
-        // belongs to another UID. Refuse an unsafe resume before changing modes.
+        // Never change an existing configuration file's ownership or permissions.
         $env = $backend.'/.env.local';
         if (is_link($env) || (file_exists($env) && !is_file($env))) {
             throw new \RuntimeException('Configuration .env.local existante invalide.');
-        }
-        if (is_file($env) && !is_writable($env)) {
-            throw new \RuntimeException('Configuration .env.local existante non modifiable par la CLI ; vérifiez son propriétaire.');
         }
         foreach ([$state, $backend] as $directory) {
             if (!chgrp($directory, $group) || !chmod($directory, 02770)) {
