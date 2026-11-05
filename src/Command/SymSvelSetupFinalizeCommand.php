@@ -74,7 +74,9 @@ final class SymSvelSetupFinalizeCommand extends Command
             if (!$databaseCreate->isSuccessful()) {
                 throw new \RuntimeException('Création BDD impossible : '.trim($databaseCreate->getErrorOutput().' '.$databaseCreate->getOutput()));
             }
-            // The migration executor opens the target DB connection itself.\n            // Do not depend on optional Doctrine console SQL commands.\n            $process = new Process([
+            // The migration executor opens the target DB connection itself.
+            // Do not depend on optional Doctrine console SQL commands.
+            $process = new Process([
                 PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile',
                 '--source=composer', '--execute', '--no-interaction',
             ], $this->projectDir);
