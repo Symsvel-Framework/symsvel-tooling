@@ -29,6 +29,18 @@ final class SetupGroupAccess
         if (!is_executable($root)) {
             throw new \RuntimeException('Workspace non traversable par le processus CLI.');
         }
+        // The web process must be able to traverse the workspace and its parents.
+        // Do not chmod these shared paths implicitly.
+        for ($parent = $root; ; $parent = dirname($parent)) {
+            $stat = @stat($parent);
+            if ($stat === false || (($stat['mode'] & 0001) === 0
+                && !($stat['gid'] === $groupInfo['gid'] && ($stat['mode'] & 0010) !== 0))) {
+                throw new \RuntimeException('Le groupe setup ne peut pas traverser '.$parent.'. Configurez les droits du parent ou une ACL avant installation.');
+            }
+            if ($parent === dirname($parent)) {
+                break;
+            }
+        }
         $state = $root.'/.symsvel';
         $backend = $root.'/backend';
         $token = $state.'/setup-token';
