@@ -198,6 +198,45 @@ PHP
         }
     }
 
+    public function testBootstrapFailurePreservesStagedCredentialsForRetry(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-finalize-bootstrap-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/backend');
+        mkdir($root.'/backend/bin');
+        file_put_contents($root.'/backend/.env.local', "DATABASE_URL=postgresql://localhost/test\n");
+        $console = $root.'/backend/bin/console';
+        file_put_contents($console, <<<'PHP'
+<?php
+$command = $argv[1] ?? '';
+exit($command === 'symsvel:admins:bootstrap' ? 1 : 0);
+PHP
+        );
+        try {
+            $state = new SetupState();
+            $state->initialize($root);
+            $path = $root.'/.symsvel/pending-admin.json';
+            file_put_contents($path, '{"schema":1}');
+            $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
+            self::assertSame(1, $tester->execute([]));
+            self::assertSame(SetupState::RUNNING, $state->read($root));
+            self::assertFileExists($path);
+            file_put_contents($console, "<?php exit(0);\n");
+            self::assertSame(0, $tester->execute([]));
+            self::assertSame(SetupState::COMPLETED, $state->read($root));
+            self::assertFileDoesNotExist($path);
+        } finally {
+            @unlink($root.'/.symsvel/pending-admin.json');
+            @unlink($root.'/.symsvel/setup.json');
+            @rmdir($root.'/.symsvel');
+            @unlink($console);
+            @rmdir($root.'/backend/bin');
+            @unlink($root.'/backend/.env.local');
+            @rmdir($root.'/backend');
+            @rmdir($root);
+        }
+    }
+
     public function testPendingRecoveryJournalPreventsMigrationReplay(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-recovery-'.bin2hex(random_bytes(8));
