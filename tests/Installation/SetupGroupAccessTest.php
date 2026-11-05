@@ -58,6 +58,37 @@ final class SetupGroupAccessTest extends TestCase
             @rmdir($root);
         }
     }
+    public function testAllowsExistingReadOnlyEnvFileWithoutChangingItsPermissions(): void
+    {
+        if (!function_exists('posix_getgrgid') || !function_exists('posix_getegid')) {
+            self::markTestSkipped('POSIX extension required.');
+        }
+        $group = posix_getgrgid(posix_getegid())['name'] ?? null;
+        if (!is_string($group)) {
+            self::markTestSkipped('No effective POSIX group.');
+        }
+        $root = sys_get_temp_dir().'/symsvel-group-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/.symsvel');
+        mkdir($root.'/backend');
+        file_put_contents($root.'/.symsvel/setup-token', 'secret');
+        file_put_contents($root.'/backend/.env.local', 'DATABASE_URL=private');
+        chmod($root.'/backend/.env.local', 0400);
+        try {
+            (new SetupGroupAccess())->configure($root, $group);
+            clearstatcache(true, $root.'/backend/.env.local');
+            self::assertSame(0400, fileperms($root.'/backend/.env.local') & 0777);
+            self::assertSame('DATABASE_URL=private', file_get_contents($root.'/backend/.env.local'));
+        } finally {
+            @chmod($root.'/backend/.env.local', 0600);
+            @unlink($root.'/backend/.env.local');
+            @unlink($root.'/.symsvel/setup-token');
+            @rmdir($root.'/.symsvel');
+            @rmdir($root.'/backend');
+            @rmdir($root);
+        }
+    }
+
     public function testRejectsInvalidGroupNameBeforeFilesystemChanges(): void
     {
         $this->expectException(\InvalidArgumentException::class);
