@@ -69,7 +69,11 @@ final class ComponentInstaller
                 $revisionProcess = new Process(['git', 'rev-parse', 'HEAD'], $target);
                 $revisionProcess->mustRun();
                 $revision = trim($revisionProcess->getOutput());
-                foreach ([['npm', 'ci'], ['npm', 'run', 'build']] as $command) {
+                $commands = [['npm', 'ci']];
+                if (getenv('SYMSVEL_DEFER_BUILDS') !== '1') {
+                    $commands[] = ['npm', 'run', 'build'];
+                }
+                foreach ($commands as $command) {
                     $step = new Process($command, $target);
                     $step->setTimeout(600);
                     $step->run();
