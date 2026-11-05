@@ -9,7 +9,7 @@ use SymSvel\Tooling\Installation\SetupState;
 
 final class SetupStateTest extends TestCase
 {
-    public function testSetupStateIsPrivateAcrossTransitions(): void
+    public function testSetupStateIsReadableAcrossUsersAfterAtomicTransitions(): void
     {
         $root = sys_get_temp_dir().'/symsvel-setup-private-'.bin2hex(random_bytes(8));
         mkdir($root);
@@ -18,10 +18,10 @@ final class SetupStateTest extends TestCase
             $state->initialize($root);
             $path = $root.'/.symsvel/setup.json';
             clearstatcache(true, $path);
-            self::assertSame(0600, fileperms($path) & 0777);
+            self::assertSame(0644, fileperms($path) & 0777);
             $state->transition($root, SetupState::PENDING, SetupState::RUNNING);
             clearstatcache(true, $path);
-            self::assertSame(0600, fileperms($path) & 0777);
+            self::assertSame(0644, fileperms($path) & 0777);
             self::assertSame(SetupState::RUNNING, $state->read($root));
         } finally {
             @unlink($root.'/.symsvel/setup.json');
