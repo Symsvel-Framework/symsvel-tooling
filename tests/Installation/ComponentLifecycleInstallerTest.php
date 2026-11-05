@@ -20,6 +20,18 @@ final class ComponentLifecycleInstallerTest extends TestCase
         file_put_contents($this->workspace.'/backend/composer.json', '{}');
         mkdir($this->workspace.'/backend/vendor/composer', 0775, true);
         file_put_contents($this->workspace.'/backend/vendor/composer/installed.json', '{"packages":[]}');
+        mkdir($this->workspace.'/backend/config');
+        file_put_contents($this->workspace.'/backend/config/symsvel-native-modules.json', json_encode([
+            'schema' => 1,
+            'modules' => [],
+            'components' => ['app' => ['symsvel-framework/module-users']],
+        ], JSON_THROW_ON_ERROR));
+        mkdir($this->workspace.'/backend/scripts');
+        file_put_contents($this->workspace.'/backend/scripts/symsvel-composer-transaction.php', <<<'PHP'
+<?php
+file_put_contents(__DIR__.'/../native-module-invocation.json', json_encode(array_slice($argv, 1), JSON_THROW_ON_ERROR));
+PHP
+        );
     }
 
     protected function tearDown(): void
@@ -94,6 +106,7 @@ final class ComponentLifecycleInstallerTest extends TestCase
 
         self::assertDirectoryExists($this->workspace.'/app/.git');
         self::assertFileExists($this->workspace.'/backend/.symsvel/svelte-files.json');
+        self::assertSame(['require', 'symsvel-framework/module-users', '--bootstrap'], json_decode((string) file_get_contents($this->workspace.'/backend/native-module-invocation.json'), true, 512, JSON_THROW_ON_ERROR));
     }
 
 

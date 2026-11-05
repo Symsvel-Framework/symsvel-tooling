@@ -60,8 +60,38 @@ final class ComponentLifecycleInstaller
             }
             throw $failure;
         }
+        $databaseMigrationStarted = false;
         try {
             $this->installer->install($workspace, [$component]);
+            if ($component === 'app') {
+                $manifest = $backend.'/config/symsvel-native-modules.json';
+                if (!is_file($manifest) || is_link($manifest)) {
+                    throw new \RuntimeException('Manifeste des modules natifs absent ou invalide.');
+                }
+                $config = json_decode((string) file_get_contents($manifest), true, 512, JSON_THROW_ON_ERROR);
+                if (($config['schema'] ?? null) !== 1) {
+                    throw new \RuntimeException('Version du manifeste natif invalide.');
+                }
+                $packages = $config['components']['app'] ?? null;
+                if (!is_array($packages) || !array_is_list($packages)) {
+                    throw new \RuntimeException('Modules natifs App non déclarés.');
+                }
+                $launcher = $backend.'/scripts/symsvel-composer-transaction.php';
+                if (!is_file($launcher) || is_link($launcher)) {
+                    throw new \RuntimeException('Lanceur Composer transactionnel introuvable.');
+                }
+                foreach ($packages as $package) {
+                    if (!is_string($package) || preg_match('~^symsvel-framework/module-[a-z][a-z0-9-]*$~D', $package) !== 1) {
+                        throw new \RuntimeException('Package natif App invalide.');
+                    }
+                    $require = new Process([PHP_BINARY, $launcher, 'require', $package, '--bootstrap'], $backend);
+                    $require->setTimeout(600);
+                    $require->run();
+                    if (!$require->isSuccessful()) {
+                        throw new \RuntimeException('Installation du module natif App impossible : '.trim($require->getErrorOutput() ?: $require->getOutput()));
+                    }
+                }
+            }
             $this->synchronizer->sync($backend);
             $build = new Process(['npm', 'run', 'build'], $target);
             $build->setTimeout(600);
@@ -69,7 +99,33 @@ final class ComponentLifecycleInstaller
             if (!$build->isSuccessful()) {
                 throw new \RuntimeException('Build après synchronisation impossible : '.trim($build->getErrorOutput() ?: $build->getOutput()));
             }
+            if ($component === 'app') {
+                // The initial Setup Wizard executes migrations separately; after
+                // a completed setup, the newly installed module needs its tables.
+                $stateFile = $workspace.'/.symsvel/setup.json';
+                if (is_file($stateFile) && !is_link($stateFile)) {
+                    $state = json_decode((string) file_get_contents($stateFile), true, 512, JSON_THROW_ON_ERROR);
+                    if (($state['status'] ?? null) === 'completed') {
+                        $databaseMigrationStarted = true;
+                        $migrate = new Process([PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--no-interaction'], $backend);
+                        $migrate->setTimeout(600);
+                        $migrate->run();
+                        if (!$migrate->isSuccessful()) {
+                            throw new \RuntimeException('Migrations du module natif App impossibles : '.trim($migrate->getErrorOutput() ?: $migrate->getOutput()));
+                        }
+                    }
+                }
+            }
         } catch (\Throwable $failure) {
+            if ($databaseMigrationStarted) {
+                // Database changes are outside WorkspaceFileSnapshot. Never roll back
+                // Composer/module sources while migrations may have been applied.
+                throw new \RuntimeException(
+                    'Installation App interrompue pendant les migrations ; sources et checkpoint conservés pour diagnostic et reprise. Ne pas relancer automatiquement. Checkpoint : '.$transaction,
+                    0,
+                    $failure,
+                );
+            }
             $errors = [];
             if (is_dir($target) && !is_link($target)) {
                 $remove = new Process(['rm', '-rf', '--', $target]);
