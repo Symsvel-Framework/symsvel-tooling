@@ -44,6 +44,11 @@ final class SetupAccessPreflight
             $errors[] = '.env.local existant invalide, symbolique ou illisible.';
         }
 
+        $pendingAdmin = $stateDirectory.'/pending-admin.json';
+        if (is_link($pendingAdmin) || (file_exists($pendingAdmin) && (!is_file($pendingAdmin) || !is_readable($pendingAdmin)))) {
+            $errors[] = 'pending-admin.json existant invalide, symbolique ou illisible.';
+        }
+
         return $errors;
     }
 }
