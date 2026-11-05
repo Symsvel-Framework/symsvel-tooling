@@ -58,4 +58,10 @@ final class SetupGroupAccessTest extends TestCase
             @rmdir($root);
         }
     }
+    public function testRejectsInvalidGroupNameBeforeFilesystemChanges(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        (new SetupGroupAccess())->configure(sys_get_temp_dir(), '../unexpected');
+    }
+
 }
