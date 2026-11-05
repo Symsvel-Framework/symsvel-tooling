@@ -64,7 +64,7 @@ PHP
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(1, $tester->execute([]));
             self::assertSame(SetupState::RUNNING, $state->read($root));
-            self::assertSame(['doctrine:query:sql SELECT 1 --no-interaction'], file($root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
+            self::assertSame(['doctrine:database:create --if-not-exists --no-interaction'], file($root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
         } finally {
             @unlink($root.'/.symsvel/setup.json');
             @rmdir($root.'/.symsvel');
@@ -98,6 +98,7 @@ PHP
             self::assertSame(0, $tester->execute([]));
             self::assertSame(SetupState::COMPLETED, $state->read($root));
             self::assertSame([
+                'doctrine:database:create --if-not-exists --no-interaction',
                 'doctrine:query:sql SELECT 1 --no-interaction',
                 'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
                 'symsvel:admins:bootstrap --no-interaction',
@@ -130,7 +131,7 @@ PHP
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(1, $tester->execute([]));
             self::assertSame(SetupState::RUNNING, $state->read($root));
-            self::assertStringContainsString('Connexion BDD impossible', $tester->getDisplay());
+            self::assertStringContainsString('Création BDD impossible', $tester->getDisplay());
         } finally {
             @unlink($root.'/.symsvel/setup.json');
             @rmdir($root.'/.symsvel');
