@@ -11,7 +11,7 @@ use SymSvel\Tooling\Installation\SetupState;
 
 final class SymSvelSetupFinalizeCommandTest extends TestCase
 {
-    public function testSetupCanResumeAfterDatabaseBecomesAvailable(): void
+    public function testSetupCanRestartAfterDatabaseBecomesAvailable(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-retry-'.bin2hex(random_bytes(8));
         mkdir($root);
@@ -26,7 +26,9 @@ final class SymSvelSetupFinalizeCommandTest extends TestCase
             file_put_contents($root.'/.symsvel/pending-admin.json', '{"schema":1}');
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(1, $tester->execute([]));
-            self::assertSame(SetupState::RUNNING, $state->read($root));
+            self::assertSame(SetupState::PENDING, $state->read($root));
+            self::assertFileDoesNotExist($root.'/.symsvel/pending-admin.json');
+            file_put_contents($root.'/.symsvel/pending-admin.json', '{"schema":1}');
             file_put_contents($console, "<?php exit(0);\n");
             self::assertSame(0, $tester->execute([]));
             self::assertSame(SetupState::COMPLETED, $state->read($root));
@@ -63,7 +65,7 @@ PHP
             $state->initialize($root);
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(1, $tester->execute([]));
-            self::assertSame(SetupState::RUNNING, $state->read($root));
+            self::assertSame(SetupState::PENDING, $state->read($root));
             self::assertSame(['doctrine:database:create --if-not-exists --no-interaction'], file($root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
         } finally {
             @unlink($root.'/.symsvel/setup.json');
@@ -96,7 +98,7 @@ PHP
             $state->initialize($root);
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(1, $tester->execute([]));
-            self::assertSame(SetupState::RUNNING, $state->read($root));
+            self::assertSame(SetupState::PENDING, $state->read($root));
             self::assertSame(['doctrine:database:create --if-not-exists --no-interaction'], file($root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
             self::assertStringContainsString('Création BDD impossible', $tester->getDisplay());
         } finally {
@@ -151,7 +153,7 @@ PHP
         }
     }
 
-    public function testFailedDatabaseConnectionLeavesSetupRunning(): void
+    public function testFailedDatabaseConnectionResetsSetup(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-db-fail-'.bin2hex(random_bytes(8));
         mkdir($root);
@@ -164,7 +166,7 @@ PHP
             $state->initialize($root);
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(1, $tester->execute([]));
-            self::assertSame(SetupState::RUNNING, $state->read($root));
+            self::assertSame(SetupState::PENDING, $state->read($root));
             self::assertStringContainsString('Création BDD impossible', $tester->getDisplay());
         } finally {
             @unlink($root.'/.symsvel/setup.json');
@@ -177,7 +179,7 @@ PHP
         }
     }
 
-    public function testMigrationFailureLeavesSetupRunningForRetry(): void
+    public function testMigrationFailureResetsSetupForRetry(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-fail-'.bin2hex(random_bytes(8));
         mkdir($root);
@@ -190,7 +192,7 @@ PHP
             $state->initialize($root);
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(1, $tester->execute([]));
-            self::assertSame(SetupState::RUNNING, $state->read($root));
+            self::assertSame(SetupState::PENDING, $state->read($root));
             self::assertStringContainsString('migration failure', $tester->getDisplay());
         } finally {
             @unlink($root.'/.symsvel/setup.json');
@@ -233,7 +235,7 @@ PHP
         }
     }
 
-    public function testBootstrapFailurePreservesStagedCredentialsForRetry(): void
+    public function testBootstrapFailureDiscardsStagedCredentialsForFreshRetry(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-bootstrap-'.bin2hex(random_bytes(8));
         mkdir($root);
@@ -254,8 +256,9 @@ PHP
             file_put_contents($path, '{"schema":1}');
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(1, $tester->execute([]));
-            self::assertSame(SetupState::RUNNING, $state->read($root));
-            self::assertFileExists($path);
+            self::assertSame(SetupState::PENDING, $state->read($root));
+            self::assertFileDoesNotExist($path);
+            file_put_contents($path, '{"schema":1}');
             file_put_contents($console, "<?php exit(0);\n");
             self::assertSame(0, $tester->execute([]));
             self::assertSame(SetupState::COMPLETED, $state->read($root));

@@ -20,7 +20,11 @@ final class SetupState
         if (!file_exists($path)) {
             return null;
         }
-        $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        $contents = @file_get_contents($path);
+        if ($contents === false) {
+            throw new \RuntimeException('État setup illisible : vérifiez les permissions du répertoire .symsvel et de setup.json.');
+        }
+        $data = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($data) || ($data['schema'] ?? null) !== 1
             || !in_array($data['status'] ?? null, [self::PENDING, self::RUNNING, self::COMPLETED], true)) {
             throw new \RuntimeException('État setup invalide.');
@@ -58,6 +62,16 @@ final class SetupState
         $this->write($workspace, $next);
     }
 
+    /** A failed initial setup starts again from a blank wizard. */
+    public function reset(string $workspace): void
+    {
+        $status = $this->read($workspace);
+        if ($status === self::COMPLETED || $status === null) {
+            throw new \DomainException('Impossible de réinitialiser un setup terminé ou absent.');
+        }
+        $this->write($workspace, self::PENDING);
+    }
+
     private function write(string $workspace, string $status): void
     {
         $path = $this->path($workspace);
@@ -68,13 +82,16 @@ final class SetupState
         if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
             throw new \RuntimeException('Répertoire setup inaccessible.');
         }
-        $temporary = tempnam($directory, '.setup-');
+        if (!is_writable($directory)) {
+            throw new \RuntimeException('Répertoire .symsvel non accessible en écriture.');
+        }
+        $temporary = @tempnam($directory, '.setup-');
         if ($temporary === false) {
             throw new \RuntimeException('Écriture setup impossible.');
         }
         try {
             $json = json_encode(['schema' => 1, 'status' => $status], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n";
-            if (!chmod($temporary, 0600)
+            if (!chmod($temporary, 0644)
                 || file_put_contents($temporary, $json) === false
                 || !rename($temporary, $path)) {
                 throw new \RuntimeException('Publication setup impossible.');

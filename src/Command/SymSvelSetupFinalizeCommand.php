@@ -97,7 +97,7 @@ final class SymSvelSetupFinalizeCommand extends Command
             $bootstrap->setTimeout(60);
             $bootstrap->run();
             if (!$bootstrap->isSuccessful()) {
-                throw new \RuntimeException('Création du premier administrateur impossible. Données temporaires conservées pour une nouvelle tentative.');
+                throw new \RuntimeException('Création du premier administrateur impossible.');
             }
             $pendingAdmin = $workspace.'/.symsvel/pending-admin.json';
             if (is_link($pendingAdmin) || !is_file($pendingAdmin)) {
@@ -114,6 +114,22 @@ final class SymSvelSetupFinalizeCommand extends Command
             $io->success('Setup terminé : migrations des modules Composer appliquées.');
             return Command::SUCCESS;
         } catch (\Throwable $exception) {
+            // A failed setup discards the one-time administrator payload and
+            // returns to the initial form. Database operations remain idempotent.
+            if (basename($this->projectDir) === 'backend') {
+                $workspace = dirname($this->projectDir);
+                $pending = $workspace.'/.symsvel/pending-admin.json';
+                if (is_file($pending) && !is_link($pending)) {
+                    @unlink($pending);
+                }
+                try {
+                    if (in_array($this->state->read($workspace), [SetupState::PENDING, SetupState::RUNNING], true)) {
+                        $this->state->reset($workspace);
+                    }
+                } catch (\Throwable $cleanupError) {
+                    $io->warning('Nettoyage setup incomplet : '.$cleanupError->getMessage());
+                }
+            }
             $io->error($exception->getMessage());
             return Command::FAILURE;
         }
