@@ -113,7 +113,7 @@ PHP
         }
     }
 
-    public function testDatabaseCheckPrecedesMigrationExecution(): void
+    public function testDatabaseCreationPrecedesMigrationExecution(): void
     {
         $root = sys_get_temp_dir().'/symsvel-finalize-order-'.bin2hex(random_bytes(8));
         mkdir($root);
@@ -135,7 +135,6 @@ PHP
             self::assertSame(SetupState::COMPLETED, $state->read($root));
             self::assertSame([
                 'doctrine:database:create --if-not-exists --no-interaction',
-                'doctrine:query:sql SELECT 1 --no-interaction',
                 'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
                 'symsvel:admins:bootstrap --no-interaction',
             ], file($root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
