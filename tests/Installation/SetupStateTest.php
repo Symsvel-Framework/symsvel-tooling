@@ -30,6 +30,43 @@ final class SetupStateTest extends TestCase
         }
     }
 
+    public function testRejectsSymbolicSetupState(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-setup-link-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/.symsvel');
+        $target = $root.'/external.json';
+        file_put_contents($target, '{"schema":1,"status":"pending"}');
+        symlink($target, $root.'/.symsvel/setup.json');
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('symbolique interdit');
+            (new SetupState())->read($root);
+        } finally {
+            @unlink($root.'/.symsvel/setup.json');
+            @unlink($target);
+            @rmdir($root.'/.symsvel');
+            @rmdir($root);
+        }
+    }
+
+    public function testRejectsInvalidStatePayload(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-setup-invalid-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/.symsvel');
+        file_put_contents($root.'/.symsvel/setup.json', '{"schema":1,"status":"unknown"}');
+        try {
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('État setup invalide');
+            (new SetupState())->read($root);
+        } finally {
+            @unlink($root.'/.symsvel/setup.json');
+            @rmdir($root.'/.symsvel');
+            @rmdir($root);
+        }
+    }
+
     public function testCannotCompleteWithoutDatabaseConfiguration(): void
     {
         $root = sys_get_temp_dir().'/symsvel-setup-no-db-'.bin2hex(random_bytes(8));
