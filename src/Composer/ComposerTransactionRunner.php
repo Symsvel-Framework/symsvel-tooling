@@ -79,9 +79,18 @@ final class ComposerTransactionRunner
                     array_push($allowed, ...$packages);
                 }
             }
-            $package = explode(':', $arguments[1], 2)[0];
-            if (!in_array($package, $allowed, true)) {
-                throw new \RuntimeException('Bootstrap interdit pour un module non natif : '.$package);
+            $packages = array_slice($arguments, 1);
+            if ($packages === []) {
+                throw new \RuntimeException('Bootstrap sans module natif.');
+            }
+            foreach ($packages as $requested) {
+                if (!is_string($requested) || str_starts_with($requested, '-')) {
+                    throw new \RuntimeException('Bootstrap : seules les contraintes de modules natifs sont autorisées.');
+                }
+                $package = explode(':', $requested, 2)[0];
+                if (!in_array($package, $allowed, true)) {
+                    throw new \RuntimeException('Bootstrap interdit pour un module non natif : '.$package);
+                }
             }
         }
         if (!is_file($backend.'/composer.lock')) {
