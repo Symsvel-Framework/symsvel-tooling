@@ -57,4 +57,30 @@ final class SetupAccessPreflightTest extends TestCase
             @rmdir($root);
         }
     }
+    public function testRejectsSymbolicStagedAdministratorPayload(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-preflight-admin-'.bin2hex(random_bytes(8));
+        mkdir($root);
+        mkdir($root.'/.symsvel');
+        mkdir($root.'/backend');
+        file_put_contents($root.'/.symsvel/setup.json', '{"schema":1,"status":"pending"}');
+        file_put_contents($root.'/.symsvel/setup-token', 'secret');
+        file_put_contents($root.'/target', 'sensitive');
+        symlink($root.'/target', $root.'/.symsvel/pending-admin.json');
+        try {
+            self::assertContains(
+                'pending-admin.json existant invalide, symbolique ou illisible.',
+                (new SetupAccessPreflight())->check($root),
+            );
+        } finally {
+            @unlink($root.'/.symsvel/pending-admin.json');
+            @unlink($root.'/.symsvel/setup-token');
+            @unlink($root.'/.symsvel/setup.json');
+            @unlink($root.'/target');
+            @rmdir($root.'/.symsvel');
+            @rmdir($root.'/backend');
+            @rmdir($root);
+        }
+    }
+
 }
