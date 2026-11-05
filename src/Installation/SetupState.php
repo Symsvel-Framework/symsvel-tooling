@@ -20,7 +20,11 @@ final class SetupState
         if (!file_exists($path)) {
             return null;
         }
-        $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        $contents = @file_get_contents($path);
+        if ($contents === false) {
+            throw new \RuntimeException('État setup illisible : vérifiez les permissions du répertoire .symsvel et de setup.json.');
+        }
+        $data = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($data) || ($data['schema'] ?? null) !== 1
             || !in_array($data['status'] ?? null, [self::PENDING, self::RUNNING, self::COMPLETED], true)) {
             throw new \RuntimeException('État setup invalide.');
@@ -68,7 +72,10 @@ final class SetupState
         if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
             throw new \RuntimeException('Répertoire setup inaccessible.');
         }
-        $temporary = tempnam($directory, '.setup-');
+        if (!is_writable($directory)) {
+            throw new \RuntimeException('Répertoire .symsvel non accessible en écriture : configurez un utilisateur commun, un groupe partagé ou une ACL pour le processus PHP.');
+        }
+        $temporary = @tempnam($directory, '.setup-');
         if ($temporary === false) {
             throw new \RuntimeException('Écriture setup impossible.');
         }
