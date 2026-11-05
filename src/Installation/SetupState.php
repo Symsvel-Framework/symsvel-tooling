@@ -73,7 +73,7 @@ final class SetupState
             throw new \RuntimeException('Répertoire setup inaccessible.');
         }
         if (!is_writable($directory)) {
-            throw new \RuntimeException('Répertoire .symsvel non accessible en écriture : configurez un utilisateur commun, un groupe partagé ou une ACL pour le processus PHP.');
+            throw new \RuntimeException('Répertoire .symsvel non accessible en écriture.');
         }
         $temporary = @tempnam($directory, '.setup-');
         if ($temporary === false) {
