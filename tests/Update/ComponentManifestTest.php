@@ -50,6 +50,33 @@ final class ComponentManifestTest extends TestCase
         (new ComponentManifest($this->backend))->get('app');
     }
 
+    public function testRejectsTraversalAndNonPortableNativePathsOnRead(): void
+    {
+        foreach (['../outside.txt', 'src/../../outside.txt', '/absolute.txt', 'src//file.txt', 'src/./file.txt', 'src\\\\file.txt', "src\\0file.txt"] as $path) {
+            $this->writeManifest(['app' => ['revision' => 'revision', 'files' => [$path => hash('sha256', 'data')]]]);
+            try {
+                (new ComponentManifest($this->backend))->get('app');
+                self::fail('Unsafe path accepted: '.json_encode($path));
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('Empreinte native invalide', $error->getMessage());
+            }
+        }
+    }
+
+    public function testRejectsUnsafeNativePathsBeforeWritingManifest(): void
+    {
+        $manifest = new ComponentManifest($this->backend);
+        $manifest->set('app', 'original', ['README.md' => hash('sha256', 'original')]);
+        $before = file_get_contents($this->backend.'/.symsvel/components.json');
+
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            $manifest->set('app', 'unsafe', ['../outside.txt' => hash('sha256', 'unsafe')]);
+        } finally {
+            self::assertSame($before, file_get_contents($this->backend.'/.symsvel/components.json'));
+        }
+    }
+
     public function testRejectsMalformedManifestWithoutOverwritingIt(): void
     {
         mkdir($this->backend.'/.symsvel');
