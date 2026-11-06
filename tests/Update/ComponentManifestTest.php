@@ -52,7 +52,7 @@ final class ComponentManifestTest extends TestCase
 
     public function testRejectsTraversalAndNonPortableNativePathsOnRead(): void
     {
-        foreach (['../outside.txt', 'src/../../outside.txt', '/absolute.txt', 'src//file.txt', 'src/./file.txt', 'src\\\\file.txt', "src\\0file.txt"] as $path) {
+        foreach (['../outside.txt', 'src/../../outside.txt', '/absolute.txt', 'src//file.txt', 'src/./file.txt', 'src\\\\file.txt', "src".chr(0)."file.txt"] as $path) {
             $this->writeManifest(['app' => ['revision' => 'revision', 'files' => [$path => hash('sha256', 'data')]]]);
             try {
                 (new ComponentManifest($this->backend))->get('app');
