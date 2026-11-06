@@ -66,3 +66,7 @@ Avant toute récupération amont ou écriture de checkpoint, `ComponentUpdater` 
 ### Validation des chemins de provenance (06/11/2026)
 
 Le manifeste `backend/.symsvel/components.json` est une entrée persistante, pas une liste de chemins à considérer comme sûre par défaut. À la lecture **et** avant l'écriture, chaque empreinte doit avoir un chemin relatif au composant, sans segment `.` ou `..`, sans segment vide, sans séparateur Windows `\\` et sans octet NUL. Les empreintes restent des SHA-256 hexadécimaux. Un manifeste malformé est refusé avant le calcul du plan de mise à jour ou l'application des suppressions : aucune entrée ne doit pouvoir désigner un fichier extérieur à `bo/`, `app/` ou `front/`. Des tests de régression couvrent les chemins hostiles et la conservation du manifeste précédent en cas de refus d'écriture.
+
+### Répertoire du manifeste : frontière de confiance
+
+La vérification des chemins internes ne suffit pas si `backend/.symsvel` est lui-même redirigé. La lecture et l'écriture de `components.json` refusent donc un parent symbolique ou un fichier ordinaire. Cette vérification intervient avant de lire un manifeste existant, même lorsqu'aucune mise à jour n'a encore été appliquée. Les tests couvrent le refus en lecture et en écriture ainsi que la préservation du manifeste situé hors du backend.
