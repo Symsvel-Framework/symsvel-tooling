@@ -83,7 +83,11 @@ final class ComponentManifest
     /** @return array<string, mixed> */
     private function read(): array
     {
-        $file = $this->backend.'/.symsvel/components.json';
+        $directory = $this->backend.'/.symsvel';
+        if (is_link($directory) || (file_exists($directory) && !is_dir($directory))) {
+            throw new \RuntimeException('Répertoire manifeste non fiable.');
+        }
+        $file = $directory.'/components.json';
         if (is_link($file)) {
             throw new \RuntimeException('Manifeste symbolique refusé.');
         }
