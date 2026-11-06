@@ -110,7 +110,9 @@ final class ComponentManifestTest extends TestCase
     /** @param array<string, mixed> $data */
     private function writeManifest(array $data): void
     {
-        mkdir($this->backend.'/.symsvel');
+        if (!is_dir($this->backend.'/.symsvel')) {
+            mkdir($this->backend.'/.symsvel');
+        }
         file_put_contents(
             $this->backend.'/.symsvel/components.json',
             json_encode($data, JSON_THROW_ON_ERROR),
