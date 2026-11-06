@@ -70,3 +70,9 @@ Le manifeste `backend/.symsvel/components.json` est une entrée persistante, pas
 ### Répertoire du manifeste : frontière de confiance
 
 La vérification des chemins internes ne suffit pas si `backend/.symsvel` est lui-même redirigé. La lecture et l'écriture de `components.json` refusent donc un parent symbolique ou un fichier ordinaire. Cette vérification intervient avant de lire un manifeste existant, même lorsqu'aucune mise à jour n'a encore été appliquée. Les tests couvrent le refus en lecture et en écriture ainsi que la préservation du manifeste situé hors du backend.
+
+### Périmètre des snapshots de sources (06/11/2026)
+
+`WorkspaceFileSnapshot` accepte désormais une sélection explicite de composants (`backend`, `bo`, `app`, `front`) ; sans sélection, son comportement historique reste la sauvegarde du workspace entier. Les noms de composants non reconnus sont refusés. Le test de rollback ciblé vérifie que les fichiers des composants non sélectionnés ne sont ni restaurés ni supprimés.
+
+**Attention à la synchronisation des modules :** `SvelteModuleSynchronizer::sync()` peut modifier les trois interfaces **et** le registre `backend/.symsvel/svelte-files.json`, même lorsque la mise à jour native porte sur un seul composant. En conséquence, `ComponentUpdater` conserve pour le moment un snapshot de sources global. Réduire son périmètre au seul composant provoquerait un rollback incomplet. Le mode ciblé est une primitive disponible pour les transactions dont les effets sont effectivement bornés ; son emploi dans l'orchestrateur global nécessite d'abord d'identifier tous les scopes touchés et leurs registres.
