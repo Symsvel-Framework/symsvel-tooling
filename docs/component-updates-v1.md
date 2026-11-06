@@ -30,3 +30,8 @@ Pré-analyser tous les conflits avant mutation. En cas de conflit, refuser la mi
 Pour une installation historique sans manifeste, la CLI vérifie que `origin` pointe encore vers le dépôt officiel SymSvel, puis récupère en lecture seule l'ancêtre commun entre `HEAD` et la référence distante locale. Les fichiers natifs de cet ancêtre deviennent la référence de départ. Aucune branche ni aucun fichier Git du projet n'est modifié. Si la provenance est inconnue (par exemple dépôt Choralys déjà indépendant), la migration automatique est refusée : il faut initialiser une référence native fiable, sans assimiler arbitrairement les fichiers du projet à ceux du framework.
 
 > Statut : contrat de conception. L'implémentation et les tests de migration sont à réaliser dans cette PR avant tout merge.
+
+
+## Initialisation documentaire (décision du 06/11/2026)
+
+La création initiale du workspace prépare uniquement `dev-doc/docs`, `dev-doc/mkdocs.yml`, une page d'accueil minimale et `secrets/.env.example`. Elle **n'installe pas MkDocs**, ne crée pas d'environnement virtuel Python et ne lance aucun build documentaire. L'assemblage et la génération des documentations sont un chantier distinct (symsvel-back #29). Cette simplification n'affecte pas l'obligation de maintenir la documentation technique lors de toute modification du code.
