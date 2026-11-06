@@ -62,3 +62,7 @@ Réutiliser `ComponentUpdater::update()` tel quel depuis `WorkspaceUpdater` ne s
 ### Protection des checkpoints (lot de durcissement)
 
 Avant toute récupération amont ou écriture de checkpoint, `ComponentUpdater` refuse désormais un répertoire `.symsvel` ou `.symsvel/transactions` qui serait un lien symbolique ou un fichier. Cela évite qu'un chemin de transaction redirigé entraîne des écritures hors du backend. Le test de régression vérifie qu'un dossier extérieur et les fichiers locaux restent intacts. Cette protection ne remplace pas le futur chantier de transaction globale ciblée.
+
+### Validation des chemins de provenance (06/11/2026)
+
+Le manifeste `backend/.symsvel/components.json` est une entrée persistante, pas une liste de chemins à considérer comme sûre par défaut. À la lecture **et** avant l'écriture, chaque empreinte doit avoir un chemin relatif au composant, sans segment `.` ou `..`, sans segment vide, sans séparateur Windows `\\` et sans octet NUL. Les empreintes restent des SHA-256 hexadécimaux. Un manifeste malformé est refusé avant le calcul du plan de mise à jour ou l'application des suppressions : aucune entrée ne doit pouvoir désigner un fichier extérieur à `bo/`, `app/` ou `front/`. Des tests de régression couvrent les chemins hostiles et la conservation du manifeste précédent en cas de refus d'écriture.
