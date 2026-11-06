@@ -23,7 +23,7 @@ final class ComponentManifest
             throw new \RuntimeException('Manifeste composant invalide : '.$component);
         }
         foreach ($entry['files'] as $path => $hash) {
-            if (!is_string($path) || !is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash)) {
+            if (!is_string($path) || !$this->safeRelativePath($path) || !is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash)) {
                 throw new \RuntimeException('Empreinte native invalide : '.$component);
             }
         }
@@ -59,6 +59,20 @@ final class ComponentManifest
                 unlink($temp);
             }
         }
+    }
+
+    /** Native paths must remain inside the component, on every platform. */
+    private function safeRelativePath(string $path): bool
+    {
+        if ($path === '' || str_contains($path, "\\\\") || str_contains($path, "\\0") || str_starts_with($path, '/')) {
+            return false;
+        }
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** @return array<string, mixed> */
