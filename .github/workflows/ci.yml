@@ -55,4 +55,4 @@ jobs:
       - name: PHPUnit
         env:
           SYMSVEL_TEST_POSTGRES_URL: postgresql://symsvel_ci:symsvel_ci_only@127.0.0.1:5432/symsvel_rollback_ci
-        run: vendor/bin/phpunit --display-warnings
+        run: vendor/bin/phpunit --display-warnings --fail-on-warning
