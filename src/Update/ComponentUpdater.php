@@ -16,6 +16,7 @@ final class ComponentUpdater
         private readonly ComponentNativeSource $native = new ComponentNativeSource(),
         private readonly ComponentUpdatePreflight $preflight = new ComponentUpdatePreflight(),
         private readonly LegacyComponentBaseline $legacy = new LegacyComponentBaseline(),
+        private readonly ComponentNativeFileApplier $applier = new ComponentNativeFileApplier(),
     ) {
     }
 
@@ -104,33 +105,7 @@ final class ComponentUpdater
             throw $failure;
         }
         try {
-            foreach (['add', 'replace'] as $action) {
-                foreach ($plan[$action] as $path) {
-                    $source = $upstream.'/'.$path;
-                    $target = $directory.'/'.$path;
-                    $parent = dirname($target);
-                    if (!$this->safeParent($directory, $parent)) {
-                        throw new \RuntimeException('Chemin local non fiable : '.$path);
-                    }
-                    if (!is_dir($parent) && !mkdir($parent, 0775, true) && !is_dir($parent)) {
-                        throw new \RuntimeException('Création impossible : '.$path);
-                    }
-                    if (is_link($target) || is_dir($target) || !copy($source, $target)) {
-                        throw new \RuntimeException('Copie native impossible : '.$path);
-                    }
-                    chmod($target, fileperms($source) & 0777);
-                }
-            }
-            foreach ($plan['delete'] as $path) {
-                $target = $directory.'/'.$path;
-                if (!$this->safeParent($directory, dirname($target)) || is_link($target) || !is_file($target)
-                    || hash_file('sha256', $target) !== $baseline['files'][$path]) {
-                    throw new \RuntimeException('Fichier natif modifié ou chemin non fiable avant suppression : '.$path);
-                }
-                if (!unlink($target)) {
-                    throw new \RuntimeException('Suppression native impossible : '.$path);
-                }
-            }
+            $this->applier->apply($directory, $upstream, $plan, $baseline['files']);
             $this->run(['npm', 'ci'], $directory);
             $this->synchronizer->sync($backend);
             $this->run(['npm', 'run', 'build'], $directory);
@@ -168,17 +143,6 @@ final class ComponentUpdater
         $cleanup = new WorkspaceCleanupRegistry($backend);
         $cleanup->enqueue([$transaction]);
         $cleanup->cleanup();
-    }
-
-    private function safeParent(string $root, string $parent): bool
-    {
-        while ($parent !== $root) {
-            if (is_link($parent) || is_file($parent) || !str_starts_with($parent, $root.'/')) {
-                return false;
-            }
-            $parent = dirname($parent);
-        }
-        return true;
     }
 
     /** @param list<string> $command */
