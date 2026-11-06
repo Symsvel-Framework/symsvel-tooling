@@ -64,7 +64,7 @@ final class ComponentManifest
     /** Native paths must remain inside the component, on every platform. */
     private function safeRelativePath(string $path): bool
     {
-        if ($path === '' || str_contains($path, "\\\\") || str_contains($path, "\\0") || str_starts_with($path, '/')) {
+        if ($path === '' || str_contains($path, chr(92)) || str_contains($path, chr(0)) || str_starts_with($path, '/')) {
             return false;
         }
         foreach (explode('/', $path) as $segment) {
