@@ -56,6 +56,7 @@ final class ComponentUpdater
             $revision = $prepared['revision'];
             $incoming = $prepared['incoming'];
             $plan = $prepared['plan'];
+            $baselineFiles = $prepared['baseline'];
         } catch (\Throwable $failure) {
             // Preflight has not modified the workspace. Discard only its checkpoint.
             // Keep the original failure if cleanup succeeds; report both otherwise.
@@ -101,7 +102,7 @@ final class ComponentUpdater
             throw $failure;
         }
         try {
-            $this->applier->apply($directory, $upstream, $plan, $baseline['files']);
+            $this->applier->apply($directory, $upstream, $plan, $baselineFiles);
             $this->run(['npm', 'ci'], $directory);
             $this->synchronizer->sync($backend);
             $this->run(['npm', 'run', 'build'], $directory);
