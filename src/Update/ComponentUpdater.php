@@ -147,6 +147,22 @@ final class ComponentUpdater
             if ($errors !== []) {
                 throw new \RuntimeException('Rollback incomplet : '.implode(' ; ', $errors).'; snapshot : '.$transaction, 0, $failure);
             }
+            // A complete rollback no longer needs its checkpoint. An incomplete
+            // rollback retains it above for manual recovery.
+            try {
+                $cleanup = new WorkspaceCleanupRegistry($backend);
+                $cleanup->enqueue([$transaction]);
+                $result = $cleanup->cleanup();
+                if ($result['remaining'] > 0) {
+                    throw new \RuntimeException(implode(' ; ', $result['errors']));
+                }
+            } catch (\Throwable $cleanupFailure) {
+                throw new \RuntimeException(
+                    'Rollback restauré mais nettoyage du checkpoint impossible : '.$cleanupFailure->getMessage().'; snapshot : '.$transaction,
+                    0,
+                    $failure,
+                );
+            }
             throw new \RuntimeException('Mise à jour annulée, état précédent restauré : '.$failure->getMessage(), 0, $failure);
         }
         $cleanup = new WorkspaceCleanupRegistry($backend);
