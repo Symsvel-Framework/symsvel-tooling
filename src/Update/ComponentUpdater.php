@@ -38,7 +38,14 @@ final class ComponentUpdater
             $baseline = $this->legacy->recover($directory, $component);
         }
 
-        $transaction = $backend.'/.symsvel/transactions/update-'.bin2hex(random_bytes(12));
+        $transactionRoot = $backend.'/.symsvel/transactions';
+        // A checkpoint must never escape the backend through a redirected parent.
+        foreach ([$backend.'/.symsvel', $transactionRoot] as $parent) {
+            if (is_link($parent) || (file_exists($parent) && !is_dir($parent))) {
+                throw new \RuntimeException('Répertoire de transactions non fiable : '.$parent);
+            }
+        }
+        $transaction = $transactionRoot.'/update-'.bin2hex(random_bytes(12));
         if (!is_dir(dirname($transaction)) && !mkdir(dirname($transaction), 0700, true) && !is_dir(dirname($transaction))) {
             throw new \RuntimeException('Répertoire de transactions indisponible.');
         }
