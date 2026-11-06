@@ -34,11 +34,6 @@ final class ComponentUpdater
             throw new \RuntimeException('Composant absent ou symbolique : '.$component);
         }
         $manifest = new ComponentManifest($backend);
-        // Keep provenance validation before creating a checkpoint.
-        $baseline = $manifest->get($component);
-        if ($baseline === null) {
-            $baseline = $this->legacy->recover($directory, $component);
-        }
 
         $transactionRoot = $backend.'/.symsvel/transactions';
         // A checkpoint must never escape the backend through a redirected parent.
