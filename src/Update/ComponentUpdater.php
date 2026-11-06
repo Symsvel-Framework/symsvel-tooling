@@ -122,7 +122,12 @@ final class ComponentUpdater
                 }
             }
             foreach ($plan['delete'] as $path) {
-                if (!unlink($directory.'/'.$path)) {
+                $target = $directory.'/'.$path;
+                if (!$this->safeParent($directory, dirname($target)) || is_link($target) || !is_file($target)
+                    || hash_file('sha256', $target) !== $baseline['files'][$path]) {
+                    throw new \RuntimeException('Fichier natif modifié ou chemin non fiable avant suppression : '.$path);
+                }
+                if (!unlink($target)) {
                     throw new \RuntimeException('Suppression native impossible : '.$path);
                 }
             }
