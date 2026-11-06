@@ -100,7 +100,7 @@ final class SymSvelInstallCommand extends Command
         }
 
         $io->success('Interfaces installées : '.implode(', ', $components));
-        $io->note('Builds SvelteKit et MkDocs terminés. Documentation dans dev-doc/site/.');
+        $io->note('Sources et documentation minimale préparées. Les builds SvelteKit et MkDocs sont différés.');
         return Command::SUCCESS;
     }
 }
