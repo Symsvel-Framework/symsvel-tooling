@@ -79,7 +79,7 @@ final class ComponentUpdater
             throw $failure;
         }
 
-        $sources = new WorkspaceFileSnapshot($backend, $transaction, [$component]);
+        $sources = new WorkspaceFileSnapshot($backend, $transaction);
         $runtime = new RuntimeArtifactSnapshot($directory, $transaction);
         try {
             $sources->capture();
