@@ -35,3 +35,26 @@ Pour une installation historique sans manifeste, la CLI vérifie que `origin` po
 ## Initialisation documentaire (décision du 06/11/2026)
 
 La création initiale du workspace prépare uniquement `dev-doc/docs`, `dev-doc/mkdocs.yml`, une page d'accueil minimale et `secrets/.env.example`. Elle **n'installe pas MkDocs**, ne crée pas d'environnement virtuel Python et ne lance aucun build documentaire. L'assemblage et la génération des documentations sont un chantier distinct (symsvel-back #29). Cette simplification n'affecte pas l'obligation de maintenir la documentation technique lors de toute modification du code.
+
+## Guide mainteneur : mutualisation et frontières transactionnelles
+
+**Principe SymSvel : une responsabilité, une implémentation de référence.** Lorsqu'une opération est utilisée par plusieurs parcours (CLI, commande Symfony, installation, mise à jour), ceux-ci doivent appeler le même service ou une méthode commune, plutôt que maintenir deux variantes presque identiques. Avant toute extraction, rechercher les services et tests existants ; éviter les abstractions créées pour des besoins hypothétiques.
+
+### Responsabilités existantes à conserver
+
+- `ComponentUpdater` : mise à jour native d'un composant Svelte ; utilise `ComponentNativeSource` pour lire la source officielle hors du Git applicatif, `ComponentUpdatePreflight` pour analyser les conflits et `ComponentManifest` pour suivre la provenance. Il possède aujourd'hui sa propre transaction et son rollback.
+- `SymSvelComponentUpdateCommand` : point d'entrée qui délègue à `ComponentUpdater` (ou à l'installateur si le composant est absent).
+- `WorkspaceUpdater` : orchestration de la mise à jour globale, avec Composer, sauvegardes des fichiers et artefacts, sauvegarde BDD et restauration en cas d'échec. **Son ancien parcours Git pour les interfaces est encore à remplacer** ; il ne doit pas devenir un second moteur de mise à jour native.
+
+### Point de vigilance : transactions imbriquées
+
+Réutiliser `ComponentUpdater::update()` tel quel depuis `WorkspaceUpdater` ne suffit pas à garantir l'atomicité de la mise à jour globale : un composant peut avoir validé son manifeste et nettoyé son checkpoint avant qu'un autre composant ou une étape globale échoue. Inversement, restaurer uniquement les fichiers ne restaure pas nécessairement le manifeste de provenance. La future orchestration devra donc définir explicitement **qui possède le commit, le rollback et le nettoyage des checkpoints**, sans dupliquer l'algorithme de comparaison ou d'application native.
+
+### Critères de revue avant validation du chantier #60
+
+1. Les mises à jour unitaires et globales réutilisent la même implémentation native ; aucune commande ne fait de `git merge`, `git checkout` ou `git reset` dans le dépôt applicatif.
+2. Les modifications locales restent intactes et les conflits sont détectés avant mutation.
+3. En cas d'échec global, fichiers, manifestes, dépendances et autres états concernés sont restaurés de manière cohérente ; les sauvegardes sont conservées si le rollback est incomplet.
+4. Les tests couvrent les parcours unitaires et globaux, les conflits, les échecs intermédiaires et la récupération ; la CI est verte et les crash-tests sont effectués lorsque le nouveau processus d'installation est prêt.
+
+> Cette section décrit les responsabilités vérifiées et le contrat de refonte, **pas une intégration déjà achevée**. La PR #62 reste en draft tant que ces critères ne sont pas satisfaits.
