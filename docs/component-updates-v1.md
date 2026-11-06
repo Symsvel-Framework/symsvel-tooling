@@ -104,3 +104,7 @@ Le workflow `.github/workflows/ci.yml` utilise PostgreSQL 17 en service et insta
 ### Non-régression de la préparation partagée (06/11/2026)
 
 `tests/Update/ComponentNativePreparationTest.php` vérifie, avec un dépôt Git amont temporaire local, que la préparation renvoie la révision et un plan sans modifier les fichiers projet ni `.symsvel/components.json`. Il vérifie aussi qu'une modification concurrente d'un fichier natif est refusée avant application. Ces tests ne remplacent pas les scénarios de rollback transactionnel global de `WorkspaceUpdater`, qui restent nécessaires avant clôture de la PR.
+
+### Correction des avertissements CI (06/11/2026)
+
+L'inspection des journaux PHPUnit (260 tests, 4 avertissements) a identifié une régression : après mutualisation de la préparation native, `ComponentUpdater` utilisait encore la variable supprimée `$baseline` au moment d'appliquer les fichiers. Le correctif transmet explicitement `prepared['baseline']` à l'appliqueur. Le test de commande supprime désormais toute son arborescence temporaire, y compris les checkpoints `.symsvel` produits par le préflight, afin d'éviter les avertissements `rmdir(): Directory not empty`. Les avertissements externes liés à `actions/checkout@v4` (Node 20) et à `initdb` sont distincts. Validation CI requise avant de considérer cette correction terminée.
