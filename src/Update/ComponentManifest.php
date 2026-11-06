@@ -36,6 +36,11 @@ final class ComponentManifest
         if (!in_array($component, ['bo', 'app', 'front'], true)) {
             throw new \InvalidArgumentException('Composant inconnu.');
         }
+        foreach ($files as $path => $hash) {
+            if (!is_string($path) || !$this->safeRelativePath($path) || !is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash)) {
+                throw new \InvalidArgumentException('Empreinte native invalide : '.$component);
+            }
+        }
         $all = $this->read();
         $all[$component] = ['revision' => $revision, 'files' => $files];
         $directory = $this->backend.'/.symsvel';
