@@ -80,3 +80,7 @@ La vérification des chemins internes ne suffit pas si `backend/.symsvel` est lu
 ### Vérification avant suppression native (06/11/2026)
 
 Le plan de comparaison est établi avant mutation, mais un fichier local peut changer entre le préflight et l'application. Juste avant chaque suppression native, `ComponentUpdater` vérifie de nouveau que le parent est dans le composant sans lien symbolique, que la cible est un fichier ordinaire non symbolique et que son SHA-256 correspond à l'empreinte native de référence. Si l'une de ces conditions échoue, la transaction est annulée et le rollback est déclenché, plutôt que supprimer un fichier local modifié entre-temps.
+
+### Régression de rollback après suppression (06/11/2026)
+
+Un test d'intégration utilise un dépôt Git amont temporaire pour publier la suppression d'un fichier natif. L'installation npm échoue volontairement après l'application du plan. Le test exige alors le rétablissement exact du fichier supprimé, de la référence de provenance et du HEAD Git applicatif, ainsi que le nettoyage du checkpoint. Ce scénario complète les contrôles de suppression juste avant `unlink` ; il ne vaut pas validation du rollback multi-composants, encore à intégrer dans `WorkspaceUpdater`.
