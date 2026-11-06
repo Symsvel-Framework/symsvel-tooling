@@ -84,3 +84,7 @@ Le plan de comparaison est établi avant mutation, mais un fichier local peut ch
 ### Régression de rollback après suppression (06/11/2026)
 
 Un test d'intégration utilise un dépôt Git amont temporaire pour publier la suppression d'un fichier natif. L'installation npm échoue volontairement après l'application du plan. Le test exige alors le rétablissement exact du fichier supprimé, de la référence de provenance et du HEAD Git applicatif, ainsi que le nettoyage du checkpoint. Ce scénario complète les contrôles de suppression juste avant `unlink` ; il ne vaut pas validation du rollback multi-composants, encore à intégrer dans `WorkspaceUpdater`.
+
+### Nettoyage après rollback natif (06/11/2026)
+
+En cas d'échec de `npm ci`, de synchronisation ou de build après application de fichiers natifs, `ComponentUpdater` restaure d'abord les sources et les artefacts runtime. Si toutes les restaurations réussissent, le checkpoint `.symsvel/transactions/update-*` est enregistré puis supprimé par `WorkspaceCleanupRegistry` avant de signaler l'échec initial. Si une restauration échoue, **le checkpoint est conservé** pour récupération manuelle. Si seule sa suppression échoue après restauration complète, l'erreur signale explicitement son chemin. Le test `testUpstreamDeletionRestoresNativeFileWhenNpmFails` vérifie la restauration du fichier supprimé, du manifeste et l'absence de checkpoint résiduel.
