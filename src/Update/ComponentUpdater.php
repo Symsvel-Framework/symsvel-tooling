@@ -34,6 +34,7 @@ final class ComponentUpdater
             throw new \RuntimeException('Composant absent ou symbolique : '.$component);
         }
         $manifest = new ComponentManifest($backend);
+        // Keep provenance validation before creating a checkpoint.
         $baseline = $manifest->get($component);
         if ($baseline === null) {
             $baseline = $this->legacy->recover($directory, $component);
@@ -55,11 +56,11 @@ final class ComponentUpdater
         }
         try {
             $upstream = $transaction.'/upstream';
-            $revision = $this->native->fetch($component, $upstream);
-            $incoming = $this->native->files($upstream);
-            $local = $this->native->files($directory);
-            $plan = $this->preflight->inspect($baseline['files'], $incoming, $local);
-            $this->preflight->assertSafe($plan);
+            $prepared = (new ComponentNativePreparation($this->native, $this->preflight, $this->legacy))
+                ->prepare($backend, $component, $upstream);
+            $revision = $prepared['revision'];
+            $incoming = $prepared['incoming'];
+            $plan = $prepared['plan'];
         } catch (\Throwable $failure) {
             // Preflight has not modified the workspace. Discard only its checkpoint.
             // Keep the original failure if cleanup succeeds; report both otherwise.
