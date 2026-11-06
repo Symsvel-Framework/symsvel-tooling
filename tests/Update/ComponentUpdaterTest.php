@@ -170,6 +170,36 @@ final class ComponentUpdaterTest extends TestCase
         self::assertFileDoesNotExist($this->component.'/src/routes/ct-remote/+page.svelte');
     }
 
+    public function testUpstreamDeletionRestoresNativeFileWhenNpmFails(): void
+    {
+        $this->seed([
+            'README.md' => 'native baseline',
+            'package.json' => '{"name":"symsvel-test","version":"1.0.0","scripts":{"build":"echo ok"}}',
+        ]);
+        $manifestPath = $this->workspace.'/backend/.symsvel/components.json';
+        $manifestBefore = file_get_contents($manifestPath);
+        $headBefore = $this->gitHead($this->component);
+
+        $publisher = $this->workspace.'/publisher';
+        $this->git(['clone', $this->remote, $publisher], $this->workspace);
+        $this->git(['config', 'user.email', 'ci@example.test'], $publisher);
+        $this->git(['config', 'user.name', 'CI'], $publisher);
+        $this->git(['rm', 'README.md'], $publisher);
+        $this->git(['commit', '-m', 'remove native readme'], $publisher);
+        $this->git(['push', 'origin', 'HEAD'], $publisher);
+
+        try {
+            $this->updater()->update($this->workspace.'/backend', 'app');
+            self::fail('npm ci must fail without package-lock.json.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('état précédent restauré', $error->getMessage());
+        }
+        self::assertSame('native baseline', file_get_contents($this->component.'/README.md'));
+        self::assertSame($headBefore, $this->gitHead($this->component));
+        self::assertSame($manifestBefore, file_get_contents($manifestPath));
+        $this->assertNoPendingTransactions();
+    }
+
     public function testRemoteCollisionWithGeneratedFileLeavesWorkspaceIntact(): void
     {
         $this->seed(['README.md' => 'original']);
