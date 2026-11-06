@@ -58,3 +58,7 @@ Réutiliser `ComponentUpdater::update()` tel quel depuis `WorkspaceUpdater` ne s
 4. Les tests couvrent les parcours unitaires et globaux, les conflits, les échecs intermédiaires et la récupération ; la CI est verte et les crash-tests sont effectués lorsque le nouveau processus d'installation est prêt.
 
 > Cette section décrit les responsabilités vérifiées et le contrat de refonte, **pas une intégration déjà achevée**. La PR #62 reste en draft tant que ces critères ne sont pas satisfaits.
+
+### Protection des checkpoints (lot de durcissement)
+
+Avant toute récupération amont ou écriture de checkpoint, `ComponentUpdater` refuse désormais un répertoire `.symsvel` ou `.symsvel/transactions` qui serait un lien symbolique ou un fichier. Cela évite qu'un chemin de transaction redirigé entraîne des écritures hors du backend. Le test de régression vérifie qu'un dossier extérieur et les fichiers locaux restent intacts. Cette protection ne remplace pas le futur chantier de transaction globale ciblée.
