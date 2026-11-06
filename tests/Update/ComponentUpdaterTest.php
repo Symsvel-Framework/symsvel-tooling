@@ -42,6 +42,28 @@ final class ComponentUpdaterTest extends TestCase
         }
     }
 
+    public function testRejectsSymbolicTransactionDirectoryBeforeFetchingUpstream(): void
+    {
+        mkdir($this->component);
+        file_put_contents($this->component.'/README.md', 'local');
+        mkdir($this->workspace.'/backend/.symsvel', 0775, true);
+        $outside = $this->workspace.'/outside-transactions';
+        mkdir($outside);
+        file_put_contents($outside.'/sentinel.txt', 'untouched');
+        symlink($outside, $this->workspace.'/backend/.symsvel/transactions');
+        (new ComponentManifest($this->workspace.'/backend'))->set('app', 'baseline', ['README.md' => hash('sha256', 'local')]);
+
+        try {
+            $this->updater()->update($this->workspace.'/backend', 'app');
+            self::fail('A redirected transaction directory must be rejected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Répertoire de transactions non fiable', $error->getMessage());
+        }
+        self::assertSame('local', file_get_contents($this->component.'/README.md'));
+        self::assertSame('untouched', file_get_contents($outside.'/sentinel.txt'));
+        self::assertSame(['sentinel.txt'], array_values(array_diff(scandir($outside) ?: [], ['.', '..'])));
+    }
+
     public function testMissingBaselineRefusesWithoutChangingProject(): void
     {
         mkdir($this->component);
