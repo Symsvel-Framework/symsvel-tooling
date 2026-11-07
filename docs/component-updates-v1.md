@@ -203,3 +203,7 @@ Les tests d'échec de build FRONT, de restauration des artefacts npm/build, de r
 ### Politique de provenance persistante (07/11/2026)
 
 Le projet conserve son canal dans `backend/.symsvel/project.json` : `{"schema":1,"channel":"stable"}` par défaut ou `{"schema":1,"channel":"dev"}` lors de `create-project --dev` (mainteneurs et crash-tests uniquement). Le canal est indépendant de `APP_ENV` et ne change pas implicitement. La classe `ProjectChannel` assure la lecture stricte et l'écriture initiale sans écrasement ; les tests couvrent les configurations manquantes, invalides et symboliques. **Intégration encore à réaliser** : écriture depuis CLI create-project, lecture par tous les parcours require/update et résolution stable par tags/releases pour les sources Svelte. Ne pas merger avant le raccordement complet et les tests de bout en bout. Aucun mécanisme de migration d'anciens projets ni de changement de canal n'est prévu.
+
+#### Résolution des sources Svelte
+
+La préparation native lit désormais `ProjectChannel` depuis le backend. Pour `dev`, le clone de référence cible explicitement `main` ; pour `stable`, le résolveur choisit le tag SemVer stable le plus récent (`vMAJOR.MINOR.PATCH` ou `MAJOR.MINOR.PATCH`) depuis le dépôt officiel. Les tests d'intégration créent un canal `dev` et des upstream Git locaux. La configuration initiale depuis CLI et le parcours Composer restent à raccorder avant merge ; la CI doit valider les changements.
