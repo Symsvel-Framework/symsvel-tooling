@@ -55,3 +55,7 @@ Les tests de bootstrap des modules créent explicitement un canal `stable` lorsq
 ### Intégration VCS Git locale (07/11/2026)
 
 Un test d'intégration supplémentaire initialise un vrai dépôt Git local avec un package `symsvel-framework/module-demo` sur `main`. Le lanceur transactionnel déclare le dépôt officiel puis l'injection de commande substitue uniquement l'URL par la fixture locale pour éviter le réseau. Composer effectue un vrai `require` en `dev-main`, suivi d'un échec injecté ; le test vérifie la restauration byte-à-byte de `composer.json` et `composer.lock` et l'absence du module dans `vendor`. Ce test ne prouve pas encore l'accès au dépôt GitHub réel. CI et crash-tests XT à confirmer.
+
+### Dépôts VCS déjà déclarés
+
+Deux tests unitaires supplémentaires contrôlent la réutilisation sans mutation d'un dépôt officiel identique et le rejet d'un dépôt de même clé pointant vers une autre URL, avant tout `composer require`. Le rejet préserve le manifeste original. La CI doit confirmer ces scénarios.
