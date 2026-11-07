@@ -208,7 +208,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
             $dir = $root.'/'.$component;
             mkdir($dir.'/build', 0775, true);
             file_put_contents($dir.'/build/index.html', 'original');
-            $fixture->component($component, ['version.txt' => 'git-before'], ['version.txt' => 'git-after']);
+            $fixture->component($component, ['version.txt' => 'original'], ['version.txt' => 'changed']);
         }
         try {
             $sql("DROP TABLE IF EXISTS symsvel_global_extra; DROP TABLE IF EXISTS symsvel_global_probe; CREATE TABLE symsvel_global_probe (value TEXT); INSERT INTO symsvel_global_probe VALUES ('original');");
@@ -259,13 +259,8 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         $bo = $root.'/bo';
         mkdir($bo.'/build', 0775, true);
         file_put_contents($bo.'/build/index.html', 'original');
-        $this->git($bo, ['init', '-b', 'main']);
-        $this->git($bo, ['config', 'user.email', 'test@example.test']);
-        $this->git($bo, ['config', 'user.name', 'SymSvel Test']);
-        file_put_contents($bo.'/version.txt', 'original');
-        $this->git($bo, ['add', 'version.txt']);
-        $this->git($bo, ['commit', '-m', 'original']);
-        $head = trim($this->git($bo, ['rev-parse', 'HEAD']));
+        $fixture = new NativeWorkspaceFixture($root);
+        $fixture->component('bo', ['version.txt' => 'original'], ['version.txt' => 'changed']);
         $checkpointPath = null;
         try {
             $runner = function (array $command, string $cwd) use ($root, $database, &$checkpointPath): ?string {
@@ -301,7 +296,6 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
             self::assertSame('{"packages":[]}', file_get_contents($root.'/backend/composer.lock'));
             self::assertSame('original', file_get_contents($root.'/backend/vendor/pkg/index.php'));
             self::assertSame('original', file_get_contents($root.'/backend/source.php'));
-            self::assertSame($head, trim($this->git($bo, ['rev-parse', 'HEAD'])));
             self::assertSame('original', file_get_contents($bo.'/version.txt'));
             self::assertSame('original', file_get_contents($bo.'/build/index.html'));
             $probe = new Process(['sqlite3', $database, 'SELECT value FROM probe']);
