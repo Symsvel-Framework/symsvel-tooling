@@ -68,3 +68,7 @@ Deux tests unitaires supplémentaires contrôlent la réutilisation sans mutatio
 - Dépôts existants : réutilisation de la définition officielle, refus des conflits sans écrasement.
 
 Les tests locaux Git substituent l'URL officielle par un dépôt temporaire uniquement dans l'exécuteur de test. Ils ne valident ni l'accès réseau GitHub, ni Satis, ni le parcours complet CLI/Setup Wizard. Ces points constituent les crash-tests XT à exécuter après confirmation de la CI.
+
+### Fixture Git de réussite
+
+La fixture de résolution Composer réussie inclut un manifeste `module.json` conforme au contrat SymSvel v1 et les répertoires `back/` et `docs/dev/`. Un simple `composer.json` suffit à la résolution Composer mais pas à la synchronisation des modules SymSvel après installation. La CI doit valider cette correction.
