@@ -132,3 +132,7 @@ Entre le préflight trois voies et l'application, un fichier local peut être cr
 ### Indépendance du Git projet (07/11/2026)
 
 Un test de `WorkspaceNativeApply` vérifie qu'une mise à jour d'un fichier natif ne modifie ni `.git/HEAD` (branche locale du projet) ni un fichier personnalisé non géré. Cette garantie concerne la phase d'application native uniquement : tant que `WorkspaceUpdater` appelle encore `git fetch`, `git merge` ou `git checkout`, le parcours global n'est **pas** indépendant du Git projet. Cette distinction est obligatoire dans les validations et les communications du chantier #60.
+
+### Validation des chemins dans les plans globaux (07/11/2026)
+
+Avant toute écriture, `WorkspaceNativeApply` rejette les chemins absolus, les segments `.` ou `..`, les segments vides et les séparateurs inverses dans les opérations `add`, `replace` et `delete`. Le contrôle s'applique à l'ensemble des composants : un chemin invalide dans App bloque l'application préalable des fichiers BO. Un test vérifie le rejet et l'absence de mutation des sources et du manifeste. Cette validation complète les contrôles de chemins et de symlinks de l'appliqueur unitaire.
