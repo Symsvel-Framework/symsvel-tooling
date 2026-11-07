@@ -191,3 +191,7 @@ Le scénario `testBuildFailureIdentifiesComponentAndStage` utilise maintenant `N
 ### Migration des scénarios WorkspaceUpdaterTest (07/11/2026)
 
 Les scénarios de succès BO, de refus de contrainte Composer instable en mode dev, de conflit natif bloquant avant Composer et de conservation d'un fichier local non suivi utilisent désormais le contrat natif. Les assertions sur `git status`, `git merge` et `git checkout` ont été remplacées par des contrôles des commandes Composer/npm et du contenu réel des fichiers. Le scénario d'échec de build BO était déjà migré. **Les cinq scénarios historiques de `WorkspaceUpdaterGitRollbackTest` restent à migrer et la CI n'est pas encore confirmée**.
+
+### Migration des cinq derniers scénarios de rollback (07/11/2026)
+
+Les tests d'échec de build FRONT, de restauration des artefacts npm/build, de rollback complet SQLite, de rollback PostgreSQL et de sauvegarde BDD corrompue ont été raccordés aux fixtures natives et à `WorkspaceNativePreparation` injectée. Les assertions de restauration Git projet et les simulations `git merge` ont été retirées de ces scénarios, au profit des vérifications de fichiers natifs, de snapshots et de BDD. Le scénario autrefois intitulé « échec de récupération Git FRONT » vérifie maintenant la restauration des artefacts runtime FRONT, puisque le mécanisme Git de restauration n'existe plus. **Résultat CI à vérifier avant validation ; les cas de défaillance de restauration native devront encore faire l'objet de tests spécifiques si absents.**
