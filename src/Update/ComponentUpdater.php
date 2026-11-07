@@ -52,7 +52,7 @@ final class ComponentUpdater
         try {
             $upstream = $transaction.'/upstream';
             $prepared = (new ComponentNativePreparation($this->native, $this->preflight, $this->legacy))
-                ->prepare($backend, $component, $upstream);
+                ->prepare($backend, $component, $upstream, ProjectChannel::read($backend));
             $revision = $prepared['revision'];
             $incoming = $prepared['incoming'];
             $plan = $prepared['plan'];
