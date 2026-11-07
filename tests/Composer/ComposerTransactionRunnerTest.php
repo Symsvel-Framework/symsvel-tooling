@@ -121,6 +121,7 @@ final class ComposerTransactionRunnerTest extends TestCase
 
     public function testBootstrapAllowsUsersOnlyWhenAppIsInstalled(): void
     {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'stable');
         $workspace = dirname($this->backend);
         (new \SymSvel\Tooling\Installation\SetupState())->initialize($workspace);
         mkdir($this->backend.'/config');
