@@ -65,6 +65,29 @@ final class WorkspaceNativeApplyTest extends TestCase
         }
     }
 
+    public function testTraversalInLastComponentIsRejectedBeforeFirstWrite(): void
+    {
+        file_put_contents($this->root.'/bo/native.txt', 'old');
+        file_put_contents($this->root.'/upstream-bo/native.txt', 'new');
+        $prepared = [
+            'bo' => $this->entry('bo', [
+                'add' => [], 'replace' => ['native.txt'], 'delete' => [], 'conflicts' => [],
+            ], ['native.txt' => hash('sha256', 'old')], ['native.txt' => hash('sha256', 'new')]),
+            'app' => $this->entry('app', [
+                'add' => ['../outside.txt'], 'replace' => [], 'delete' => [], 'conflicts' => [],
+            ], [], ['../outside.txt' => hash('sha256', 'unsafe')]),
+        ];
+
+        try {
+            (new WorkspaceNativeApply())->apply($this->root.'/backend', $prepared);
+            self::fail('Traversal must be rejected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Chemin natif invalide', $error->getMessage());
+        }
+        self::assertSame('old', file_get_contents($this->root.'/bo/native.txt'));
+        self::assertNull((new ComponentManifest($this->root.'/backend'))->get('bo'));
+    }
+
     public function testNativeUpdatePreservesProjectGitMetadataAndUnmanagedChanges(): void
     {
         mkdir($this->root.'/bo/.git');
