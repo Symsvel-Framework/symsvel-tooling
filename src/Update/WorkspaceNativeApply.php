@@ -37,6 +37,11 @@ final class WorkspaceNativeApply
             }
             foreach (['add', 'replace', 'delete'] as $action) {
                 foreach ($entry['plan'][$action] as $path) {
+                    if ($path === '' || str_starts_with($path, '/') || str_contains($path, '\\')
+                        || in_array('.', explode('/', $path), true) || in_array('..', explode('/', $path), true)
+                        || in_array('', explode('/', $path), true)) {
+                        throw new \RuntimeException('Chemin natif invalide : '.$component.'/'.$path);
+                    }
                     $target = $directory.'/'.$path;
                     $parent = dirname($target);
                     while ($parent !== $directory) {
