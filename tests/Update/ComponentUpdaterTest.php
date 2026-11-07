@@ -48,7 +48,6 @@ final class ComponentUpdaterTest extends TestCase
     {
         mkdir($this->component);
         file_put_contents($this->component.'/README.md', 'local');
-        mkdir($this->workspace.'/backend/.symsvel', 0775, true);
         $outside = $this->workspace.'/outside-transactions';
         mkdir($outside);
         file_put_contents($outside.'/sentinel.txt', 'untouched');
@@ -232,7 +231,7 @@ final class ComponentUpdaterTest extends TestCase
     private function seed(array $files): void
     {
         mkdir($this->component);
-        $this->git(['init'], $this->component);
+        $this->git(['init', '-b', 'main'], $this->component);
         $this->git(['config', 'user.email', 'ci@example.test'], $this->component);
         $this->git(['config', 'user.name', 'CI'], $this->component);
         foreach ($files as $path => $content) {
@@ -240,7 +239,7 @@ final class ComponentUpdaterTest extends TestCase
         }
         $this->git(['add', '.'], $this->component);
         $this->git(['commit', '-m', 'baseline'], $this->component);
-        $this->git(['init', '--bare', $this->remote], $this->workspace);
+        $this->git(['init', '--bare', '-b', 'main', $this->remote], $this->workspace);
         $this->git(['remote', 'add', 'origin', $this->remote], $this->component);
         $this->git(['push', '-u', 'origin', 'HEAD'], $this->component);
         (new ComponentManifest($this->workspace.'/backend'))->set('app', $this->gitHead($this->component), $this->native->files($this->component));
