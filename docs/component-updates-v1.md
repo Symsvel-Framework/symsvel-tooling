@@ -183,3 +183,7 @@ Le parcours `WorkspaceUpdater::update()` appelle désormais `WorkspaceNativePrep
 ### Fixtures d'intégration natives (07/11/2026)
 
 `tests/Update/NativeWorkspaceFixture.php` prépare des dépôts Git upstream locaux et des entrées de provenance `.symsvel/components.json` pour chaque composant. Le préflight injecté continue d'exécuter le code réel `ComponentNativeSource` / `ComponentNativePreparation` / `WorkspaceNativePreparation`. Les scénarios de rollback historiques restent à migrer vers cette fixture ; leur état rouge est attendu tant qu'ils exigent encore les commandes Git projet supprimées.
+
+### Migration effective d'un test WorkspaceUpdater (07/11/2026)
+
+Le scénario `testBuildFailureIdentifiesComponentAndStage` utilise maintenant `NativeWorkspaceFixture`, un upstream Git local et un manifeste natif initial, et vérifie que l'échec du build BO est bien atteint après l'application native. Son nettoyage récursif prend en compte les checkpoints de transaction. Les autres scénarios historiques n'ont pas encore été migrés ; aucun résultat de CI n'est anticipé.
