@@ -24,7 +24,7 @@ final class WorkspaceUpdaterTest extends TestCase
         }
     }
 
-    public function testCoreUpdatesComposerAndExistingInterfaces(): void
+    public function testWorkspaceUpdatesComposerAndExistingInterfaces(): void
     {
         $root = sys_get_temp_dir().'/symsvel-update-'.bin2hex(random_bytes(8));
         mkdir($root.'/backend', 0775, true);
@@ -37,7 +37,7 @@ final class WorkspaceUpdaterTest extends TestCase
             $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): void {
                 $calls[] = [$command, $cwd];
             }, nativePreparation: $fixture->preparation());
-            $updater->update($root.'/backend', 'core', static function (string $message) use (&$messages): void {
+            $updater->update($root.'/backend', 'test', static function (string $message) use (&$messages): void {
                 $messages[] = $message;
             });
             self::assertSame('composer', $calls[0][0][0]);
@@ -90,7 +90,7 @@ final class WorkspaceUpdaterTest extends TestCase
                 }
             }, nativePreparation: $fixture->preparation());
             try {
-                $updater->update($root.'/backend', 'core');
+                $updater->update($root.'/backend', 'test');
                 self::fail('Expected BO build failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[BO / Build Svelte]', $error->getMessage());
@@ -116,7 +116,7 @@ final class WorkspaceUpdaterTest extends TestCase
             }, nativePreparation: $fixture->preparation());
             $this->expectException(\RuntimeException::class);
             $this->expectExceptionMessage('Préflight natif global échoué');
-            $updater->update($root.'/backend', 'core');
+            $updater->update($root.'/backend', 'test');
         } finally {
             self::assertSame([], $calls, 'Native conflicts must stop before Composer or npm.');
             self::assertSame('local customization', file_get_contents($root.'/bo/package.json'));
@@ -139,7 +139,7 @@ final class WorkspaceUpdaterTest extends TestCase
             $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): void {
                 $calls[] = [$command, $cwd];
             }, nativePreparation: $fixture->preparation());
-            $updater->update($root.'/backend', 'core');
+            $updater->update($root.'/backend', 'test');
             self::assertSame('after', file_get_contents($root.'/bo/version.txt'));
             self::assertSame('<p>Local</p>', file_get_contents($local));
             self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
