@@ -48,6 +48,33 @@ final class ComposerTransactionRunnerTest extends TestCase
         @rmdir(dirname($this->backend));
     }
 
+    public function testStableChannelNeverRegistersDevelopmentModuleRepository(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'stable');
+        $original = (string) file_get_contents($this->backend.'/composer.json');
+        $commands = [];
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use (&$commands): void {
+            $commands[] = $command;
+        });
+        $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:^1.0']);
+        self::assertSame($original, file_get_contents($this->backend.'/composer.json'));
+        self::assertContains(['composer', 'require', 'symsvel-framework/module-demo:^1.0'], $commands);
+        self::assertCount(1, $commands);
+    }
+
+    public function testDevelopmentChannelLeavesThirdPartyComposerRepositoriesUntouched(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        $original = (string) file_get_contents($this->backend.'/composer.json');
+        $commands = [];
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use (&$commands): void {
+            $commands[] = $command;
+        });
+        $runner->run($this->backend, ['require', 'acme/example:^2.0']);
+        self::assertSame($original, file_get_contents($this->backend.'/composer.json'));
+        self::assertSame([['composer', 'require', 'acme/example:^2.0']], $commands);
+    }
+
     public function testDevModuleRepositoryAlreadyCompatibleIsNotReconfigured(): void
     {
         \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
