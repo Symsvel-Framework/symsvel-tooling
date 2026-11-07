@@ -59,3 +59,12 @@ Un test d'intégration supplémentaire initialise un vrai dépôt Git local avec
 ### Dépôts VCS déjà déclarés
 
 Deux tests unitaires supplémentaires contrôlent la réutilisation sans mutation d'un dépôt officiel identique et le rejet d'un dépôt de même clé pointant vers une autre URL, avant tout `composer require`. Le rejet préserve le manifeste original. La CI doit confirmer ces scénarios.
+
+### Matrice finale avant crash-test XT
+
+- `dev` : intégration Composer réelle avec dépôt Git local sur `main`, installation réussie de `module-demo:dev-main` et conservation du canal ; un second scénario injecte un échec après l'installation et vérifie le rollback.
+- `stable` : test de non-déclaration VCS développement lors d'un `require` avec contrainte explicite.
+- Dépendances tierces : aucun dépôt VCS SymSvel ajouté en canal `dev`.
+- Dépôts existants : réutilisation de la définition officielle, refus des conflits sans écrasement.
+
+Les tests locaux Git substituent l'URL officielle par un dépôt temporaire uniquement dans l'exécuteur de test. Ils ne valident ni l'accès réseau GitHub, ni Satis, ni le parcours complet CLI/Setup Wizard. Ces points constituent les crash-tests XT à exécuter après confirmation de la CI.
