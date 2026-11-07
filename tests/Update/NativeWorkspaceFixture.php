@@ -28,7 +28,7 @@ final class NativeWorkspaceFixture
     {
         $project = $this->root.'/'.$name;
         $upstream = $this->root.'/upstream-'.$name;
-        if (!mkdir($project, 0775, true) || !mkdir($upstream, 0775, true)) {
+        if ((!is_dir($project) && !mkdir($project, 0775, true)) || !mkdir($upstream, 0775, true)) {
             throw new \RuntimeException('Fixture directory creation failed.');
         }
         foreach ($initial as $path => $contents) {
