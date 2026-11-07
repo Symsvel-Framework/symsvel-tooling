@@ -18,7 +18,7 @@ final class WorkspaceUpdater
     /** @param null|callable(string):void $progress */
     public function update(string $backendDir, string $environment, ?callable $progress = null): void
     {
-        if (!in_array($environment, ['core', 'dev', 'prod'], true)) {
+        if (!in_array($environment, ['dev', 'test', 'prod'], true)) {
             throw new \InvalidArgumentException('Environnement non pris en charge : '.$environment);
         }
         if ($environment === 'prod') {
