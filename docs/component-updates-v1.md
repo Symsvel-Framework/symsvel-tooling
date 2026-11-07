@@ -156,3 +156,18 @@ Le test `WorkspaceNativeRollbackTest::testPartialApplyFailureRestoresEarlierComp
 ### Chemins parents upstream symboliques (07/11/2026)
 
 Le préflight global rejette aussi les répertoires parents symboliques des fichiers upstream, même si le fichier terminal est régulier et que son empreinte SHA-256 correspond. Un test place un parent upstream App en symlink vers un dossier extérieur et vérifie que l'application BO n'a pas commencé. La vérification porte sur tous les composants avant écriture ; les contrôles locaux restent une défense supplémentaire contre les changements concurrents.
+
+## Raccordement transactionnel à WorkspaceUpdater : contrat d'intégration
+
+Le parcours historique de `WorkspaceUpdater` est encore actif. Le raccordement doit être réalisé en un changement cohérent, accompagné de la migration des tests qui simulent actuellement les commandes Git des composants.
+
+1. **Préflight global avant Composer** : après validation du backend, de la configuration BDD et de `composer.lock`, créer un checkpoint transactionnel privé ; appeler `WorkspaceNativePreparation::prepare($backend, $checkpoint)` pour tous les composants installés. Toute collision interrompt l'opération sans modifier Composer, les interfaces ou le manifeste.
+2. **Snapshots avant mutation** : conserver les sauvegardes Composer, vendor, runtime npm/build et BDD existantes ; inclure explicitement les sources des composants et `.symsvel/components.json` dans `WorkspaceFileSnapshot`. Les clones upstream sont conservés dans le checkpoint jusqu'à la fin de la transaction.
+3. **Exécution** : lancer Composer et publier ses hooks ; appeler une seule fois `WorkspaceNativeApply::apply($backend, $prepared)`, qui revérifie tous les composants puis applique les fichiers et le manifeste ; exécuter `npm ci` et `npm run build` uniquement sur les composants présents.
+4. **Échec** : restaurer indépendamment runtime npm/build, manifests Composer, vendor, sources backend et interfaces (y compris manifeste de provenance), puis BDD. Agréger les erreurs de rollback et conserver les checkpoints si la récupération n'est pas garantie.
+5. **Succès** : enregistrer le nettoyage différé des checkpoints via `WorkspaceCleanupRegistry`. Ne jamais traiter un échec de nettoyage comme un échec de la mise à jour déjà validée.
+6. **Suppression de l'ancien mécanisme** : retirer du parcours et des helpers de `WorkspaceUpdater` les vérifications `.git`/dirty status, `GitComponentCheckpoint`, `git fetch`, `git merge`, `git checkout` et la sélection locale des tags. Le dépôt Git du projet n'est jamais modifié par la mise à jour native.
+
+### Tests de sortie indispensables
+
+Les tests historiques de `WorkspaceUpdaterTest` et `WorkspaceUpdaterGitRollbackTest` doivent être remplacés ou adaptés avec des dépôts upstream locaux et de vrais fichiers, sans branche de production spéciale pour les runners de tests. Vérifier : projet sans `.git` ; modifications locales conservées ; conflit dans le dernier composant avant Composer ; échec Composer ; échec de build du dernier composant après application native ; rollback des sources et de la provenance ; rollback vendor, runtime et BDD ; conservation des checkpoints si un rollback échoue ; absence de warning PHP. La CI verte seule ne clôture pas le chantier : crash-tests XT et documentation à jour restent obligatoires.
