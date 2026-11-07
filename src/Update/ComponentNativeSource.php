@@ -22,16 +22,36 @@ final class ComponentNativeSource
         'front' => 'git@github.com:Symsvel-Framework/symsvel-front.git',
     ];
 
-    public function fetch(string $component, string $directory): string
+    public function fetch(string $component, string $directory, string $channel = ProjectChannel::DEV): string
     {
         $repository = ($this->repositories ?? self::REPOSITORIES)[$component] ?? throw new \InvalidArgumentException('Composant inconnu.');
-        $process = new Process(['git', 'clone', '--depth', '1', '--', $repository, $directory]);
+        $reference = $channel === ProjectChannel::DEV ? 'main' : $this->latestRelease($repository);
+        $process = new Process(['git', 'clone', '--depth', '1', '--branch', $reference, '--', $repository, $directory]);
         $process->setTimeout(300);
         $process->mustRun();
 
         $head = new Process(['git', 'rev-parse', 'HEAD'], $directory);
         $head->mustRun();
         return trim($head->getOutput());
+    }
+
+    private function latestRelease(string $repository): string
+    {
+        $process = new Process(['git', 'ls-remote', '--tags', '--refs', '--', $repository]);
+        $process->setTimeout(300);
+        $process->mustRun();
+        $versions = [];
+        foreach (explode("\n", trim($process->getOutput())) as $line) {
+            if (!preg_match('~refs/tags/(v?[0-9]+\\.[0-9]+\\.[0-9]+)$~D', $line, $match)) {
+                continue;
+            }
+            $versions[] = $match[1];
+        }
+        if ($versions === []) {
+            throw new \RuntimeException('Aucune release stable disponible : '.$repository);
+        }
+        usort($versions, static fn (string $a, string $b): int => version_compare(ltrim($b, 'v'), ltrim($a, 'v')));
+        return $versions[0];
     }
 
     /** @return array<string, string> */
