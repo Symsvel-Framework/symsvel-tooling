@@ -205,6 +205,8 @@ final class ComposerTransactionIntegrationTest extends TestCase
         ], JSON_THROW_ON_ERROR));
         mkdir($module.'/back', 0700, true);
         mkdir($module.'/docs/dev', 0700, true);
+        file_put_contents($module.'/back/.gitkeep', '');
+        file_put_contents($module.'/docs/dev/.gitkeep', '');
         file_put_contents($module.'/module.json', json_encode([
             'schema' => 1,
             'name' => 'Demo',
@@ -218,7 +220,7 @@ final class ComposerTransactionIntegrationTest extends TestCase
             ['git', 'init', '-b', 'main'],
             ['git', 'config', 'user.email', 'ci@example.invalid'],
             ['git', 'config', 'user.name', 'CI'],
-            ['git', 'add', 'composer.json', 'module.json'],
+            ['git', 'add', 'composer.json', 'module.json', 'back/.gitkeep', 'docs/dev/.gitkeep'],
             ['git', 'commit', '-m', 'fixture'],
         ] as $command) {
             (new Process($command, $module))->mustRun();
