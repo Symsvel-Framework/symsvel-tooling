@@ -101,14 +101,15 @@ final class WorkspaceUpdaterTest extends TestCase
     {
         $root = sys_get_temp_dir().'/symsvel-failing-build-'.bin2hex(random_bytes(8));
         mkdir($root.'/backend', 0775, true);
-        mkdir($root.'/bo/.git', 0775, true);
         file_put_contents($root.'/backend/composer.json', '{}');
+        $fixture = new NativeWorkspaceFixture($root);
+        $fixture->component('bo', ['version.txt' => 'before'], ['version.txt' => 'after']);
         try {
             $updater = new WorkspaceUpdater(static function (array $command): void {
                 if ($command === ['npm', 'run', 'build']) {
                     throw new \RuntimeException('Svelte compilation failed');
                 }
-            });
+            }, nativePreparation: $fixture->preparation());
             try {
                 $updater->update($root.'/backend', 'core');
                 self::fail('Expected BO build failure.');
@@ -117,14 +118,7 @@ final class WorkspaceUpdaterTest extends TestCase
                 self::assertStringContainsString('Svelte compilation failed', $error->getMessage());
             }
         } finally {
-            @unlink($root.'/backend/scripts/symsvel-composer-transaction.php');
-            @unlink($root.'/backend/scripts/symsvel-module-sync.php');
-            @rmdir($root.'/backend/scripts');
-            unlink($root.'/backend/composer.json');
-            rmdir($root.'/backend');
-            rmdir($root.'/bo/.git');
-            rmdir($root.'/bo');
-            rmdir($root);
+            $this->deleteFixtureTree($root);
         }
     }
 
@@ -197,6 +191,25 @@ final class WorkspaceUpdaterTest extends TestCase
             rmdir($root.'/backend');
             rmdir($root);
         }
+    }
+
+    private function deleteFixtureTree(string $root): void
+    {
+        if (!is_dir($root)) {
+            return;
+        }
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($iterator as $entry) {
+            if ($entry->isDir() && !$entry->isLink()) {
+                rmdir($entry->getPathname());
+            } else {
+                unlink($entry->getPathname());
+            }
+        }
+        rmdir($root);
     }
 
 }
