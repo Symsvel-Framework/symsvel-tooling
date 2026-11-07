@@ -122,31 +122,26 @@ final class WorkspaceUpdaterTest extends TestCase
         }
     }
 
-    public function testDirtyInterfaceStopsBeforeComposer(): void
+    public function testConflictingNativeFileStopsBeforeComposer(): void
     {
         $root = sys_get_temp_dir().'/symsvel-dirty-'.bin2hex(random_bytes(8));
-        mkdir($root);
-        mkdir($root.'/backend');
+        mkdir($root.'/backend', 0775, true);
         file_put_contents($root.'/backend/composer.json', '{}');
-        mkdir($root.'/bo');
-        mkdir($root.'/bo/.git');
+        $fixture = new NativeWorkspaceFixture($root);
+        $fixture->component('bo', ['package.json' => 'original'], ['package.json' => 'upstream']);
+        file_put_contents($root.'/bo/package.json', 'local customization');
         $calls = [];
         try {
-            $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): ?string {
+            $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): void {
                 $calls[] = [$command, $cwd];
-                return $command === ['git', 'status', '--porcelain', '--untracked-files=all'] ? ' M package.json' : null;
-            });
+            }, nativePreparation: $fixture->preparation());
             $this->expectException(\RuntimeException::class);
-            $this->expectExceptionMessage('modifications locales');
+            $this->expectExceptionMessage('Préflight natif global échoué');
             $updater->update($root.'/backend', 'core');
         } finally {
-            self::assertCount(1, $calls);
-            self::assertSame('git', $calls[0][0][0]);
-            rmdir($root.'/bo/.git');
-            rmdir($root.'/bo');
-            unlink($root.'/backend/composer.json');
-            rmdir($root.'/backend');
-            rmdir($root);
+            self::assertSame([], $calls, 'Native conflicts must stop before Composer or npm.');
+            self::assertSame('local customization', file_get_contents($root.'/bo/package.json'));
+            $this->deleteFixtureTree($root);
         }
     }
 
