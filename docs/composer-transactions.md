@@ -46,7 +46,7 @@ Voir également [le README](../README.md).
 
 Pour un projet dont `backend/.symsvel/project.json` déclare `channel: dev`, la transaction `require symsvel-framework/module-*` prépare désormais le dépôt Git officiel `https://github.com/Symsvel-Framework/symsvel-module-*.git` **après la prise du checkpoint Composer et avant le require**. L'entrée `repositories.module-<nom>-dev` est vérifiée lorsqu'elle existe déjà : une définition incompatible provoque un échec sans écrasement. Les dépendances tierces et les opérations `update`/`remove` ne déclenchent aucune déclaration de dépôt.
 
-En cas d'échec, `composer.json` est restauré par le mécanisme transactionnel existant ; un test vérifie ce scénario par injection d'une erreur Composer. La configuration de dépôts faite lors du bootstrap initial reste provisoirement dans la CLI et devra être unifiée avant le merge. La résolution réelle via GitHub/Satis et les crash-tests XT restent à valider.
+En cas d'échec, `composer.json` est restauré par le mécanisme transactionnel existant ; un test vérifie ce scénario par injection d'une erreur Composer. Le bootstrap initial est désormais délégué au même lanceur transactionnel par la CLI en cours de refonte (PR #10) ; sa déclaration VCS n'est plus effectuée avant le checkpoint. La résolution réelle via GitHub/Satis et les crash-tests XT restent à valider.
 
 ### Fixtures de bootstrap (07/11/2026)
 
