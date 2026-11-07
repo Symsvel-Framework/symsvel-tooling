@@ -27,73 +27,52 @@ final class WorkspaceUpdaterTest extends TestCase
     public function testCoreUpdatesComposerAndExistingInterfaces(): void
     {
         $root = sys_get_temp_dir().'/symsvel-update-'.bin2hex(random_bytes(8));
-        mkdir($root);
-        mkdir($root.'/backend');
+        mkdir($root.'/backend', 0775, true);
         file_put_contents($root.'/backend/composer.json', '{}');
-        mkdir($root.'/bo');
-        mkdir($root.'/bo/.git');
+        $fixture = new NativeWorkspaceFixture($root);
+        $fixture->component('bo', ['version.txt' => 'before'], ['version.txt' => 'after']);
         $calls = [];
         $messages = [];
         try {
             $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): void {
                 $calls[] = [$command, $cwd];
-            });
+            }, nativePreparation: $fixture->preparation());
             $updater->update($root.'/backend', 'core', static function (string $message) use (&$messages): void {
                 $messages[] = $message;
             });
-            self::assertSame(['git', 'status', '--porcelain', '--untracked-files=all'], $calls[0][0]);
-            self::assertSame('composer', $calls[1][0][0]);
-            self::assertContains('--no-scripts', $calls[1][0]);
-            self::assertContains('--no-plugins', $calls[1][0]);
-            self::assertContains([['git', 'merge', '--ff-only', 'origin/main'], $root.'/bo'], $calls);
+            self::assertSame('composer', $calls[0][0][0]);
+            self::assertContains('--no-scripts', $calls[0][0]);
+            self::assertContains('--no-plugins', $calls[0][0]);
             self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
-            self::assertCount(6, $calls);
-            self::assertContains('Backend : mise à jour Composer (Core + Tooling)…', $messages);
+            self::assertCount(3, $calls);
+            self::assertSame('after', file_get_contents($root.'/bo/version.txt'));
             self::assertContains('BO : build…', $messages);
             self::assertContains('APP : absent, ignoré.', $messages);
             self::assertContains('FRONT : absent, ignoré.', $messages);
             self::assertSame('Tous les composants présents ont été traités.', end($messages));
         } finally {
-            rmdir($root.'/bo/.git');
-            rmdir($root.'/bo');
-            unlink($root.'/backend/composer.json');
-            unlink($root.'/backend/scripts/symsvel-module-sync.php');
-            unlink($root.'/backend/scripts/symsvel-composer-transaction.php');
-            rmdir($root.'/backend/scripts');
-            rmdir($root.'/backend');
-            rmdir($root);
+            $this->deleteFixtureTree($root);
         }
     }
-    public function testDevSelectsLatestStableTag(): void
+
+    public function testDevRequiresStableComposerConstraintsBeforeNativePreparation(): void
     {
         $root = sys_get_temp_dir().'/symsvel-dev-'.bin2hex(random_bytes(8));
-        mkdir($root);
-        mkdir($root.'/backend');
-        file_put_contents($root.'/backend/composer.json', '{}');
-        file_put_contents($root.'/backend/composer.json', json_encode(['require' => ['symsvel-framework/core' => '^1.0', 'symsvel-framework/tooling' => '^1.0']]));
-        mkdir($root.'/bo');
-        mkdir($root.'/bo/.git');
+        mkdir($root.'/backend', 0775, true);
+        file_put_contents($root.'/backend/composer.json', json_encode([
+            'require' => ['symsvel-framework/core' => 'dev-main', 'symsvel-framework/tooling' => '^1.0'],
+        ], JSON_THROW_ON_ERROR));
         $calls = [];
         try {
-            $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): ?string {
+            $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): void {
                 $calls[] = [$command, $cwd];
-                if ($command === ['git', 'tag', '--list', 'v[0-9]*']) {
-                    return implode(PHP_EOL, ['v1.2.0', 'v1.10.0', 'v2.0.0-beta', 'v1.9.5', '']);
-                }
-                return null;
             });
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('doit utiliser une contrainte de release stable');
             $updater->update($root.'/backend', 'dev');
-            self::assertContains([['git', 'checkout', '--detach', 'v1.10.0'], $root.'/bo'], $calls);
-            self::assertNotContains([['git', 'merge', '--ff-only', 'origin/main'], $root.'/bo'], $calls);
         } finally {
-            rmdir($root.'/bo/.git');
-            rmdir($root.'/bo');
-            unlink($root.'/backend/composer.json');
-            unlink($root.'/backend/scripts/symsvel-module-sync.php');
-            unlink($root.'/backend/scripts/symsvel-composer-transaction.php');
-            rmdir($root.'/backend/scripts');
-            rmdir($root.'/backend');
-            rmdir($root);
+            self::assertSame([], $calls);
+            $this->deleteFixtureTree($root);
         }
     }
 
