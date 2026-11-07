@@ -55,15 +55,15 @@ final class WorkspaceNativeRollbackTest extends TestCase
             ],
         ];
 
-        // A failure after BO has been applied but before APP is committed
-        // must leave the entire workspace recoverable from one source snapshot.
-        // Make the APP upstream disappear only after the global prevalidation.
-        // Simulate this by applying BO separately and then failing the next stage.
-        (new WorkspaceNativeApply())->apply($backend, ['bo' => $prepared['bo']]);
+        // Both local targets pass global prevalidation. BO is applied first,
+        // then APP fails because its upstream source file is missing.
+        unlink($this->root.'/upstream-app/native.txt');
         try {
-            throw new \RuntimeException('Simulated interruption before APP');
+            (new WorkspaceNativeApply())->apply($backend, $prepared);
+            self::fail('Missing APP upstream must fail after BO application.');
         } catch (\RuntimeException $failure) {
-            self::assertSame('Simulated interruption before APP', $failure->getMessage());
+            self::assertNotSame('', $failure->getMessage());
+            self::assertSame('after', file_get_contents($this->root.'/bo/native.txt'));
             $snapshot->restore();
         }
         self::assertSame('before', file_get_contents($this->root.'/bo/native.txt'));
