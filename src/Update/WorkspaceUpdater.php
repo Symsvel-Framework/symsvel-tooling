@@ -11,7 +11,7 @@ use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 final class WorkspaceUpdater
 {
     /** @param null|callable(list<string>, string):void $runner */
-    public function __construct(private readonly mixed $runner = null, private readonly bool $snapshotWithRunner = false, private readonly ?string $databaseUrl = null)
+    public function __construct(private readonly mixed $runner = null, private readonly bool $snapshotWithRunner = false, private readonly ?string $databaseUrl = null, private readonly ?WorkspaceNativePreparation $nativePreparation = null)
     {
     }
 
@@ -56,7 +56,7 @@ final class WorkspaceUpdater
             throw new \RuntimeException('Checkpoint natif impossible : '.$nativeCheckpoint);
         }
         try {
-            $prepared = (new WorkspaceNativePreparation())->prepare($backendDir, $nativeCheckpoint);
+            $prepared = ($this->nativePreparation ?? new WorkspaceNativePreparation())->prepare($backendDir, $nativeCheckpoint);
         } catch (\Throwable $failure) {
             throw new \RuntimeException('Préflight natif global échoué : '.$failure->getMessage().'; checkpoint conservé : '.$nativeCheckpoint, 0, $failure);
         }
