@@ -9,6 +9,7 @@ use SymSvel\Tooling\Update\ComponentManifest;
 use SymSvel\Tooling\Update\ComponentNativePreparation;
 use SymSvel\Tooling\Update\ComponentNativeSource;
 use SymSvel\Tooling\Update\WorkspaceNativePreparation;
+use SymSvel\Tooling\Update\ProjectChannel;
 
 /**
  * Real local Git upstreams for workspace update integration tests.
@@ -26,6 +27,9 @@ final class NativeWorkspaceFixture
     /** @param array<string, string> $initial */
     public function component(string $name, array $initial, array $updated): void
     {
+        if (!is_file($this->root.'/backend/.symsvel/project.json')) {
+            ProjectChannel::write($this->root.'/backend', ProjectChannel::DEV);
+        }
         $project = $this->root.'/'.$name;
         $upstream = $this->root.'/upstream-'.$name;
         if ((!is_dir($project) && !mkdir($project, 0775, true)) || !mkdir($upstream, 0775, true)) {
@@ -43,7 +47,7 @@ final class NativeWorkspaceFixture
             $this->write($upstream.'/'.$path, $contents);
         }
         foreach ([
-            ['git', 'init', '-q', $upstream],
+            ['git', 'init', '-q', '-b', 'main', $upstream],
             ['git', '-C', $upstream, 'add', '.'],
             ['git', '-C', $upstream, '-c', 'user.name=SymSvel Tests', '-c', 'user.email=tests@example.test', 'commit', '-qm', 'upstream'],
         ] as $command) {
