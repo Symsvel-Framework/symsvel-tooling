@@ -35,6 +35,7 @@ final class ComposerTransactionRunnerTest extends TestCase
         @rmdir($this->backend.'/.symsvel/transactions');
         @unlink($this->backend.'/.symsvel/cleanup-pending.json');
         @unlink($this->backend.'/.symsvel/cleanup.lock');
+        @unlink($this->backend.'/.symsvel/project.json');
         @rmdir($this->backend.'/.symsvel');
         @unlink($this->backend.'/composer.json');
         @unlink($this->backend.'/composer.lock');
