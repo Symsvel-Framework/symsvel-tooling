@@ -42,6 +42,15 @@ final class WorkspaceNativeApply
                         || in_array('', explode('/', $path), true)) {
                         throw new \RuntimeException('Chemin natif invalide : '.$component.'/'.$path);
                     }
+                    if ($action !== 'delete') {
+                        $source = $entry['upstream'].'/'.$path;
+                        $expected = $entry['incoming'][$path] ?? null;
+                        if (!is_string($expected) || !preg_match('/^[a-f0-9]{64}$/D', $expected)
+                            || !is_file($source) || is_link($source)
+                            || hash_file('sha256', $source) !== $expected) {
+                            throw new \RuntimeException('Source native modifiée depuis le préflight : '.$component.'/'.$path);
+                        }
+                    }
                     $target = $directory.'/'.$path;
                     $parent = dirname($target);
                     while ($parent !== $directory) {
