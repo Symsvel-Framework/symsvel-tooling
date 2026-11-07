@@ -115,26 +115,17 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         file_put_contents($root.'/backend/source.php', 'source-before');
         $database = $root.'/rollback.sqlite';
         (new Process(['sqlite3', $database, 'CREATE TABLE rollback_probe (value TEXT); INSERT INTO rollback_probe VALUES (\'before\');']))->mustRun();
-        $heads = [];
+        $fixture = new NativeWorkspaceFixture($root);
         foreach (['bo', 'app', 'front'] as $component) {
             $dir = $root.'/'.$component;
             mkdir($dir.'/node_modules/pkg', 0775, true);
             mkdir($dir.'/build', 0775, true);
             file_put_contents($dir.'/node_modules/pkg/index.js', 'npm-before');
             file_put_contents($dir.'/build/index.html', 'build-before');
-            $this->git($dir, ['init', '-b', 'main']);
-            $this->git($dir, ['config', 'user.email', 'test@example.test']);
-            $this->git($dir, ['config', 'user.name', 'SymSvel Test']);
-            file_put_contents($dir.'/version.txt', 'git-before');
-            $this->git($dir, ['add', 'version.txt']);
-            $this->git($dir, ['commit', '-m', 'before']);
-            $heads[$component] = trim($this->git($dir, ['rev-parse', 'HEAD']));
+            $fixture->component($component, ['version.txt' => 'git-before'], ['version.txt' => 'git-after']);
         }
         try {
             $runner = function (array $command, string $cwd) use ($root, $database): ?string {
-                if ($command === ['git', 'status', '--porcelain', '--untracked-files=all']) {
-                    return '';
-                }
                 if ($command[0] === 'composer') {
                     file_put_contents($cwd.'/composer.json', '{"changed":true}');
                     file_put_contents($cwd.'/composer.lock', '{"changed":true}');
@@ -142,10 +133,6 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                     file_put_contents($cwd.'/source.php', 'source-after');
                     file_put_contents($cwd.'/new-source.php', 'new');
                     (new Process(['sqlite3', $database, "UPDATE rollback_probe SET value='after'; CREATE TABLE unexpected (id INTEGER);"]))->mustRun();
-                }
-                if ($command === ['git', 'merge', '--ff-only', 'origin/main']) {
-                    file_put_contents($cwd.'/version.txt', 'git-after');
-                    $this->git($cwd, ['commit', '-am', 'after']);
                 }
                 if ($command === ['npm', 'ci']) {
                     file_put_contents($cwd.'/node_modules/pkg/index.js', 'npm-after');
@@ -160,11 +147,11 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 return null;
             };
             try {
-                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database))->update($root.'/backend', 'core');
+                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database, $fixture->preparation()))->update($root.'/backend', 'core');
                 self::fail('Expected FRONT build failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
-                self::assertStringContainsString('vendor, sources et BDD restaurés', $error->getMessage());
+                self::assertStringContainsString('vendor, sources natives et BDD restaurés', $error->getMessage());
             }
             self::assertSame('{"name":"test/backend"}', file_get_contents($root.'/backend/composer.json'));
             self::assertSame('{"packages":[]}', file_get_contents($root.'/backend/composer.lock'));
@@ -177,9 +164,8 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
             $unexpected->mustRun();
             self::assertSame('0', trim($unexpected->getOutput()));
             self::assertFileDoesNotExist($root.'/backend/new-source.php');
-            foreach ($heads as $component => $head) {
+            foreach (['bo', 'app', 'front'] as $component) {
                 $dir = $root.'/'.$component;
-                self::assertSame($head, trim($this->git($dir, ['rev-parse', 'HEAD'])));
                 self::assertSame('git-before', file_get_contents($dir.'/version.txt'));
                 self::assertSame('npm-before', file_get_contents($dir.'/node_modules/pkg/index.js'));
                 self::assertSame('build-before', file_get_contents($dir.'/build/index.html'));
@@ -217,33 +203,20 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         file_put_contents($root.'/backend/composer.json', '{"name":"test/backend"}');
         file_put_contents($root.'/backend/composer.lock', '{"packages":[]}');
         file_put_contents($root.'/backend/vendor/pkg/index.php', 'original');
-        $heads = [];
+        $fixture = new NativeWorkspaceFixture($root);
         foreach (['bo', 'app', 'front'] as $component) {
             $dir = $root.'/'.$component;
             mkdir($dir.'/build', 0775, true);
             file_put_contents($dir.'/build/index.html', 'original');
-            $this->git($dir, ['init', '-b', 'main']);
-            $this->git($dir, ['config', 'user.email', 'test@example.test']);
-            $this->git($dir, ['config', 'user.name', 'SymSvel Test']);
-            file_put_contents($dir.'/version.txt', 'original');
-            $this->git($dir, ['add', 'version.txt']);
-            $this->git($dir, ['commit', '-m', 'original']);
-            $heads[$component] = trim($this->git($dir, ['rev-parse', 'HEAD']));
+            $fixture->component($component, ['version.txt' => 'git-before'], ['version.txt' => 'git-after']);
         }
         try {
             $sql("DROP TABLE IF EXISTS symsvel_global_extra; DROP TABLE IF EXISTS symsvel_global_probe; CREATE TABLE symsvel_global_probe (value TEXT); INSERT INTO symsvel_global_probe VALUES ('original');");
             $runner = function (array $command, string $cwd) use ($root, $sql): ?string {
-                if ($command === ['git', 'status', '--porcelain', '--untracked-files=all']) {
-                    return '';
-                }
                 if ($command[0] === 'composer') {
                     file_put_contents($cwd.'/composer.lock', '{"changed":true}');
                     file_put_contents($cwd.'/vendor/pkg/index.php', 'changed');
                     $sql("UPDATE symsvel_global_probe SET value='changed'; CREATE TABLE symsvel_global_extra (id INTEGER);");
-                }
-                if ($command === ['git', 'merge', '--ff-only', 'origin/main']) {
-                    file_put_contents($cwd.'/version.txt', 'changed');
-                    $this->git($cwd, ['commit', '-am', 'changed']);
                 }
                 if ($command === ['npm', 'run', 'build']) {
                     file_put_contents($cwd.'/build/index.html', 'changed');
@@ -254,7 +227,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 return null;
             };
             try {
-                (new WorkspaceUpdater($runner, true, $url))->update($root.'/backend', 'core');
+                (new WorkspaceUpdater($runner, true, $url, $fixture->preparation()))->update($root.'/backend', 'core');
                 self::fail('Expected FRONT failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
@@ -264,8 +237,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
             self::assertSame('0', $sql("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='symsvel_global_extra'"));
             self::assertSame('{"packages":[]}', file_get_contents($root.'/backend/composer.lock'));
             self::assertSame('original', file_get_contents($root.'/backend/vendor/pkg/index.php'));
-            foreach ($heads as $component => $head) {
-                self::assertSame($head, trim($this->git($root.'/'.$component, ['rev-parse', 'HEAD'])));
+            foreach (['bo', 'app', 'front'] as $component) {
                 self::assertSame('original', file_get_contents($root.'/'.$component.'/version.txt'));
                 self::assertSame('original', file_get_contents($root.'/'.$component.'/build/index.html'));
             }
@@ -297,18 +269,11 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         $checkpointPath = null;
         try {
             $runner = function (array $command, string $cwd) use ($root, $database, &$checkpointPath): ?string {
-                if ($command === ['git', 'status', '--porcelain', '--untracked-files=all']) {
-                    return '';
-                }
                 if ($command[0] === 'composer') {
                     file_put_contents($cwd.'/composer.lock', '{"changed":true}');
                     file_put_contents($cwd.'/vendor/pkg/index.php', 'changed');
                     file_put_contents($cwd.'/source.php', 'changed');
                     (new Process(['sqlite3', $database, "UPDATE probe SET value='changed';"]))->mustRun();
-                }
-                if ($command === ['git', 'merge', '--ff-only', 'origin/main']) {
-                    file_put_contents($cwd.'/version.txt', 'changed');
-                    $this->git($cwd, ['commit', '-am', 'changed']);
                 }
                 if ($command === ['npm', 'run', 'build']) {
                     file_put_contents($cwd.'/build/index.html', 'changed');
@@ -321,7 +286,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 return null;
             };
             try {
-                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database))->update($root.'/backend', 'core');
+                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database, $fixture->preparation()))->update($root.'/backend', 'core');
                 self::fail('Expected rollback failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[BO / Build Svelte]', $error->getMessage());
