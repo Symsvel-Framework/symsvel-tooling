@@ -9,6 +9,7 @@ use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\ComponentManifest;
 use SymSvel\Tooling\Update\ComponentNativeSource;
 use SymSvel\Tooling\Update\ComponentUpdater;
+use SymSvel\Tooling\Update\ProjectChannel;
 
 final class ComponentUpdaterTest extends TestCase
 {
@@ -22,6 +23,7 @@ final class ComponentUpdaterTest extends TestCase
         $this->workspace = sys_get_temp_dir().'/symsvel-updater-'.bin2hex(random_bytes(8));
         mkdir($this->workspace.'/backend', 0775, true);
         file_put_contents($this->workspace.'/backend/composer.json', '{}');
+        ProjectChannel::write($this->workspace.'/backend', ProjectChannel::DEV);
         $this->remote = $this->workspace.'/remote.git';
         $this->component = $this->workspace.'/app';
         $this->native = new ComponentNativeSource(['app' => $this->remote]);
@@ -38,7 +40,7 @@ final class ComponentUpdaterTest extends TestCase
         try {
             (new ComponentUpdater())->update($this->workspace.'/backend', 'other');
         } finally {
-            self::assertDirectoryDoesNotExist($this->workspace.'/backend/.symsvel');
+            self::assertDirectoryDoesNotExist($this->workspace.'/backend/.symsvel/transactions');
         }
     }
 
