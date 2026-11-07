@@ -148,3 +148,7 @@ Le test `WorkspaceNativeRollbackTest::testPartialApplyFailureRestoresEarlierComp
 ### Disparition d'une source upstream entre préflight et copie (07/11/2026)
 
 `ComponentNativeFileApplier` vérifie désormais l'existence et le type régulier du fichier upstream juste avant la copie. Si la source a disparu ou est devenue un lien symbolique, l'opération échoue avec une `RuntimeException` explicite, sans warning PHP. Les erreurs de copie et de permissions sont également converties en exceptions contrôlées ; la transaction appelante doit restaurer les fichiers déjà modifiés. Le crash-test `WorkspaceNativeRollbackTest` vérifie le message d'erreur attendu et la restauration du premier composant après échec du second.
+
+### Contrôle global des sources upstream (07/11/2026)
+
+`WorkspaceNativeApply` vérifie désormais, pour **tous** les composants, l'existence, l'absence de symlink et le SHA-256 attendu des fichiers upstream destinés aux ajouts et remplacements **avant toute mutation**. Une source App absente ou altérée bloque donc aussi les écritures BO. Le test de disparition de la source App a été adapté à cette garantie renforcée ; la vérification locale de `ComponentNativeFileApplier` reste utile contre les changements entre le contrôle global et la copie effective. Les scénarios de rollback après mutation restent couverts séparément par `testSourceSnapshotRestoresBothInterfacesAndManifestAfterDownstreamFailure`.
