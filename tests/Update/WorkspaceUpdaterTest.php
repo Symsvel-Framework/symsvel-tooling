@@ -124,46 +124,27 @@ final class WorkspaceUpdaterTest extends TestCase
         }
     }
 
-    public function testRegisteredGeneratedFileDoesNotBlockUpdate(): void
+    public function testLocalUntrackedFilesSurviveNativeUpdate(): void
     {
         $root = sys_get_temp_dir().'/symsvel-managed-'.bin2hex(random_bytes(8));
-        mkdir($root.'/backend/.symsvel', 0775, true);
+        mkdir($root.'/backend', 0775, true);
         file_put_contents($root.'/backend/composer.json', '{}');
-        mkdir($root.'/bo/.git', 0775, true);
-        mkdir($root.'/bo/src/lib/vendor/test-back', 0775, true);
-        $file = $root.'/bo/src/lib/vendor/test-back/Badge.svelte';
-        file_put_contents($file, '<p>OK</p>');
-        file_put_contents($root.'/backend/.symsvel/svelte-files.json', json_encode([$file => hash_file('sha256', $file)], JSON_THROW_ON_ERROR));
-        $calls = [];
+        $fixture = new NativeWorkspaceFixture($root);
+        $fixture->component('bo', ['version.txt' => 'before'], ['version.txt' => 'after']);
+        $local = $root.'/bo/src/lib/vendor/test-back/Badge.svelte';
+        mkdir(dirname($local), 0775, true);
+        file_put_contents($local, '<p>Local</p>');
         try {
-            $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): ?string {
+            $calls = [];
+            $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): void {
                 $calls[] = [$command, $cwd];
-                return $command === ['git', 'status', '--porcelain', '--untracked-files=all']
-                    ? '?? src/lib/vendor/test-back/Badge.svelte'
-                    : null;
-            });
+            }, nativePreparation: $fixture->preparation());
             $updater->update($root.'/backend', 'core');
+            self::assertSame('after', file_get_contents($root.'/bo/version.txt'));
+            self::assertSame('<p>Local</p>', file_get_contents($local));
             self::assertContains([['npm', 'run', 'build'], $root.'/bo'], $calls);
-            file_put_contents($file, '<p>Edited</p>');
-            $this->expectException(\RuntimeException::class);
-            $this->expectExceptionMessage('modifications locales');
-            $updater->update($root.'/backend', 'core');
         } finally {
-            unlink($file);
-            rmdir(dirname($file));
-            rmdir($root.'/bo/src/lib/vendor');
-            rmdir($root.'/bo/src/lib');
-            rmdir($root.'/bo/src');
-            rmdir($root.'/bo/.git');
-            rmdir($root.'/bo');
-            unlink($root.'/backend/.symsvel/svelte-files.json');
-            rmdir($root.'/backend/.symsvel');
-            unlink($root.'/backend/composer.json');
-            unlink($root.'/backend/scripts/symsvel-module-sync.php');
-            unlink($root.'/backend/scripts/symsvel-composer-transaction.php');
-            rmdir($root.'/backend/scripts');
-            rmdir($root.'/backend');
-            rmdir($root);
+            $this->deleteFixtureTree($root);
         }
     }
 
