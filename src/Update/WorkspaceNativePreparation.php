@@ -30,7 +30,7 @@ final class WorkspaceNativePreparation
                 continue;
             }
             $upstream = $checkpoint.'/upstream-'.$component;
-            $result = $this->preparation->prepare($backend, $component, $upstream);
+            $result = $this->preparation->prepare($backend, $component, $upstream, ProjectChannel::read($backend));
             $prepared[$component] = [...$result, 'upstream' => $upstream];
         }
         return $prepared;
