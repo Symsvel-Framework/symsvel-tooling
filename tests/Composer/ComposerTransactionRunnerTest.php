@@ -48,6 +48,48 @@ final class ComposerTransactionRunnerTest extends TestCase
         @rmdir(dirname($this->backend));
     }
 
+    public function testDevModuleRepositoryAlreadyCompatibleIsNotReconfigured(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        file_put_contents($this->backend.'/composer.json', json_encode([
+            'repositories' => ['module-demo-dev' => [
+                'type' => 'vcs',
+                'url' => 'https://github.com/Symsvel-Framework/symsvel-module-demo.git',
+            ]],
+        ], JSON_THROW_ON_ERROR));
+        $commands = [];
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use (&$commands): void {
+            $commands[] = $command;
+        });
+        $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:dev-main']);
+        self::assertNotContains(['composer', 'config', 'repositories.module-demo-dev', 'vcs', 'https://github.com/Symsvel-Framework/symsvel-module-demo.git'], $commands);
+        self::assertContains(['composer', 'require', 'symsvel-framework/module-demo:dev-main'], $commands);
+    }
+
+    public function testDevModuleRepositoryConflictIsRejectedWithoutOverwrite(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        $original = json_encode([
+            'repositories' => ['module-demo-dev' => [
+                'type' => 'vcs',
+                'url' => 'https://example.invalid/custom-module.git',
+            ]],
+        ], JSON_THROW_ON_ERROR);
+        file_put_contents($this->backend.'/composer.json', $original);
+        $commands = [];
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use (&$commands): void {
+            $commands[] = $command;
+        });
+        try {
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:dev-main']);
+            self::fail('Conflicting repository must be rejected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Dépôt Composer existant incompatible', $error->getMessage());
+        }
+        self::assertSame($original, file_get_contents($this->backend.'/composer.json'));
+        self::assertNotContains(['composer', 'require', 'symsvel-framework/module-demo:dev-main'], $commands);
+    }
+
     public function testDevModuleRepositoryMutationIsRolledBackOnComposerFailure(): void
     {
         \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
