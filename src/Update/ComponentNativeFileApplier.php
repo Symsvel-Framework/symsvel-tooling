@@ -40,10 +40,18 @@ final class ComponentNativeFileApplier
                     || hash_file('sha256', $target) !== $baseline[$path]) {
                     throw new \RuntimeException('Remplacement natif refusé : fichier local modifié depuis le préflight : '.$path);
                 }
-                if (is_link($target) || is_dir($target) || !copy($source, $target)) {
+                // An upstream file can disappear after preflight. Report a controlled
+                // failure rather than leaking a PHP warning into PHPUnit/CI.
+                if (!is_file($source) || is_link($source)) {
+                    throw new \RuntimeException('Source native absente ou non fiable : '.$path);
+                }
+                if (is_link($target) || is_dir($target) || !@copy($source, $target)) {
                     throw new \RuntimeException('Copie native impossible : '.$path);
                 }
-                chmod($target, fileperms($source) & 0777);
+                $permissions = @fileperms($source);
+                if ($permissions === false || !@chmod($target, $permissions & 0777)) {
+                    throw new \RuntimeException('Permissions natives impossibles : '.$path);
+                }
             }
         }
         foreach ($plan['delete'] as $path) {
