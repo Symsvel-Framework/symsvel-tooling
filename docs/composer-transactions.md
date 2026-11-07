@@ -51,3 +51,7 @@ En cas d'échec, `composer.json` est restauré par le mécanisme transactionnel 
 ### Fixtures de bootstrap (07/11/2026)
 
 Les tests de bootstrap des modules créent explicitement un canal `stable` lorsque la transaction atteint la résolution des sources. Cela évite de confondre une fixture sans provenance avec un défaut de la logique métier. Le nettoyage des fixtures retire également `backend/.symsvel/project.json`. Le résultat CI de ce correctif reste à confirmer.
+
+### Intégration VCS Git locale (07/11/2026)
+
+Un test d'intégration supplémentaire initialise un vrai dépôt Git local avec un package `symsvel-framework/module-demo` sur `main`. Le lanceur transactionnel déclare le dépôt officiel puis l'injection de commande substitue uniquement l'URL par la fixture locale pour éviter le réseau. Composer effectue un vrai `require` en `dev-main`, suivi d'un échec injecté ; le test vérifie la restauration byte-à-byte de `composer.json` et `composer.lock` et l'absence du module dans `vendor`. Ce test ne prouve pas encore l'accès au dépôt GitHub réel. CI et crash-tests XT à confirmer.
