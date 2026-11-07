@@ -265,7 +265,14 @@ final class ComposerTransactionRunner
      */
     private function prepareDevelopmentModuleRepositories(string $backend, array $arguments, ?callable $progress): void
     {
-        if ($arguments[0] !== 'require' || ProjectChannel::read($backend) !== ProjectChannel::DEV) {
+        if ($arguments[0] !== 'require') {
+            return;
+        }
+        $modules = array_values(array_filter(
+            array_slice($arguments, 1),
+            static fn (string $argument): bool => (bool) preg_match('~^symsvel-framework/module-[a-z][a-z0-9-]*(?::[^\\s]+)?$~D', $argument),
+        ));
+        if ($modules === [] || ProjectChannel::read($backend) !== ProjectChannel::DEV) {
             return;
         }
         $manifest = json_decode((string) file_get_contents($backend.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
