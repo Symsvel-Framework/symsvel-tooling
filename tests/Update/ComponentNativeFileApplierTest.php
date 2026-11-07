@@ -46,12 +46,44 @@ final class ComponentNativeFileApplierTest extends TestCase
             'add' => ['add.txt'],
             'replace' => ['replace.txt'],
             'delete' => ['delete.txt'],
-        ], ['delete.txt' => hash('sha256', 'remove')]);
+        ], ['replace.txt' => hash('sha256', 'old'), 'delete.txt' => hash('sha256', 'remove')]);
 
         self::assertSame('new', file_get_contents($this->root.'/local/replace.txt'));
         self::assertSame('added', file_get_contents($this->root.'/local/add.txt'));
         self::assertFileDoesNotExist($this->root.'/local/delete.txt');
         self::assertSame('keep', file_get_contents($this->root.'/local/custom.txt'));
+    }
+
+    public function testRefusesAdditionWhenLocalFileAppearsAfterPreflight(): void
+    {
+        file_put_contents($this->root.'/upstream/add.txt', 'upstream');
+        file_put_contents($this->root.'/local/add.txt', 'project');
+
+        try {
+            (new ComponentNativeFileApplier())->apply($this->root.'/local', $this->root.'/upstream', [
+                'add' => ['add.txt'], 'replace' => [], 'delete' => [],
+            ], []);
+            self::fail('Concurrent local addition must be rejected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('apparu depuis le préflight', $error->getMessage());
+        }
+        self::assertSame('project', file_get_contents($this->root.'/local/add.txt'));
+    }
+
+    public function testRefusesReplacementWhenLocalFileChangesAfterPreflight(): void
+    {
+        file_put_contents($this->root.'/upstream/replace.txt', 'upstream');
+        file_put_contents($this->root.'/local/replace.txt', 'project edit');
+
+        try {
+            (new ComponentNativeFileApplier())->apply($this->root.'/local', $this->root.'/upstream', [
+                'add' => [], 'replace' => ['replace.txt'], 'delete' => [],
+            ], ['replace.txt' => hash('sha256', 'baseline')]);
+            self::fail('Concurrent local replacement must be rejected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('modifié depuis le préflight', $error->getMessage());
+        }
+        self::assertSame('project edit', file_get_contents($this->root.'/local/replace.txt'));
     }
 
     public function testRefusesDeletionWhenFileChangesAfterPreflight(): void
