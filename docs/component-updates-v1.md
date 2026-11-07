@@ -140,3 +140,7 @@ Avant toute écriture, `WorkspaceNativeApply` rejette les chemins absolus, les s
 ### Test du rollback sources et manifeste (07/11/2026)
 
 `WorkspaceNativeRollbackTest` combine les composants BO et App avec le snapshot existant `WorkspaceFileSnapshot` (périmètre `backend`, `bo`, `app`). Après application native et publication des nouvelles révisions, une erreur simulée de build déclenche la restauration des fichiers natifs, des personnalisations locales et du manifeste `.symsvel/components.json` à leurs états antérieurs. Il s'agit d'un test de composition des briques existantes, **pas** encore d'un test du parcours complet de `WorkspaceUpdater` : le raccordement de la transaction Composer, npm et BDD reste nécessaire.
+
+### Échec réel pendant l'application de plusieurs composants (07/11/2026)
+
+Le test `WorkspaceNativeRollbackTest::testPartialApplyFailureRestoresEarlierComponentAndOriginalManifest` prépare BO et App, applique BO, puis provoque un échec d'application App par absence du fichier source upstream. Le snapshot des sources restaure alors le fichier BO et le manifeste initial, tandis que App reste inchangé. Cette vérification démontre la récupération d'une application partielle ; elle ne remplace pas les tests d'intégration du rollback complet dans `WorkspaceUpdater` (Composer, runtime, BDD).
