@@ -24,6 +24,16 @@ final class WorkspaceUpdaterTest extends TestCase
         }
     }
 
+    public function testLegacyCoreEnvironmentIsRejectedBeforeAnyCommand(): void
+    {
+        $updater = new WorkspaceUpdater(static function (): void {
+            self::fail('No command may run for removed APP_ENV=core.');
+        });
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Environnement non pris en charge : core');
+        $updater->update('/tmp/backend', 'core');
+    }
+
     public function testWorkspaceUpdatesComposerAndExistingInterfaces(): void
     {
         $root = sys_get_temp_dir().'/symsvel-update-'.bin2hex(random_bytes(8));
