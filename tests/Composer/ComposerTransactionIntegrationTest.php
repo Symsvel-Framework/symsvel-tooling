@@ -184,6 +184,62 @@ final class ComposerTransactionIntegrationTest extends TestCase
         }
     }
 
+    public function testRealGitModuleVcsRequireSucceedsInDevelopmentChannel(): void
+    {
+        foreach (['composer', 'git'] as $executable) {
+            $probe = new Process([$executable, '--version']);
+            $probe->run();
+            if (!$probe->isSuccessful()) {
+                self::markTestSkipped($executable.' executable unavailable.');
+            }
+        }
+
+        $root = sys_get_temp_dir().'/symsvel-composer-vcs-success-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $module = $root.'/module';
+        mkdir($backend, 0700, true);
+        mkdir($module, 0700, true);
+        file_put_contents($module.'/composer.json', json_encode([
+            'name' => 'symsvel-framework/module-demo',
+            'type' => 'library',
+        ], JSON_THROW_ON_ERROR));
+        foreach ([
+            ['git', 'init', '-b', 'main'],
+            ['git', 'config', 'user.email', 'ci@example.invalid'],
+            ['git', 'config', 'user.name', 'CI'],
+            ['git', 'add', 'composer.json'],
+            ['git', 'commit', '-m', 'fixture'],
+        ] as $command) {
+            (new Process($command, $module))->mustRun();
+        }
+        file_put_contents($backend.'/composer.json', json_encode([
+            'name' => 'symsvel-test/vcs-consumer',
+            'config' => ['allow-plugins' => false],
+        ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+        try {
+            (new Process(['composer', 'update', '--no-scripts', '--no-plugins', '--no-interaction'], $backend))->mustRun();
+            \SymSvel\Tooling\Update\ProjectChannel::write($backend, 'dev');
+            $commands = [];
+            $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $cwd, ?callable $progress) use (&$commands, $module): void {
+                $commands[] = $command;
+                if (($command[0] ?? '') === 'composer' && ($command[1] ?? '') === 'config') {
+                    $command[4] = $module;
+                }
+                $process = new Process($command, $cwd);
+                $process->setTimeout(120);
+                $process->mustRun();
+            });
+            $runner->run($backend, ['require', 'symsvel-framework/module-demo:dev-main', '--no-interaction']);
+            $composer = json_decode((string) file_get_contents($backend.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame('dev-main', $composer['require']['symsvel-framework/module-demo'] ?? null);
+            self::assertDirectoryExists($backend.'/vendor/symsvel-framework/module-demo');
+            self::assertContains(['composer', 'config', 'repositories.module-demo-dev', 'vcs', 'https://github.com/Symsvel-Framework/symsvel-module-demo.git'], $commands);
+            self::assertSame('dev', \SymSvel\Tooling\Update\ProjectChannel::read($backend));
+        } finally {
+            $this->removeTree($root);
+        }
+    }
+
     public function testRealGitModuleVcsFailureRestoresRepositoryConfiguration(): void
     {
         foreach (['composer', 'git'] as $executable) {
