@@ -144,3 +144,7 @@ Avant toute écriture, `WorkspaceNativeApply` rejette les chemins absolus, les s
 ### Échec réel pendant l'application de plusieurs composants (07/11/2026)
 
 Le test `WorkspaceNativeRollbackTest::testPartialApplyFailureRestoresEarlierComponentAndOriginalManifest` prépare BO et App, applique BO, puis provoque un échec d'application App par absence du fichier source upstream. Le snapshot des sources restaure alors le fichier BO et le manifeste initial, tandis que App reste inchangé. Cette vérification démontre la récupération d'une application partielle ; elle ne remplace pas les tests d'intégration du rollback complet dans `WorkspaceUpdater` (Composer, runtime, BDD).
+
+### Disparition d'une source upstream entre préflight et copie (07/11/2026)
+
+`ComponentNativeFileApplier` vérifie désormais l'existence et le type régulier du fichier upstream juste avant la copie. Si la source a disparu ou est devenue un lien symbolique, l'opération échoue avec une `RuntimeException` explicite, sans warning PHP. Les erreurs de copie et de permissions sont également converties en exceptions contrôlées ; la transaction appelante doit restaurer les fichiers déjà modifiés. Le crash-test `WorkspaceNativeRollbackTest` vérifie le message d'erreur attendu et la restauration du premier composant après échec du second.
