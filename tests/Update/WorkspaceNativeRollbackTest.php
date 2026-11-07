@@ -27,6 +27,43 @@ final class WorkspaceNativeRollbackTest extends TestCase
         (new Filesystem())->remove($this->root);
     }
 
+    public function testSymlinkedSecondUpstreamParentBlocksFirstComponentWrite(): void
+    {
+        $backend = $this->root.'/backend';
+        file_put_contents($this->root.'/bo/native.txt', 'before');
+        file_put_contents($this->root.'/upstream-bo/native.txt', 'after');
+        mkdir($this->root.'/app/nested');
+        file_put_contents($this->root.'/app/nested/native.txt', 'app-before');
+        mkdir($this->root.'/outside');
+        file_put_contents($this->root.'/outside/native.txt', 'app-after');
+        symlink($this->root.'/outside', $this->root.'/upstream-app/nested');
+
+        $prepared = [
+            'bo' => [
+                'revision' => 'new-bo',
+                'incoming' => ['native.txt' => hash('sha256', 'after')],
+                'baseline' => ['native.txt' => hash('sha256', 'before')],
+                'plan' => ['add' => [], 'replace' => ['native.txt'], 'delete' => [], 'conflicts' => []],
+                'upstream' => $this->root.'/upstream-bo',
+            ],
+            'app' => [
+                'revision' => 'new-app',
+                'incoming' => ['nested/native.txt' => hash('sha256', 'app-after')],
+                'baseline' => ['nested/native.txt' => hash('sha256', 'app-before')],
+                'plan' => ['add' => [], 'replace' => ['nested/native.txt'], 'delete' => [], 'conflicts' => []],
+                'upstream' => $this->root.'/upstream-app',
+            ],
+        ];
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Chemin upstream non fiable : app/nested/native.txt');
+        try {
+            (new WorkspaceNativeApply())->apply($backend, $prepared);
+        } finally {
+            self::assertSame('before', file_get_contents($this->root.'/bo/native.txt'));
+        }
+    }
+
     public function testMissingSecondUpstreamStopsAllWritesBeforeRollback(): void
     {
         $backend = $this->root.'/backend';
