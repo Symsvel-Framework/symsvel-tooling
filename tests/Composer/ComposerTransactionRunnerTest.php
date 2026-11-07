@@ -47,6 +47,31 @@ final class ComposerTransactionRunnerTest extends TestCase
         @rmdir(dirname($this->backend));
     }
 
+    public function testDevModuleRepositoryMutationIsRolledBackOnComposerFailure(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        $original = (string) file_get_contents($this->backend.'/composer.json');
+        $commands = [];
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $cwd, ?callable $progress) use (&$commands): void {
+            $commands[] = $command;
+            if (array_slice($command, 0, 3) === ['composer', 'config', 'repositories.module-demo-dev']) {
+                file_put_contents($cwd.'/composer.json', '{"repositories":{"module-demo-dev":{"type":"vcs","url":"https://github.com/Symsvel-Framework/symsvel-module-demo.git"}}}');
+                return;
+            }
+            throw new \RuntimeException('Injected Composer failure');
+        });
+        try {
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:dev-main']);
+            self::fail('Expected failure.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+        } finally {
+            @unlink($this->backend.'/.symsvel/project.json');
+        }
+        self::assertSame($original, file_get_contents($this->backend.'/composer.json'));
+        self::assertContains(['composer', 'config', 'repositories.module-demo-dev', 'vcs', 'https://github.com/Symsvel-Framework/symsvel-module-demo.git'], $commands);
+    }
+
     public function testBootstrapRejectsUpdateAndRemovalBeforeComposer(): void
     {
         $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
