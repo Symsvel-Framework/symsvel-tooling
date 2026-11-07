@@ -65,6 +65,25 @@ final class WorkspaceNativeApplyTest extends TestCase
         }
     }
 
+    public function testNativeUpdatePreservesProjectGitMetadataAndUnmanagedChanges(): void
+    {
+        mkdir($this->root.'/bo/.git');
+        file_put_contents($this->root.'/bo/.git/HEAD', "ref: refs/heads/project-feature\n");
+        file_put_contents($this->root.'/bo/native.txt', 'old');
+        file_put_contents($this->root.'/bo/project-only.txt', 'local changes');
+        file_put_contents($this->root.'/upstream-bo/native.txt', 'new');
+
+        (new WorkspaceNativeApply())->apply($this->root.'/backend', [
+            'bo' => $this->entry('bo', [
+                'add' => [], 'replace' => ['native.txt'], 'delete' => [], 'conflicts' => [],
+            ], ['native.txt' => hash('sha256', 'old')], ['native.txt' => hash('sha256', 'new')]),
+        ]);
+
+        self::assertSame("ref: refs/heads/project-feature\n", file_get_contents($this->root.'/bo/.git/HEAD'));
+        self::assertSame('local changes', file_get_contents($this->root.'/bo/project-only.txt'));
+        self::assertSame('new', file_get_contents($this->root.'/bo/native.txt'));
+    }
+
     public function testLateLocalChangeInLastComponentStopsEarlierComponentBeforeWriting(): void
     {
         file_put_contents($this->root.'/bo/native.txt', 'old');
