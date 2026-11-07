@@ -187,3 +187,7 @@ Le parcours `WorkspaceUpdater::update()` appelle désormais `WorkspaceNativePrep
 ### Migration effective d'un test WorkspaceUpdater (07/11/2026)
 
 Le scénario `testBuildFailureIdentifiesComponentAndStage` utilise maintenant `NativeWorkspaceFixture`, un upstream Git local et un manifeste natif initial, et vérifie que l'échec du build BO est bien atteint après l'application native. Son nettoyage récursif prend en compte les checkpoints de transaction. Les autres scénarios historiques n'ont pas encore été migrés ; aucun résultat de CI n'est anticipé.
+
+### Migration des scénarios WorkspaceUpdaterTest (07/11/2026)
+
+Les scénarios de succès BO, de refus de contrainte Composer instable en mode dev, de conflit natif bloquant avant Composer et de conservation d'un fichier local non suivi utilisent désormais le contrat natif. Les assertions sur `git status`, `git merge` et `git checkout` ont été remplacées par des contrôles des commandes Composer/npm et du contenu réel des fichiers. Le scénario d'échec de build BO était déjà migré. **Les cinq scénarios historiques de `WorkspaceUpdaterGitRollbackTest` restent à migrer et la CI n'est pas encore confirmée**.
