@@ -50,15 +50,15 @@ En cas d'échec, `composer.json` est restauré par le mécanisme transactionnel 
 
 ### Fixtures de bootstrap (07/11/2026)
 
-Les tests de bootstrap des modules créent explicitement un canal `stable` lorsque la transaction atteint la résolution des sources. Cela évite de confondre une fixture sans provenance avec un défaut de la logique métier. Le nettoyage des fixtures retire également `backend/.symsvel/project.json`. Le résultat CI de ce correctif reste à confirmer.
+Les tests de bootstrap des modules créent explicitement un canal `stable` lorsque la transaction atteint la résolution des sources. Cela évite de confondre une fixture sans provenance avec un défaut de la logique métier. Le nettoyage des fixtures retire également `backend/.symsvel/project.json`. La CI de la PR #62 était verte au commit `998642fb` le 07/11/2026, avant cette actualisation documentaire.
 
 ### Intégration VCS Git locale (07/11/2026)
 
-Un test d'intégration supplémentaire initialise un vrai dépôt Git local avec un package `symsvel-framework/module-demo` sur `main`. Le lanceur transactionnel déclare le dépôt officiel puis l'injection de commande substitue uniquement l'URL par la fixture locale pour éviter le réseau. Composer effectue un vrai `require` en `dev-main`, suivi d'un échec injecté ; le test vérifie la restauration byte-à-byte de `composer.json` et `composer.lock` et l'absence du module dans `vendor`. Ce test ne prouve pas encore l'accès au dépôt GitHub réel. CI et crash-tests XT à confirmer.
+Un test d'intégration supplémentaire initialise un vrai dépôt Git local avec un package `symsvel-framework/module-demo` sur `main`. Le lanceur transactionnel déclare le dépôt officiel puis l'injection de commande substitue uniquement l'URL par la fixture locale pour éviter le réseau. Composer effectue un vrai `require` en `dev-main`, suivi d'un échec injecté ; le test vérifie la restauration byte-à-byte de `composer.json` et `composer.lock` et l'absence du module dans `vendor`. Ce test ne prouve pas encore l'accès au dépôt GitHub réel. La CI de la PR #62 était verte au commit `998642fb` le 07/11/2026 ; les crash-tests XT restent à effectuer.
 
 ### Dépôts VCS déjà déclarés
 
-Deux tests unitaires supplémentaires contrôlent la réutilisation sans mutation d'un dépôt officiel identique et le rejet d'un dépôt de même clé pointant vers une autre URL, avant tout `composer require`. Le rejet préserve le manifeste original. La CI doit confirmer ces scénarios.
+Deux tests unitaires supplémentaires contrôlent la réutilisation sans mutation d'un dépôt officiel identique et le rejet d'un dépôt de même clé pointant vers une autre URL, avant tout `composer require`. Le rejet préserve le manifeste original. Ces scénarios sont couverts par la CI verte de la PR #62 au commit `998642fb` ; la vérification réseau réelle reste distincte.
 
 ### Matrice finale avant crash-test XT
 
@@ -71,4 +71,4 @@ Les tests locaux Git substituent l'URL officielle par un dépôt temporaire uniq
 
 ### Fixture Git de réussite
 
-La fixture de résolution Composer réussie inclut un manifeste `module.json` conforme au contrat SymSvel v1 et les répertoires `back/` et `docs/dev/`. Un simple `composer.json` suffit à la résolution Composer mais pas à la synchronisation des modules SymSvel après installation. La CI doit valider cette correction.
+La fixture de résolution Composer réussie inclut un manifeste `module.json` conforme au contrat SymSvel v1 et les répertoires `back/` et `docs/dev/`. Un simple `composer.json` suffit à la résolution Composer mais pas à la synchronisation des modules SymSvel après installation. La CI de la PR #62 était verte au commit `998642fb` ; le test sur XT reste nécessaire.
