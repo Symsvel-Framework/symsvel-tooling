@@ -152,3 +152,7 @@ Le test `WorkspaceNativeRollbackTest::testPartialApplyFailureRestoresEarlierComp
 ### Contrôle global des sources upstream (07/11/2026)
 
 `WorkspaceNativeApply` vérifie désormais, pour **tous** les composants, l'existence, l'absence de symlink et le SHA-256 attendu des fichiers upstream destinés aux ajouts et remplacements **avant toute mutation**. Une source App absente ou altérée bloque donc aussi les écritures BO. Le test de disparition de la source App a été adapté à cette garantie renforcée ; la vérification locale de `ComponentNativeFileApplier` reste utile contre les changements entre le contrôle global et la copie effective. Les scénarios de rollback après mutation restent couverts séparément par `testSourceSnapshotRestoresBothInterfacesAndManifestAfterDownstreamFailure`.
+
+### Chemins parents upstream symboliques (07/11/2026)
+
+Le préflight global rejette aussi les répertoires parents symboliques des fichiers upstream, même si le fichier terminal est régulier et que son empreinte SHA-256 correspond. Un test place un parent upstream App en symlink vers un dossier extérieur et vérifie que l'application BO n'a pas commencé. La vérification porte sur tous les composants avant écriture ; les contrôles locaux restent une défense supplémentaire contre les changements concurrents.
