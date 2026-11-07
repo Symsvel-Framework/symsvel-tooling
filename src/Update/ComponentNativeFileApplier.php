@@ -30,6 +30,16 @@ final class ComponentNativeFileApplier
                 if (!is_dir($parent) && !mkdir($parent, 0775, true) && !is_dir($parent)) {
                     throw new \RuntimeException('Création impossible : '.$path);
                 }
+                // Recheck the local target immediately before writing: project files
+                // may change after the read-only three-way preflight.
+                if ($action === 'add') {
+                    if (file_exists($target) || is_link($target)) {
+                        throw new \RuntimeException('Ajout natif refusé : fichier local apparu depuis le préflight : '.$path);
+                    }
+                } elseif (!isset($baseline[$path]) || !is_file($target) || is_link($target)
+                    || hash_file('sha256', $target) !== $baseline[$path]) {
+                    throw new \RuntimeException('Remplacement natif refusé : fichier local modifié depuis le préflight : '.$path);
+                }
                 if (is_link($target) || is_dir($target) || !copy($source, $target)) {
                     throw new \RuntimeException('Copie native impossible : '.$path);
                 }
