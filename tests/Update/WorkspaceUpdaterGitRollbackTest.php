@@ -63,13 +63,12 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
             foreach (['bo', 'app', 'front'] as $component) {
                 self::assertSame('before', file_get_contents($root.'/'.$component.'/version.txt'));
             }
-            self::assertSame('before', hash_file('sha256', $root.'/bo/version.txt') === hash('sha256', 'before') ? 'before' : 'changed');
         } finally {
             $this->deleteTree($root);
         }
     }
 
-    public function testRollbackContinuesAfterNativeRuntimeRecoveryFailure(): void
+    public function testFrontBuildFailureRestoresNativeRuntimeArtifacts(): void
     {
         $root = sys_get_temp_dir().'/symsvel-native-cascade-'.bin2hex(random_bytes(8));
         mkdir($root.'/backend', 0775, true);
