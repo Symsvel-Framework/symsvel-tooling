@@ -27,7 +27,7 @@ final class WorkspaceNativeRollbackTest extends TestCase
         (new Filesystem())->remove($this->root);
     }
 
-    public function testPartialApplyFailureRestoresEarlierComponentAndOriginalManifest(): void
+    public function testMissingSecondUpstreamStopsAllWritesBeforeRollback(): void
     {
         $backend = $this->root.'/backend';
         file_put_contents($this->root.'/bo/native.txt', 'before');
@@ -62,8 +62,8 @@ final class WorkspaceNativeRollbackTest extends TestCase
             (new WorkspaceNativeApply())->apply($backend, $prepared);
             self::fail('Missing APP upstream must fail after BO application.');
         } catch (\RuntimeException $failure) {
-            self::assertStringContainsString('Source native absente ou non fiable : native.txt', $failure->getMessage());
-            self::assertSame('after', file_get_contents($this->root.'/bo/native.txt'));
+            self::assertStringContainsString('Source native modifiée depuis le préflight : app/native.txt', $failure->getMessage());
+            self::assertSame('before', file_get_contents($this->root.'/bo/native.txt'));
             $snapshot->restore();
         }
         self::assertSame('before', file_get_contents($this->root.'/bo/native.txt'));
