@@ -16,11 +16,11 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
         mkdir($root.'/backend', 0775, true);
         try {
             file_put_contents($root.'/backend/.env', "DATABASE_URL=sqlite:///default.sqlite\n");
-            file_put_contents($root.'/backend/.env.core', "DATABASE_URL=sqlite:///core.sqlite\n");
-            file_put_contents($root.'/backend/.env.core.local', "DATABASE_URL=sqlite:///core-local.sqlite\n");
+            file_put_contents($root.'/backend/.env.test', "DATABASE_URL=sqlite:///core.sqlite\n");
+            file_put_contents($root.'/backend/.env.test.local', "DATABASE_URL=sqlite:///core-local.sqlite\n");
             $updater = new WorkspaceUpdater(databaseUrl: 'sqlite:///explicit.sqlite');
             $method = new \ReflectionMethod(WorkspaceUpdater::class, 'resolveDatabaseUrl');
-            self::assertSame('sqlite:///explicit.sqlite', $method->invoke($updater, $root.'/backend', 'core'));
+            self::assertSame('sqlite:///explicit.sqlite', $method->invoke($updater, $root.'/backend', 'test'));
             if (!class_exists(\Symfony\Component\Dotenv\Dotenv::class)) {
                 self::markTestSkipped('Symfony Dotenv is not installed.');
             }
@@ -28,7 +28,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
             if (is_string($external) && $external !== '') {
                 self::markTestSkipped('External DATABASE_URL overrides Symfony Dotenv files.');
             }
-            self::assertSame('sqlite:///core-local.sqlite', $method->invoke(new WorkspaceUpdater(), $root.'/backend', 'core'));
+            self::assertSame('sqlite:///core-local.sqlite', $method->invoke(new WorkspaceUpdater(), $root.'/backend', 'test'));
             self::assertSame('sqlite:///default.sqlite', $method->invoke(new WorkspaceUpdater(), $root.'/backend', 'dev'));
         } finally {
             $this->deleteTree($root);
@@ -54,7 +54,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 }
             };
             try {
-                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database, $fixture->preparation()))->update($root.'/backend', 'core');
+                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database, $fixture->preparation()))->update($root.'/backend', 'test');
                 self::fail('Expected FRONT build failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
@@ -90,7 +90,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 }
             };
             try {
-                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database, $fixture->preparation()))->update($root.'/backend', 'core');
+                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database, $fixture->preparation()))->update($root.'/backend', 'test');
                 self::fail('Expected FRONT failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
@@ -146,7 +146,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 return null;
             };
             try {
-                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database, $fixture->preparation()))->update($root.'/backend', 'core');
+                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database, $fixture->preparation()))->update($root.'/backend', 'test');
                 self::fail('Expected FRONT build failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
@@ -226,7 +226,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 return null;
             };
             try {
-                (new WorkspaceUpdater($runner, true, $url, $fixture->preparation()))->update($root.'/backend', 'core');
+                (new WorkspaceUpdater($runner, true, $url, $fixture->preparation()))->update($root.'/backend', 'test');
                 self::fail('Expected FRONT failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[FRONT / Build Svelte]', $error->getMessage());
@@ -280,7 +280,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 return null;
             };
             try {
-                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database, $fixture->preparation()))->update($root.'/backend', 'core');
+                (new WorkspaceUpdater($runner, true, 'sqlite://'.$database, $fixture->preparation()))->update($root.'/backend', 'test');
                 self::fail('Expected rollback failure.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('[BO / Build Svelte]', $error->getMessage());
@@ -318,7 +318,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 return null;
             };
             try {
-                (new WorkspaceUpdater($runner, true, 'sqlite:///'.$database))->update($root.'/backend', 'core');
+                (new WorkspaceUpdater($runner, true, 'sqlite:///'.$database))->update($root.'/backend', 'test');
                 self::fail('Missing original lock must be rejected.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('composer.lock initial obligatoire', $error->getMessage());
@@ -345,7 +345,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
                 return null;
             };
             try {
-                (new WorkspaceUpdater($runner, true, ''))->update($root.'/backend', 'core');
+                (new WorkspaceUpdater($runner, true, ''))->update($root.'/backend', 'test');
                 self::fail('Missing database URL must fail closed.');
             } catch (\RuntimeException $error) {
                 self::assertStringContainsString('DATABASE_URL explicite obligatoire', $error->getMessage());
@@ -383,7 +383,7 @@ final class WorkspaceUpdaterGitRollbackTest extends TestCase
             };
             (new WorkspaceUpdater($runner, true, 'sqlite://'.$database))->update(
                 $root.'/backend',
-                'core',
+                'test',
                 static function (string $message) use (&$messages): void {
                     $messages[] = $message;
                 },
