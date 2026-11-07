@@ -62,7 +62,7 @@ final class WorkspaceNativeRollbackTest extends TestCase
             (new WorkspaceNativeApply())->apply($backend, $prepared);
             self::fail('Missing APP upstream must fail after BO application.');
         } catch (\RuntimeException $failure) {
-            self::assertNotSame('', $failure->getMessage());
+            self::assertStringContainsString('Source native absente ou non fiable : native.txt', $failure->getMessage());
             self::assertSame('after', file_get_contents($this->root.'/bo/native.txt'));
             $snapshot->restore();
         }
