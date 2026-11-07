@@ -112,3 +112,7 @@ L'inspection des journaux PHPUnit (260 tests, 4 avertissements) a identifié une
 Le workflow CI utilise désormais `actions/checkout@v5`, compatible avec le runtime Node.js 24 des runners GitHub Actions, afin de supprimer l'avertissement de dépréciation Node.js 20. Le message `initdb` sur l'authentification locale du conteneur PostgreSQL de test ne provient pas du code applicatif.
 
 La CI exécute désormais PHPUnit avec `--display-warnings --fail-on-warning` : un avertissement PHP émis par les tests rend le job rouge, même si toutes les assertions passent. Ce garde-fou empêche la répétition du faux positif constaté sur `ComponentUpdater`. Le résultat reste soumis à la CI et aux crash-tests XT avant validation du chantier.
+
+### Protection contre les modifications concurrentes (07/11/2026)
+
+Entre le préflight trois voies et l'application, un fichier local peut être créé ou modifié. `ComponentNativeFileApplier` vérifie désormais juste avant écriture que les chemins `add` n'existent toujours pas et que les fichiers `replace` correspondent encore à leur empreinte de baseline ; la vérification équivalente existait déjà pour `delete`. En cas d'écart, l'opération échoue sans écraser la modification locale et le propriétaire de la transaction assure le rollback. Deux tests de non-régression couvrent ces changements concurrents. Ce contrôle ne remplace pas un verrou transactionnel de workspace et ne garantit pas l'atomicité entre la vérification et la copie ; cette limite reste à examiner lors de l'orchestration globale #60.
