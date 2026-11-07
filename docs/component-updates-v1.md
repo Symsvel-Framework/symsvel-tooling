@@ -179,3 +179,7 @@ Le parcours `WorkspaceUpdater::update()` appelle désormais `WorkspaceNativePrep
 ### Migration des tests historiques (07/11/2026)
 
 `WorkspaceUpdater` accepte maintenant une dépendance facultative `WorkspaceNativePreparation` en fin de constructeur. En production, le préflight réel reste utilisé par défaut ; les tests d'intégration peuvent fournir un `ComponentNativePreparation` construit avec un `ComponentNativeSource` pointant vers des dépôts Git upstream **locaux**. Il ne s'agit pas d'un contournement réservé aux tests : la préparation et les vérifications natives sont identiques. Les anciennes fixtures sans remote `origin` et les assertions de `git merge` doivent être remplacées. Tant que cette migration n'est pas terminée, la CI du raccordement global n'est pas validée.
+
+### Fixtures d'intégration natives (07/11/2026)
+
+`tests/Update/NativeWorkspaceFixture.php` prépare des dépôts Git upstream locaux et des entrées de provenance `.symsvel/components.json` pour chaque composant. Le préflight injecté continue d'exécuter le code réel `ComponentNativeSource` / `ComponentNativePreparation` / `WorkspaceNativePreparation`. Les scénarios de rollback historiques restent à migrer vers cette fixture ; leur état rouge est attendu tant qu'ils exigent encore les commandes Git projet supprimées.
