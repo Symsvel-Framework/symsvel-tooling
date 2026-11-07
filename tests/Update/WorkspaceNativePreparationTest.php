@@ -10,6 +10,7 @@ use SymSvel\Tooling\Update\ComponentManifest;
 use SymSvel\Tooling\Update\ComponentNativePreparation;
 use SymSvel\Tooling\Update\ComponentNativeSource;
 use SymSvel\Tooling\Update\WorkspaceNativePreparation;
+use SymSvel\Tooling\Update\ProjectChannel;
 
 final class WorkspaceNativePreparationTest extends TestCase
 {
@@ -19,6 +20,7 @@ final class WorkspaceNativePreparationTest extends TestCase
     {
         $this->root = sys_get_temp_dir().'/symsvel-workspace-native-'.bin2hex(random_bytes(8));
         mkdir($this->root.'/backend', 0775, true);
+        ProjectChannel::write($this->root.'/backend', ProjectChannel::DEV);
         mkdir($this->root.'/app', 0775, true);
         mkdir($this->root.'/bo', 0775, true);
     }
