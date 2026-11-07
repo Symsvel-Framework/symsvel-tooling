@@ -65,6 +65,28 @@ final class WorkspaceNativeApplyTest extends TestCase
         }
     }
 
+    public function testLateLocalChangeInLastComponentStopsEarlierComponentBeforeWriting(): void
+    {
+        file_put_contents($this->root.'/bo/native.txt', 'old');
+        file_put_contents($this->root.'/upstream-bo/native.txt', 'new');
+        file_put_contents($this->root.'/app/native.txt', 'locally edited');
+        file_put_contents($this->root.'/upstream-app/native.txt', 'upstream');
+        $prepared = [
+            'bo' => $this->entry('bo', ['add' => [], 'replace' => ['native.txt'], 'delete' => [], 'conflicts' => []], ['native.txt' => hash('sha256', 'old')], ['native.txt' => hash('sha256', 'new')]),
+            'app' => $this->entry('app', ['add' => [], 'replace' => ['native.txt'], 'delete' => [], 'conflicts' => []], ['native.txt' => hash('sha256', 'baseline')], ['native.txt' => hash('sha256', 'upstream')]),
+        ];
+
+        try {
+            (new WorkspaceNativeApply())->apply($this->root.'/backend', $prepared);
+            self::fail('Late conflict must stop all components.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Modification locale concurrente : app/native.txt', $error->getMessage());
+        }
+        self::assertSame('old', file_get_contents($this->root.'/bo/native.txt'));
+        self::assertSame('locally edited', file_get_contents($this->root.'/app/native.txt'));
+        self::assertNull((new ComponentManifest($this->root.'/backend'))->get('bo'));
+    }
+
     /** @param array{add: list<string>, replace: list<string>, delete: list<string>, conflicts: list<string>} $plan
      * @param array<string, string> $baseline
      * @param array<string, string> $incoming
