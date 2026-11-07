@@ -128,3 +128,7 @@ Entre le préflight trois voies et l'application, un fichier local peut être cr
 ### Contrôle global juste avant application (07/11/2026)
 
 `WorkspaceNativeApply` revérifie les cibles `add`, `replace` et `delete` de **tous** les composants avant d'écrire le premier fichier. Une modification locale tardive dans App bloque ainsi toute mutation préalable dans BO. Les contrôles par fichier de `ComponentNativeFileApplier` restent actifs pendant l'application ; cette double vérification réduit les risques de modifications concurrentes, sans fournir à elle seule de verrou atomique. Test de non-régression : conflit tardif sur le second composant, premier composant intact, manifeste non modifié. L'intégration transactionnelle à `WorkspaceUpdater` reste à effectuer.
+
+### Indépendance du Git projet (07/11/2026)
+
+Un test de `WorkspaceNativeApply` vérifie qu'une mise à jour d'un fichier natif ne modifie ni `.git/HEAD` (branche locale du projet) ni un fichier personnalisé non géré. Cette garantie concerne la phase d'application native uniquement : tant que `WorkspaceUpdater` appelle encore `git fetch`, `git merge` ou `git checkout`, le parcours global n'est **pas** indépendant du Git projet. Cette distinction est obligatoire dans les validations et les communications du chantier #60.
