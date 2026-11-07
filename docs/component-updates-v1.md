@@ -136,3 +136,7 @@ Un test de `WorkspaceNativeApply` vérifie qu'une mise à jour d'un fichier nati
 ### Validation des chemins dans les plans globaux (07/11/2026)
 
 Avant toute écriture, `WorkspaceNativeApply` rejette les chemins absolus, les segments `.` ou `..`, les segments vides et les séparateurs inverses dans les opérations `add`, `replace` et `delete`. Le contrôle s'applique à l'ensemble des composants : un chemin invalide dans App bloque l'application préalable des fichiers BO. Un test vérifie le rejet et l'absence de mutation des sources et du manifeste. Cette validation complète les contrôles de chemins et de symlinks de l'appliqueur unitaire.
+
+### Test du rollback sources et manifeste (07/11/2026)
+
+`WorkspaceNativeRollbackTest` combine les composants BO et App avec le snapshot existant `WorkspaceFileSnapshot` (périmètre `backend`, `bo`, `app`). Après application native et publication des nouvelles révisions, une erreur simulée de build déclenche la restauration des fichiers natifs, des personnalisations locales et du manifeste `.symsvel/components.json` à leurs états antérieurs. Il s'agit d'un test de composition des briques existantes, **pas** encore d'un test du parcours complet de `WorkspaceUpdater` : le raccordement de la transaction Composer, npm et BDD reste nécessaire.
