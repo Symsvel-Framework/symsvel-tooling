@@ -203,11 +203,22 @@ final class ComposerTransactionIntegrationTest extends TestCase
             'name' => 'symsvel-framework/module-demo',
             'type' => 'library',
         ], JSON_THROW_ON_ERROR));
+        mkdir($module.'/back', 0700, true);
+        mkdir($module.'/docs/dev', 0700, true);
+        file_put_contents($module.'/module.json', json_encode([
+            'schema' => 1,
+            'name' => 'Demo',
+            'components' => ['back' => 'back'],
+            'documentation' => ['dev' => 'docs/dev'],
+            'dependencies' => [],
+            'extensions' => [],
+            'tables' => [],
+        ], JSON_THROW_ON_ERROR));
         foreach ([
             ['git', 'init', '-b', 'main'],
             ['git', 'config', 'user.email', 'ci@example.invalid'],
             ['git', 'config', 'user.name', 'CI'],
-            ['git', 'add', 'composer.json'],
+            ['git', 'add', 'composer.json', 'module.json'],
             ['git', 'commit', '-m', 'fixture'],
         ] as $command) {
             (new Process($command, $module))->mustRun();
