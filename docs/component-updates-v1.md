@@ -29,7 +29,7 @@ Pré-analyser tous les conflits avant mutation. En cas de conflit, refuser la mi
 
 Pour une installation historique sans manifeste, la CLI vérifie que `origin` pointe encore vers le dépôt officiel SymSvel, puis récupère en lecture seule l'ancêtre commun entre `HEAD` et la référence distante locale. Les fichiers natifs de cet ancêtre deviennent la référence de départ. Aucune branche ni aucun fichier Git du projet n'est modifié. Si la provenance est inconnue (par exemple dépôt Choralys déjà indépendant), la migration automatique est refusée : il faut initialiser une référence native fiable, sans assimiler arbitrairement les fichiers du projet à ceux du framework.
 
-> Statut : contrat de conception. L'implémentation et les tests de migration sont à réaliser dans cette PR avant tout merge.
+> Statut : moteur natif implémenté et testé dans Tooling (préflight, application, rollback). Le raccordement des parcours publics de la CLI doit être vérifié séparément : `symsvel update bo|app|front` appelle `symsvel:component:update`, tandis que `symsvel update` sans cible ou avec package utilise le lanceur transactionnel Composer et ne passe pas par `WorkspaceUpdater`. Ne pas présenter ces deux parcours comme équivalents.
 
 
 ## Initialisation documentaire (décision du 06/11/2026)
