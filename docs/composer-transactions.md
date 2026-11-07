@@ -41,3 +41,9 @@ php bin/console symsvel:cleanup
 Cette commande est conçue pour être exécutée périodiquement par cron, mais aucun cron n'est installé automatiquement. Elle ne doit jamais supprimer les checkpoints d'un rollback incomplet.
 
 Voir également [le README](../README.md).
+
+## Provenance des nouveaux modules en canal dev
+
+Pour un projet dont `backend/.symsvel/project.json` déclare `channel: dev`, la transaction `require symsvel-framework/module-*` prépare désormais le dépôt Git officiel `https://github.com/Symsvel-Framework/symsvel-module-*.git` **après la prise du checkpoint Composer et avant le require**. L'entrée `repositories.module-<nom>-dev` est vérifiée lorsqu'elle existe déjà : une définition incompatible provoque un échec sans écrasement. Les dépendances tierces et les opérations `update`/`remove` ne déclenchent aucune déclaration de dépôt.
+
+En cas d'échec, `composer.json` est restauré par le mécanisme transactionnel existant ; un test vérifie ce scénario par injection d'une erreur Composer. La configuration de dépôts faite lors du bootstrap initial reste provisoirement dans la CLI et devra être unifiée avant le merge. La résolution réelle via GitHub/Satis et les crash-tests XT restent à valider.
