@@ -20,7 +20,7 @@ final class ComponentNativePreparation
     /**
      * @return array{revision: string, incoming: array<string, string>, baseline: array<string, string>, plan: array{add: list<string>, replace: list<string>, delete: list<string>, conflicts: list<string>}}
      */
-    public function prepare(string $backend, string $component, string $upstream): array
+    public function prepare(string $backend, string $component, string $upstream, string $channel = ProjectChannel::DEV): array
     {
         if (!in_array($component, ['bo', 'app', 'front'], true)) {
             throw new \InvalidArgumentException('Composant inconnu : '.$component);
@@ -31,7 +31,7 @@ final class ComponentNativePreparation
         }
         $baseline = (new ComponentManifest($backend))->get($component)
             ?? $this->legacy->recover($directory, $component);
-        $revision = $this->native->fetch($component, $upstream);
+        $revision = $this->native->fetch($component, $upstream, $channel);
         $incoming = $this->native->files($upstream);
         $local = $this->native->files($directory);
         $plan = $this->preflight->inspect($baseline['files'], $incoming, $local);
