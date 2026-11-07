@@ -44,6 +44,13 @@ final class WorkspaceNativeApply
                     }
                     if ($action !== 'delete') {
                         $source = $entry['upstream'].'/'.$path;
+                        $sourceParent = dirname($source);
+                        while ($sourceParent !== $entry['upstream']) {
+                            if (is_link($sourceParent) || !str_starts_with($sourceParent, $entry['upstream'].'/')) {
+                                throw new \RuntimeException('Chemin upstream non fiable : '.$component.'/'.$path);
+                            }
+                            $sourceParent = dirname($sourceParent);
+                        }
                         $expected = $entry['incoming'][$path] ?? null;
                         if (!is_string($expected) || !preg_match('/^[a-f0-9]{64}$/D', $expected)
                             || !is_file($source) || is_link($source)
