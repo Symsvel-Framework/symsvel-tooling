@@ -207,3 +207,7 @@ Le projet conserve son canal dans `backend/.symsvel/project.json` : `{"schema":1
 #### Résolution des sources Svelte
 
 La préparation native lit désormais `ProjectChannel` depuis le backend. Pour `dev`, le clone de référence cible explicitement `main` ; pour `stable`, le résolveur choisit le tag SemVer stable le plus récent (`vMAJOR.MINOR.PATCH` ou `MAJOR.MINOR.PATCH`) depuis le dépôt officiel. Les tests d'intégration créent un canal `dev` et des upstream Git locaux. La configuration initiale depuis CLI et le parcours Composer restent à raccorder avant merge ; la CI doit valider les changements.
+
+#### Fixtures Git de CI
+
+Les tests d'intégration des mises à jour natives créent explicitement leurs dépôts Git locaux sur `main` (source et dépôt bare). Le résolveur `dev` cible cette branche par contrat ; les tests ne dépendent plus de la branche initiale configurée sur le runner GitHub Actions. La création du répertoire `.symsvel` est assurée par `ProjectChannel`, sans double `mkdir` dans les fixtures.
