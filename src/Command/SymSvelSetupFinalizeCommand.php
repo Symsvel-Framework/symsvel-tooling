@@ -85,9 +85,6 @@ final class SymSvelSetupFinalizeCommand extends Command
             if (!$process->isSuccessful()) {
                 throw new \RuntimeException('Migrations non finalisées : '.trim($process->getErrorOutput().' '.$process->getOutput()));
             }
-            if ($this->state->read($workspace) === SetupState::RUNNING) {
-                $this->state->transition($workspace, SetupState::RUNNING, SetupState::DATABASE_READY);
-            }
             $bootstrap = new Process([
                 PHP_BINARY, 'bin/console', 'symsvel:admins:bootstrap', '--no-interaction',
             ], $this->projectDir);
@@ -102,6 +99,12 @@ final class SymSvelSetupFinalizeCommand extends Command
             }
             if (!unlink($pendingAdmin)) {
                 throw new \RuntimeException('Impossible de supprimer les données administrateur temporaires.');
+            }
+            // Compatibility with the current Admins module: it still requires RUNNING.
+            // The two-phase wizard will activate DATABASE_READY only after its
+            // provisioning contract is migrated away from staged credentials.
+            if ($this->state->read($workspace) === SetupState::RUNNING) {
+                $this->state->transition($workspace, SetupState::RUNNING, SetupState::DATABASE_READY);
             }
             $this->state->transition($workspace, SetupState::DATABASE_READY, SetupState::COMPLETED);
             $tokenFile = $workspace.'/.symsvel/setup-token';
