@@ -9,6 +9,50 @@ use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 
 final class WorkspaceFileSnapshotTest extends TestCase
 {
+    public function testScopedSnapshotRestoresOnlySelectedComponent(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-snapshot-scope-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $transaction = $backend.'/.symsvel/transactions/test';
+        mkdir($transaction, 0700, true);
+        mkdir($root.'/app');
+        mkdir($root.'/bo');
+        file_put_contents($backend.'/source.php', 'backend-original');
+        file_put_contents($root.'/app/page.svelte', 'app-original');
+        file_put_contents($root.'/bo/page.svelte', 'bo-original');
+        $snapshot = new WorkspaceFileSnapshot($backend, $transaction, ['app']);
+        try {
+            $snapshot->capture();
+            file_put_contents($backend.'/source.php', 'backend-changed');
+            file_put_contents($root.'/app/page.svelte', 'app-changed');
+            file_put_contents($root.'/bo/page.svelte', 'bo-changed');
+            file_put_contents($root.'/app/new.svelte', 'new');
+            $snapshot->restore();
+            self::assertSame('app-original', file_get_contents($root.'/app/page.svelte'));
+            self::assertFileDoesNotExist($root.'/app/new.svelte');
+            self::assertSame('backend-changed', file_get_contents($backend.'/source.php'));
+            self::assertSame('bo-changed', file_get_contents($root.'/bo/page.svelte'));
+        } finally {
+            $snapshot->discard();
+            foreach ([$backend.'/source.php', $root.'/app/page.svelte', $root.'/app/new.svelte', $root.'/bo/page.svelte'] as $file) {
+                @unlink($file);
+            }
+            @rmdir($root.'/app');
+            @rmdir($root.'/bo');
+            @rmdir($transaction);
+            @rmdir(dirname($transaction));
+            @rmdir(dirname(dirname($transaction)));
+            @rmdir($backend);
+            @rmdir($root);
+        }
+    }
+
+    public function testScopedSnapshotRejectsUnknownComponent(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new WorkspaceFileSnapshot('/tmp/backend', '/tmp/checkpoint', ['../outside']);
+    }
+
     public function testCorruptedSourceCheckpointDoesNotDeleteNewWorkspaceFiles(): void
     {
         $root = sys_get_temp_dir().'/symsvel-snapshot-corrupt-'.bin2hex(random_bytes(8));

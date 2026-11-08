@@ -9,6 +9,7 @@ use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\ComponentManifest;
 use SymSvel\Tooling\Update\ComponentNativeSource;
 use SymSvel\Tooling\Update\ComponentUpdater;
+use SymSvel\Tooling\Update\ProjectChannel;
 
 final class ComponentUpdaterTest extends TestCase
 {
@@ -22,6 +23,7 @@ final class ComponentUpdaterTest extends TestCase
         $this->workspace = sys_get_temp_dir().'/symsvel-updater-'.bin2hex(random_bytes(8));
         mkdir($this->workspace.'/backend', 0775, true);
         file_put_contents($this->workspace.'/backend/composer.json', '{}');
+        ProjectChannel::write($this->workspace.'/backend', ProjectChannel::DEV);
         $this->remote = $this->workspace.'/remote.git';
         $this->component = $this->workspace.'/app';
         $this->native = new ComponentNativeSource(['app' => $this->remote]);
@@ -38,8 +40,29 @@ final class ComponentUpdaterTest extends TestCase
         try {
             (new ComponentUpdater())->update($this->workspace.'/backend', 'other');
         } finally {
-            self::assertDirectoryDoesNotExist($this->workspace.'/backend/.symsvel');
+            self::assertDirectoryDoesNotExist($this->workspace.'/backend/.symsvel/transactions');
         }
+    }
+
+    public function testRejectsSymbolicTransactionDirectoryBeforeFetchingUpstream(): void
+    {
+        mkdir($this->component);
+        file_put_contents($this->component.'/README.md', 'local');
+        $outside = $this->workspace.'/outside-transactions';
+        mkdir($outside);
+        file_put_contents($outside.'/sentinel.txt', 'untouched');
+        symlink($outside, $this->workspace.'/backend/.symsvel/transactions');
+        (new ComponentManifest($this->workspace.'/backend'))->set('app', 'baseline', ['README.md' => hash('sha256', 'local')]);
+
+        try {
+            $this->updater()->update($this->workspace.'/backend', 'app');
+            self::fail('A redirected transaction directory must be rejected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Répertoire de transactions non fiable', $error->getMessage());
+        }
+        self::assertSame('local', file_get_contents($this->component.'/README.md'));
+        self::assertSame('untouched', file_get_contents($outside.'/sentinel.txt'));
+        self::assertSame(['sentinel.txt'], array_values(array_diff(scandir($outside) ?: [], ['.', '..'])));
     }
 
     public function testMissingBaselineRefusesWithoutChangingProject(): void
@@ -148,6 +171,36 @@ final class ComponentUpdaterTest extends TestCase
         self::assertFileDoesNotExist($this->component.'/src/routes/ct-remote/+page.svelte');
     }
 
+    public function testUpstreamDeletionRestoresNativeFileWhenNpmFails(): void
+    {
+        $this->seed([
+            'README.md' => 'native baseline',
+            'package.json' => '{"name":"symsvel-test","version":"1.0.0","scripts":{"build":"echo ok"}}',
+        ]);
+        $manifestPath = $this->workspace.'/backend/.symsvel/components.json';
+        $manifestBefore = file_get_contents($manifestPath);
+        $headBefore = $this->gitHead($this->component);
+
+        $publisher = $this->workspace.'/publisher';
+        $this->git(['clone', $this->remote, $publisher], $this->workspace);
+        $this->git(['config', 'user.email', 'ci@example.test'], $publisher);
+        $this->git(['config', 'user.name', 'CI'], $publisher);
+        $this->git(['rm', 'README.md'], $publisher);
+        $this->git(['commit', '-m', 'remove native readme'], $publisher);
+        $this->git(['push', 'origin', 'HEAD'], $publisher);
+
+        try {
+            $this->updater()->update($this->workspace.'/backend', 'app');
+            self::fail('npm ci must fail without package-lock.json.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('état précédent restauré', $error->getMessage());
+        }
+        self::assertSame('native baseline', file_get_contents($this->component.'/README.md'));
+        self::assertSame($headBefore, $this->gitHead($this->component));
+        self::assertSame($manifestBefore, file_get_contents($manifestPath));
+        $this->assertNoPendingTransactions();
+    }
+
     public function testRemoteCollisionWithGeneratedFileLeavesWorkspaceIntact(): void
     {
         $this->seed(['README.md' => 'original']);
@@ -178,7 +231,7 @@ final class ComponentUpdaterTest extends TestCase
     private function seed(array $files): void
     {
         mkdir($this->component);
-        $this->git(['init'], $this->component);
+        $this->git(['init', '-b', 'main'], $this->component);
         $this->git(['config', 'user.email', 'ci@example.test'], $this->component);
         $this->git(['config', 'user.name', 'CI'], $this->component);
         foreach ($files as $path => $content) {
@@ -186,7 +239,7 @@ final class ComponentUpdaterTest extends TestCase
         }
         $this->git(['add', '.'], $this->component);
         $this->git(['commit', '-m', 'baseline'], $this->component);
-        $this->git(['init', '--bare', $this->remote], $this->workspace);
+        $this->git(['init', '--bare', '-b', 'main', $this->remote], $this->workspace);
         $this->git(['remote', 'add', 'origin', $this->remote], $this->component);
         $this->git(['push', '-u', 'origin', 'HEAD'], $this->component);
         (new ComponentManifest($this->workspace.'/backend'))->set('app', $this->gitHead($this->component), $this->native->files($this->component));

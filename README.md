@@ -1,135 +1,82 @@
 # SymSvel Tooling
 
-Outils CLI de développement du framework SymSvel (bundle Symfony, package Composer `symsvel-framework/tooling`).
+Bundle Symfony `symsvel-framework/tooling` : opérations de développement et de maintenance d'un workspace SymSvel. **La CLI autonome `symsvel` est l'entrée utilisateur privilégiée** ; les commandes `php bin/console symsvel:*` sont les points d'entrée Symfony et les outils de diagnostic.
 
-## Architecture
+> Référence de travail : branche `feat/60-update-init-simplification` (PR #62), coordonnée avec la CLI PR #10. Les parcours GitHub/Satis et les crash-tests XT ne sont pas encore validés de bout en bout. Ne pas confondre CI verte et validation terrain.
 
-- **Core** : services d'exécution, indépendants du Tooling.
-- **Tooling** : commandes locales, installation et futures mises à jour.
-- **Back** : projet Symfony qui consomme Core et Tooling.
+## Architecture et responsabilités
 
-Le Tooling dépend de Core, jamais l'inverse. Les commandes d'installation et de mise à jour ne doivent pas être exécutées sur le serveur de production.
+- **CLI** : création de projets, sélection du canal `stable` ou `dev`, opérations utilisateur sur les packages et composants.
+- **Tooling** : installation, synchronisation des modules, migrations, transactions, mises à jour natives et récupération.
+- **Core / Back** : exécution Symfony et socle applicatif léger ; la logique métier appartient aux modules.
+- **BO / App / Front** : composants SvelteKit dont les fichiers installés appartiennent au projet.
 
-## Installation des interfaces
+Le canal de distribution est enregistré dans `backend/.symsvel/project.json` et **ne dépend pas de `APP_ENV`**. L'ancien environnement `core` n'est plus utilisé. Voir [le contrat de provenance de la CLI](https://github.com/Symsvel-Framework/symsvel-cli/blob/feat/persist-project-channel/docs/reference/provenance.md).
 
-```bash
-php bin/console symsvel:install
-```
-
-Choix interactifs :
-
-1. BO
-2. BO + App
-3. BO + Front
-4. BO + App + Front
-
-Pour les installations reproductibles et la CI, utilisez sans interaction :
+## Création d'un projet (parcours utilisateur)
 
 ```bash
-php bin/console symsvel:install --no-interaction --components=all
+symsvel doctor
+symsvel create-project --components=all
+# Projet de développement / crash-test :
+symsvel create-project --components=all --dev
 ```
 
-Valeurs acceptées : `bo` (BO seul), `app` (BO + App), `front` (BO + Front), `all` (les trois). Sans option, le choix interactif reste disponible. Une valeur inconnue est refusée sans toucher aux dossiers.
+`--components=bo|app|front|all` sélectionne les interfaces, le BO étant inclus. Symfony réside dans `backend/`, les interfaces dans les dossiers frères `bo/`, `app/`, `front/`. La CLI pilote le Setup Wizard. Pour reprendre un setup interrompu : `symsvel setup`.
 
-Le BO est toujours installé. Symfony doit résider dans `<projet>/backend/`. Les dépôts privés sont clonés en SSH dans les dossiers frères `<projet>/bo/`, `<projet>/app/` et `<projet>/front/`. L'ancien schéma plat est refusé pour éviter de mélanger les composants. Configurer l'accès GitHub SSH et installer Node.js/npm avant l'exécution. Pour chaque interface, l'installateur exécute automatiquement `npm ci` puis `npm run build`. Les interfaces peuvent ensuite être lancées localement avec `npm run dev`.
+La commande Symfony `php bin/console symsvel:install --components=all` existe toujours dans le Tooling pour l'installation des interfaces ; **elle ne remplace pas** le parcours de création de projet de la CLI. Elle refuse une arborescence où Symfony n'est pas dans `backend/`, refuse les installations partielles ambiguës et ne doit pas écraser des composants préexistants.
 
-Le service `SymSvel\\Tooling\\Installation\\ComponentInstaller` centralise la sélection et l'installation. Il vérifie **toutes** les destinations avant le premier clonage. Si toutes les interfaces demandées existent déjà, il ne les touche pas et initialise uniquement les dossiers communs ; une installation partielle est refusée. Il annule les nouveaux dossiers créés si un clonage, une installation npm ou un build échoue. Les chemins préexistants ne sont jamais supprimés.
+### Initialisation documentaire
 
-## Documentation développeur et secrets
+`WorkspaceInitializer` prépare `dev-doc/docs/`, `dev-doc/mkdocs.yml`, une page d'accueil minimale et `secrets/.env.example` sans écraser les fichiers existants. Il **n'installe pas** Python, pip, MkDocs ni d'environnement virtuel et **ne construit pas** le site documentaire. Le mécanisme de setup prépare aussi un jeton local dans `.symsvel/setup-token` : ne pas le versionner ni le divulguer. La génération documentaire est un chantier distinct.
 
-L'installation initialise également `<projet>/dev-doc/` avec MkDocs dans un environnement Python isolé (`.venv`), génère `dev-doc/site/` et crée `<projet>/secrets/.env.example`. Les dossiers existants ne sont pas écrasés. Python 3 avec `venv` et `pip` est nécessaire en local. `site/` et `.venv/` sont ignorés par Git ; le dossier `secrets/` reste hors versionnement.
+## Maintenance : deux parcours différents
 
-## Mise à jour
+```bash
+# Mise à jour sélective d'un package Composer :
+symsvel update symsvel-framework/module-test-back
+# Installation ou mise à jour native d'une interface :
+symsvel update bo
+```
 
-La commande `symsvel:update` est implémentée pour les environnements locaux `core` et `dev`. Son exécution en production est interdite. Voir les modalités ci-dessous.
+`symsvel update bo|app|front` délègue à `symsvel:component:update`. Si le composant est absent, le Tooling utilise son installateur de cycle de vie ; sinon, `ComponentUpdater` compare la référence native, la nouvelle version officielle et les fichiers locaux. Il conserve les modifications locales non conflictuelles et refuse les collisions. Les sources officielles sont récupérées hors des dépôts Git applicatifs. **Il n'effectue pas de `git merge --ff-only`, de checkout ou de reset des interfaces du projet.**
 
-## Tests
+`symsvel update <package>` passe par le lanceur transactionnel Composer. `symsvel update` sans cible et `php bin/console symsvel:update` ne doivent pas être assimilés à la mise à jour sélective d'une interface : le second point d'entrée utilise `WorkspaceUpdater` et possède son propre périmètre de snapshots.
+
+Détails : [contrat des mises à jour natives](docs/component-updates-v1.md) et [transactions Composer](docs/composer-transactions.md).
+
+## Modules Composer et Symfony Flex
+
+Les modules `symsvel-framework/module-*` sont des packages Composer. Les recettes Symfony Flex déclarent les Bundles et imports de routes ; le Tooling prend en charge synchronisation Svelte, migrations, installation et retrait des ressources gérées. Le développement s'effectue dans le dépôt du module ou un workspace, jamais directement dans `vendor/`.
+
+```bash
+symsvel make:module documents --scopes=back,bo,app
+symsvel require symsvel-framework/module-test-back
+symsvel update symsvel-framework/module-test-back
+symsvel remove symsvel-framework/module-test-back
+```
+
+Le ModuleMaker est implémenté dans Tooling et partagé avec la CLI. Il produit un modèle de recette Flex ; **la publication dans le catalogue de recettes est une étape distincte**. L'intégration Composer/Flex existe dans le code et les tests, mais son parcours réseau complet sur XT reste à valider. Les modules requis par le socle ne doivent pas être désinstallés.
+
+Références : [contrat des modules](docs/modules/contrat.md), [commandes et migrations](docs/modules/commandes.md), [contrat de manifeste](docs/module-contract-v1.md).
+
+## Transactions, rollback et nettoyage
+
+Le lanceur Composer de Tooling est utilisé par `symsvel require/update/remove`. Il encadre les manifests, les sources et dépendances, les artefacts des interfaces, et la sauvegarde BDD **dans les conditions documentées**. PostgreSQL et SQLite sont les moteurs couverts par le checkpoint global ; l'absence de configuration BDD ou une restauration impossible limite les garanties. Composer natif n'est pas intercepté. Les effets externes ne sont pas annulés par les checkpoints locaux.
+
+Après succès, les checkpoints éligibles sont nettoyés ou inscrits dans `backend/.symsvel/cleanup-pending.json` pour reprise :
+
+```bash
+php bin/console symsvel:cleanup
+```
+
+En cas de rollback incomplet, les checkpoints sont conservés pour diagnostic et **ne doivent pas être nettoyés automatiquement**. Voir [transactions et limites](docs/qualite/transactions.md).
+
+## Qualité et validation
 
 ```bash
 composer install
 composer qa
 ```
 
-Toute modification de comportement doit être accompagnée de tests et d'une mise à jour de cette documentation.
-
-## Mise à jour locale (première étape)
-
-```bash
-APP_ENV=core php bin/console symsvel:update
-```
-
-En mode `core`, actualise Core et Tooling via Composer, puis met à jour par avance rapide (`git merge --ff-only origin/main`) les interfaces présentes et relance `npm ci` et `npm run build`. Les modifications Git non commitées empêchent la mise à jour. Les composants absents sont ignorés. Le mode `prod` est interdit. En mode `dev`, Composer doit être configuré avec des contraintes de versions stables pour Core et Tooling (et non `dev-main`) ; les interfaces présentes sont positionnées sur leur dernier tag stable `vX.Y.Z` puis reconstruites. Sans tag stable, la mise à jour échoue explicitement. Les interfaces Git sont placées en HEAD détachée sur le tag sélectionné. Commande à exécuter exclusivement en local.
-
-## Transactions de mise à jour et nettoyage différé
-
-`symsvel:update` sauvegarde les manifests Composer, les sources, `vendor/`, les artefacts npm/build des interfaces et la base de données **avant toute mutation**. Les interfaces présentes disposent aussi de checkpoints Git. En cas d'échec, la commande tente chaque restauration indépendamment et signale explicitement les restaurations impossibles ; les checkpoints d'un rollback incomplet sont conservés pour diagnostic et ne sont **jamais** inscrits au registre de nettoyage.
-
-**Prérequis :** `backend/composer.lock` et une `DATABASE_URL` utilisable. Les sauvegardes globales prennent en charge PostgreSQL (outils `pg_dump`/`pg_restore` compatibles avec le serveur) et SQLite (`sqlite3`). Les autres moteurs sont refusés avant Composer. Une restauration PostgreSQL peut nécessiter les droits de recréation de la base et l'absence de connexions actives. Les commandes de mise à jour restent interdites en production.
-
-Une fois la mise à jour **réussie**, les checkpoints sont enregistrés dans `backend/.symsvel/cleanup-pending.json` puis supprimés. Si le nettoyage échoue, les entrées restantes peuvent être reprises par :
-
-```bash
-php bin/console symsvel:cleanup
-```
-
-Cette commande est idempotente et peut être appelée quotidiennement par cron. **Le Tooling n'installe pas de cron automatiquement.** Le registre est verrouillé et écrit atomiquement ; seuls les chemins reconnus sous `backend/.symsvel/transactions/` sont éligibles. Si l'écriture du registre échoue, la mise à jour demeure réussie, les checkpoints sont conservés et un avertissement indique leurs chemins : ils nécessitent alors une intervention manuelle, car le cron ne peut pas retrouver une entrée jamais enregistrée. Ne pas supprimer les checkpoints d'un rollback incomplet.
-
-Le lanceur transactionnel Composer est décrit dans [la documentation dédiée](docs/composer-transactions.md). Les commandes Composer natives ne sont pas interceptées.
-
-## Lanceur autonome du workspace
-
-Le lanceur versionné est `bin/symsvel` (exécutable). Depuis la racine du workspace SymSvel, créer une fois le lien :
-
-```bash
-ln -s framework/tools/bin/symsvel symsvel
-```
-
-Puis créer un module directement dans `SymSvel/modules/` :
-
-```bash
-./symsvel make:module documents
-```
-
-Le lanceur partage `ModuleMaker` avec la commande Symfony `symsvel:make:module` et fonctionne sans backend Symfony ni XT.
-
-## Maker par profils
-
-Le socle obligatoire est `back` + `docs/dev`. Sans option, seul ce socle est généré.
-
-| Profil | Composants | Documentation |
-| --- | --- | --- |
-| `bo` | back, bo | dev, admin |
-| `app` | back, bo, app | dev, admin, user |
-| `front` | back, bo, front | dev, admin, user |
-| `all` | back, bo, app, front | dev, admin, user |
-
-```bash
-./symsvel make:module documents
-./symsvel make:module documents --scopes=app
-symsvel make:module documents --scopes=back,front
-php bin/console symsvel:make:module documents --scopes=all
-```
-
-Les profils historiques restent acceptés. Les combinaisons explicites comme `back,front` et `bo,front` sont également possibles ; `back` est toujours inclus. Le maker génère les points d'extension des composants, la configuration PHPUnit et le workflow QA.
-
-## Contrat architectural des modules PHP (intégration à venir)
-
-- Le code métier spécifique reste dans les répertoires habituels de Symfony et SvelteKit. Un module est destiné à une fonctionnalité réutilisable ou à l'extension d'un module existant.
-- Les modules PHP sont des packages Composer `symsvel-framework/module-*` installés dans `backend/vendor/symsvel-framework/`. En développement local, Composer peut les référencer par un dépôt `path`.
-- L'enregistrement des Bundles repose sur les mécanismes standards de Symfony et de Symfony Flex, plutôt que sur un chargeur de Bundles spécifique au Core. Les recettes et leur mode de distribution restent à préciser avant implémentation.
-- Les migrations existantes sont découvertes, ordonnées selon les dépendances, compilées et exécutées par le tooling. La migration du registre local `modules/` vers les packages Composer doit préserver cet ordre et les garanties de récupération.
-- **État actuel :** `ModuleRegistry` découvre encore les modules dans `<workspace>/modules/` et `symsvel:module:sync` publie un inventaire et une carte de Bundles sans les activer. L'intégration Composer/Flex n'est pas encore opérationnelle.
-
-## Recette Flex des modules générés
-
-Le Maker génère désormais `recipe/recipe.json`, un **modèle** de recette Symfony Flex contenant l'enregistrement du Bundle et l'import des contrôleurs attributés. Ce modèle n'est **pas** automatiquement installé par Composer : avant de distribuer le module, publier la recette dans `symsvel-recipes`, renseigner son `ref` réel, ajouter la version du module dans `index.json`, puis déployer le catalogue de recettes. Ne pas déclarer le module comme prêt à l'installation tant que cette étape n'est pas terminée.
-
-Les migrations source d'un module restent dans `Migration/`, conformément à `ModuleMigrationCatalog` ; leur compilation et leur exécution relèvent du Tooling, pas du Maker. Un test PHPUnit minimal vérifie que le Bundle généré peut être instancié. Le Maker ne publie ni release, ni recette et n'installe pas le module.
-
-Le profil `dev-main` est déclaré par un alias de branche Composer `1.0.x-dev`, sans modifier le circuit des releases stables.
-
-## Migrations des modules Composer (raccordement en cours)
-
-`ComposerModuleMigrationCatalog` découvre désormais les fichiers `Migration/*.php` des modules Composer installés, dans l'ordre de dépendances établi par `ComposerModuleSynchronizer`. Cette découverte est **sans effet de bord** : elle ne compile ni n'exécute de SQL.
-
-Les composants historiques `ModuleMigrationCompiler`, `ModuleMigrationExecutor` et `ModuleMigrationRegistry` existent, mais leur intégration transactionnelle au flux `symsvel require` n'est **pas encore réalisée**. En particulier, `ComposerTransactionRunner` restaure les fichiers et dépendances, **pas la base de données**. Ne pas considérer le CT KO migration comme prêt tant que sauvegarde BDD, exécution et récupération ne sont pas raccordées et testées.
+Les tests automatisés et la CI ne remplacent pas les crash-tests XT sur Mac. Avant merge des PR CLI #10 et Tooling #62 : vérifier les parcours réels GitHub/Satis, le Setup Wizard, les modules, migrations, mises à jour, désinstallations et rollbacks. Toute modification de code doit actualiser sa documentation. Ne pas exécuter les opérations de maintenance sur un serveur de production.

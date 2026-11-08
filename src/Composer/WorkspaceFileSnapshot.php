@@ -22,14 +22,26 @@ final class WorkspaceFileSnapshot
     /** @var array<string, string> */
     private array $fingerprints = [];
 
-    public function __construct(private readonly string $backend, private readonly string $snapshot)
-    {
+    /**
+     * @param list<'backend'|'bo'|'app'|'front'> $components
+     *   An empty list preserves the historical full-workspace snapshot.
+     */
+    public function __construct(
+        private readonly string $backend,
+        private readonly string $snapshot,
+        private readonly array $components = [],
+    ) {
+        foreach ($components as $component) {
+            if (!in_array($component, ['backend', 'bo', 'app', 'front'], true)) {
+                throw new \InvalidArgumentException('Composant de snapshot inconnu : '.$component);
+            }
+        }
     }
 
     public function capture(): void
     {
         $workspace = dirname($this->backend);
-        foreach (['backend', 'bo', 'app', 'front'] as $component) {
+        foreach ($this->components === [] ? ['backend', 'bo', 'app', 'front'] : array_unique($this->components) as $component) {
             $root = $component === 'backend' ? $this->backend : $workspace.'/'.$component;
             if (is_link($root)) {
                 throw new \RuntimeException('Snapshot refusé : composant symbolique non fiable : '.$root);

@@ -39,8 +39,8 @@ final class ComponentFilePlanner
                 continue;
             }
             if ($current !== $old) {
-                // A developer removed or changed a native file: do not overwrite it.
-                // An already-applied upstream change is safe and idempotent.
+                // An already-applied upstream change (including deletion) is
+                // idempotent. Every other concurrent edit requires a decision.
                 if ($current !== $new) {
                     $result['conflicts'][] = $path;
                 }

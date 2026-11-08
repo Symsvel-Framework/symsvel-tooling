@@ -3,8 +3,6 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Installation;
 
-use Symfony\Component\Process\Process;
-
 final class WorkspaceInitializer
 {
     public function initialize(string $root): void
@@ -47,15 +45,7 @@ final class WorkspaceInitializer
             throw new \RuntimeException('Jeton de setup existant invalide.');
         }
         $this->writeIfMissing($secrets.'/.env.example', "# Variables privées SymSvel, à compléter selon les besoins\n");
-        $venv = $docs.'/.venv';
-        if (!is_file($venv.'/bin/mkdocs')) {
-            $this->run(['python3', '-m', 'venv', $venv], $root);
-            $this->run([$venv.'/bin/python', '-m', 'pip', 'install', 'mkdocs'], $root);
-        }
-        $this->run([$venv.'/bin/mkdocs', 'build', '--clean', '--config-file', $docs.'/mkdocs.yml'], $docs);
-        if (!is_file($docs.'/site/index.html')) {
-            throw new \RuntimeException('Build MkDocs incomplet : site/index.html absent.');
-        }
+
     }
 
     private function writeIfMissing(string $path, string $content): void
@@ -65,14 +55,4 @@ final class WorkspaceInitializer
         }
     }
 
-    /** @param list<string> $command */
-    private function run(array $command, string $cwd): void
-    {
-        $process = new Process($command, $cwd);
-        $process->setTimeout(600);
-        $process->run();
-        if (!$process->isSuccessful()) {
-            throw new \RuntimeException(trim($process->getErrorOutput()) ?: trim($process->getOutput()));
-        }
-    }
 }

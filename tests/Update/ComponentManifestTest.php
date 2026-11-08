@@ -50,6 +50,33 @@ final class ComponentManifestTest extends TestCase
         (new ComponentManifest($this->backend))->get('app');
     }
 
+    public function testRejectsTraversalAndNonPortableNativePathsOnRead(): void
+    {
+        foreach (['../outside.txt', 'src/../../outside.txt', '/absolute.txt', 'src//file.txt', 'src/./file.txt', 'src\\\\file.txt', "src".chr(0)."file.txt"] as $path) {
+            $this->writeManifest(['app' => ['revision' => 'revision', 'files' => [$path => hash('sha256', 'data')]]]);
+            try {
+                (new ComponentManifest($this->backend))->get('app');
+                self::fail('Unsafe path accepted: '.json_encode($path));
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('Empreinte native invalide', $error->getMessage());
+            }
+        }
+    }
+
+    public function testRejectsUnsafeNativePathsBeforeWritingManifest(): void
+    {
+        $manifest = new ComponentManifest($this->backend);
+        $manifest->set('app', 'original', ['README.md' => hash('sha256', 'original')]);
+        $before = file_get_contents($this->backend.'/.symsvel/components.json');
+
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            $manifest->set('app', 'unsafe', ['../outside.txt' => hash('sha256', 'unsafe')]);
+        } finally {
+            self::assertSame($before, file_get_contents($this->backend.'/.symsvel/components.json'));
+        }
+    }
+
     public function testRejectsMalformedManifestWithoutOverwritingIt(): void
     {
         mkdir($this->backend.'/.symsvel');
@@ -80,10 +107,47 @@ final class ComponentManifestTest extends TestCase
         self::assertSame('{}', file_get_contents($outside));
     }
 
+    public function testRejectsRedirectedManifestDirectoryBeforeReadingOrWriting(): void
+    {
+        $outside = dirname($this->backend).'/external';
+        mkdir($outside);
+        file_put_contents($outside.'/components.json', json_encode([
+            'app' => ['revision' => 'external', 'files' => []],
+        ], JSON_THROW_ON_ERROR));
+        symlink($outside, $this->backend.'/.symsvel');
+        $manifest = new ComponentManifest($this->backend);
+
+        try {
+            $manifest->get('app');
+            self::fail('Reading a redirected manifest directory must fail.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('non fiable', $error->getMessage());
+        }
+
+        try {
+            $manifest->set('app', 'replacement', []);
+            self::fail('Writing a redirected manifest directory must fail.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('non fiable', $error->getMessage());
+        }
+        self::assertSame('external', json_decode((string) file_get_contents($outside.'/components.json'), true, 512, JSON_THROW_ON_ERROR)['app']['revision']);
+    }
+
+    public function testRejectsManifestDirectoryThatIsARegularFile(): void
+    {
+        file_put_contents($this->backend.'/.symsvel', 'not-a-directory');
+        $manifest = new ComponentManifest($this->backend);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('non fiable');
+        $manifest->get('app');
+    }
+
     /** @param array<string, mixed> $data */
     private function writeManifest(array $data): void
     {
-        mkdir($this->backend.'/.symsvel');
+        if (!is_dir($this->backend.'/.symsvel')) {
+            mkdir($this->backend.'/.symsvel');
+        }
         file_put_contents(
             $this->backend.'/.symsvel/components.json',
             json_encode($data, JSON_THROW_ON_ERROR),

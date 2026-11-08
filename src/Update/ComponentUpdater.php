@@ -16,6 +16,7 @@ final class ComponentUpdater
         private readonly ComponentNativeSource $native = new ComponentNativeSource(),
         private readonly ComponentUpdatePreflight $preflight = new ComponentUpdatePreflight(),
         private readonly LegacyComponentBaseline $legacy = new LegacyComponentBaseline(),
+        private readonly ComponentNativeFileApplier $applier = new ComponentNativeFileApplier(),
     ) {
     }
 
@@ -33,12 +34,15 @@ final class ComponentUpdater
             throw new \RuntimeException('Composant absent ou symbolique : '.$component);
         }
         $manifest = new ComponentManifest($backend);
-        $baseline = $manifest->get($component);
-        if ($baseline === null) {
-            $baseline = $this->legacy->recover($directory, $component);
-        }
 
-        $transaction = $backend.'/.symsvel/transactions/update-'.bin2hex(random_bytes(12));
+        $transactionRoot = $backend.'/.symsvel/transactions';
+        // A checkpoint must never escape the backend through a redirected parent.
+        foreach ([$backend.'/.symsvel', $transactionRoot] as $parent) {
+            if (is_link($parent) || (file_exists($parent) && !is_dir($parent))) {
+                throw new \RuntimeException('Répertoire de transactions non fiable : '.$parent);
+            }
+        }
+        $transaction = $transactionRoot.'/update-'.bin2hex(random_bytes(12));
         if (!is_dir(dirname($transaction)) && !mkdir(dirname($transaction), 0700, true) && !is_dir(dirname($transaction))) {
             throw new \RuntimeException('Répertoire de transactions indisponible.');
         }
@@ -47,11 +51,12 @@ final class ComponentUpdater
         }
         try {
             $upstream = $transaction.'/upstream';
-            $revision = $this->native->fetch($component, $upstream);
-            $incoming = $this->native->files($upstream);
-            $local = $this->native->files($directory);
-            $plan = $this->preflight->inspect($baseline['files'], $incoming, $local);
-            $this->preflight->assertSafe($plan);
+            $prepared = (new ComponentNativePreparation($this->native, $this->preflight, $this->legacy))
+                ->prepare($backend, $component, $upstream, ProjectChannel::read($backend));
+            $revision = $prepared['revision'];
+            $incoming = $prepared['incoming'];
+            $plan = $prepared['plan'];
+            $baselineFiles = $prepared['baseline'];
         } catch (\Throwable $failure) {
             // Preflight has not modified the workspace. Discard only its checkpoint.
             // Keep the original failure if cleanup succeeds; report both otherwise.
@@ -97,28 +102,7 @@ final class ComponentUpdater
             throw $failure;
         }
         try {
-            foreach (['add', 'replace'] as $action) {
-                foreach ($plan[$action] as $path) {
-                    $source = $upstream.'/'.$path;
-                    $target = $directory.'/'.$path;
-                    $parent = dirname($target);
-                    if (!$this->safeParent($directory, $parent)) {
-                        throw new \RuntimeException('Chemin local non fiable : '.$path);
-                    }
-                    if (!is_dir($parent) && !mkdir($parent, 0775, true) && !is_dir($parent)) {
-                        throw new \RuntimeException('Création impossible : '.$path);
-                    }
-                    if (is_link($target) || is_dir($target) || !copy($source, $target)) {
-                        throw new \RuntimeException('Copie native impossible : '.$path);
-                    }
-                    chmod($target, fileperms($source) & 0777);
-                }
-            }
-            foreach ($plan['delete'] as $path) {
-                if (!unlink($directory.'/'.$path)) {
-                    throw new \RuntimeException('Suppression native impossible : '.$path);
-                }
-            }
+            $this->applier->apply($directory, $upstream, $plan, $baselineFiles);
             $this->run(['npm', 'ci'], $directory);
             $this->synchronizer->sync($backend);
             $this->run(['npm', 'run', 'build'], $directory);
@@ -135,22 +119,27 @@ final class ComponentUpdater
             if ($errors !== []) {
                 throw new \RuntimeException('Rollback incomplet : '.implode(' ; ', $errors).'; snapshot : '.$transaction, 0, $failure);
             }
+            // A complete rollback no longer needs its checkpoint. An incomplete
+            // rollback retains it above for manual recovery.
+            try {
+                $cleanup = new WorkspaceCleanupRegistry($backend);
+                $cleanup->enqueue([$transaction]);
+                $result = $cleanup->cleanup();
+                if ($result['remaining'] > 0) {
+                    throw new \RuntimeException(implode(' ; ', $result['errors']));
+                }
+            } catch (\Throwable $cleanupFailure) {
+                throw new \RuntimeException(
+                    'Rollback restauré mais nettoyage du checkpoint impossible : '.$cleanupFailure->getMessage().'; snapshot : '.$transaction,
+                    0,
+                    $failure,
+                );
+            }
             throw new \RuntimeException('Mise à jour annulée, état précédent restauré : '.$failure->getMessage(), 0, $failure);
         }
         $cleanup = new WorkspaceCleanupRegistry($backend);
         $cleanup->enqueue([$transaction]);
         $cleanup->cleanup();
-    }
-
-    private function safeParent(string $root, string $parent): bool
-    {
-        while ($parent !== $root) {
-            if (is_link($parent) || is_file($parent) || !str_starts_with($parent, $root.'/')) {
-                return false;
-            }
-            $parent = dirname($parent);
-        }
-        return true;
     }
 
     /** @param list<string> $command */

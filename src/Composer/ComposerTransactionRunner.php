@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Composer;
 
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\RuntimeArtifactSnapshot;
+use SymSvel\Tooling\Update\ProjectChannel;
 use SymSvel\Tooling\Update\WorkspaceDatabaseBackup;
 use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
 use SymSvel\Tooling\Module\ComposerModuleMigrationCatalog;
@@ -136,6 +137,7 @@ final class ComposerTransactionRunner
             if ($arguments[0] === 'remove') {
                 $removedVersions = $this->removeModuleMigrations($backend, $arguments, $databaseUrl, $progress);
             }
+            $this->prepareDevelopmentModuleRepositories($backend, $arguments, $progress);
             $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
             $this->applyComposerMigrations($backend, $databaseUrl, $progress, $bootstrap);
             $this->removeCompiledMigrations($backend, $removedVersions);
@@ -251,6 +253,52 @@ final class ComposerTransactionRunner
             if ($progress !== null) {
                 $progress('AVERTISSEMENT : opération Composer réussie, nettoyage non enregistré ou interrompu : '.$cleanupFailure->getMessage().'; checkpoint conservé si présent : '.$transaction);
             }
+        }
+    }
+
+    /**
+     * Register official module sources inside the transaction, after its
+     * composer.json checkpoint. Never mutate third-party repositories.
+     *
+     * @param list<string> $arguments
+     * @param null|callable(string):void $progress
+     */
+    private function prepareDevelopmentModuleRepositories(string $backend, array $arguments, ?callable $progress): void
+    {
+        if ($arguments[0] !== 'require') {
+            return;
+        }
+        $modules = array_values(array_filter(
+            array_slice($arguments, 1),
+            static fn (string $argument): bool => (bool) preg_match('~^symsvel-framework/module-[a-z][a-z0-9-]*(?::[^\\s]+)?$~D', $argument),
+        ));
+        if ($modules === [] || ProjectChannel::read($backend) !== ProjectChannel::DEV) {
+            return;
+        }
+        $manifest = json_decode((string) file_get_contents($backend.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($manifest)) {
+            throw new \RuntimeException('Manifest Composer invalide.');
+        }
+        $repositories = $manifest['repositories'] ?? [];
+        if (!is_array($repositories)) {
+            throw new \RuntimeException('Repositories Composer invalides.');
+        }
+        foreach (array_slice($arguments, 1) as $argument) {
+            if (!preg_match('~^(symsvel-framework/module-([a-z][a-z0-9-]*))(?:[:][^\\s]+)?$~D', $argument, $matches)) {
+                continue;
+            }
+            $name = $matches[2];
+            $key = 'module-'.$name.'-dev';
+            $url = 'https://github.com/Symsvel-Framework/symsvel-module-'.$name.'.git';
+            if (array_key_exists($key, $repositories)) {
+                $existing = $repositories[$key];
+                if (!is_array($existing) || ($existing['type'] ?? null) !== 'vcs' || ($existing['url'] ?? null) !== $url) {
+                    throw new \RuntimeException('Dépôt Composer existant incompatible : '.$key);
+                }
+                continue;
+            }
+            $this->execute(['composer', 'config', 'repositories.'.$key, 'vcs', $url], $backend, $progress);
+            $repositories[$key] = ['type' => 'vcs', 'url' => $url];
         }
     }
 

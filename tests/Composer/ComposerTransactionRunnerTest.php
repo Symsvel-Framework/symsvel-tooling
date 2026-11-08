@@ -35,6 +35,7 @@ final class ComposerTransactionRunnerTest extends TestCase
         @rmdir($this->backend.'/.symsvel/transactions');
         @unlink($this->backend.'/.symsvel/cleanup-pending.json');
         @unlink($this->backend.'/.symsvel/cleanup.lock');
+        @unlink($this->backend.'/.symsvel/project.json');
         @rmdir($this->backend.'/.symsvel');
         @unlink($this->backend.'/composer.json');
         @unlink($this->backend.'/composer.lock');
@@ -45,6 +46,100 @@ final class ComposerTransactionRunnerTest extends TestCase
         @unlink(dirname($this->backend).'/.symsvel/setup.json');
         @rmdir(dirname($this->backend).'/.symsvel');
         @rmdir(dirname($this->backend));
+    }
+
+    public function testStableChannelNeverRegistersDevelopmentModuleRepository(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'stable');
+        $original = (string) file_get_contents($this->backend.'/composer.json');
+        $commands = [];
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use (&$commands): void {
+            $commands[] = $command;
+        });
+        $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:^1.0']);
+        self::assertSame($original, file_get_contents($this->backend.'/composer.json'));
+        self::assertContains(['composer', 'require', 'symsvel-framework/module-demo:^1.0'], $commands);
+        self::assertCount(1, $commands);
+    }
+
+    public function testDevelopmentChannelLeavesThirdPartyComposerRepositoriesUntouched(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        $original = (string) file_get_contents($this->backend.'/composer.json');
+        $commands = [];
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use (&$commands): void {
+            $commands[] = $command;
+        });
+        $runner->run($this->backend, ['require', 'acme/example:^2.0']);
+        self::assertSame($original, file_get_contents($this->backend.'/composer.json'));
+        self::assertSame([['composer', 'require', 'acme/example:^2.0']], $commands);
+    }
+
+    public function testDevModuleRepositoryAlreadyCompatibleIsNotReconfigured(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        file_put_contents($this->backend.'/composer.json', json_encode([
+            'repositories' => ['module-demo-dev' => [
+                'type' => 'vcs',
+                'url' => 'https://github.com/Symsvel-Framework/symsvel-module-demo.git',
+            ]],
+        ], JSON_THROW_ON_ERROR));
+        $commands = [];
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use (&$commands): void {
+            $commands[] = $command;
+        });
+        $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:dev-main']);
+        self::assertNotContains(['composer', 'config', 'repositories.module-demo-dev', 'vcs', 'https://github.com/Symsvel-Framework/symsvel-module-demo.git'], $commands);
+        self::assertContains(['composer', 'require', 'symsvel-framework/module-demo:dev-main'], $commands);
+    }
+
+    public function testDevModuleRepositoryConflictIsRejectedWithoutOverwrite(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        $original = json_encode([
+            'repositories' => ['module-demo-dev' => [
+                'type' => 'vcs',
+                'url' => 'https://example.invalid/custom-module.git',
+            ]],
+        ], JSON_THROW_ON_ERROR);
+        file_put_contents($this->backend.'/composer.json', $original);
+        $commands = [];
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use (&$commands): void {
+            $commands[] = $command;
+        });
+        try {
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:dev-main']);
+            self::fail('Conflicting repository must be rejected.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Dépôt Composer existant incompatible', $error->getMessage());
+        }
+        self::assertSame($original, file_get_contents($this->backend.'/composer.json'));
+        self::assertNotContains(['composer', 'require', 'symsvel-framework/module-demo:dev-main'], $commands);
+    }
+
+    public function testDevModuleRepositoryMutationIsRolledBackOnComposerFailure(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        $original = (string) file_get_contents($this->backend.'/composer.json');
+        $commands = [];
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $cwd, ?callable $progress) use (&$commands): void {
+            $commands[] = $command;
+            if (array_slice($command, 0, 3) === ['composer', 'config', 'repositories.module-demo-dev']) {
+                file_put_contents($cwd.'/composer.json', '{"repositories":{"module-demo-dev":{"type":"vcs","url":"https://github.com/Symsvel-Framework/symsvel-module-demo.git"}}}');
+                return;
+            }
+            throw new \RuntimeException('Injected Composer failure');
+        });
+        try {
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:dev-main']);
+            self::fail('Expected failure.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+        } finally {
+            @unlink($this->backend.'/.symsvel/project.json');
+        }
+        self::assertSame($original, file_get_contents($this->backend.'/composer.json'));
+        self::assertContains(['composer', 'config', 'repositories.module-demo-dev', 'vcs', 'https://github.com/Symsvel-Framework/symsvel-module-demo.git'], $commands);
     }
 
     public function testBootstrapRejectsUpdateAndRemovalBeforeComposer(): void
@@ -96,6 +191,7 @@ final class ComposerTransactionRunnerTest extends TestCase
 
     public function testBootstrapAllowsUsersOnlyWhenAppIsInstalled(): void
     {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'stable');
         $workspace = dirname($this->backend);
         (new \SymSvel\Tooling\Installation\SetupState())->initialize($workspace);
         mkdir($this->backend.'/config');

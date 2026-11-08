@@ -1,29 +1,25 @@
 # Transactions, checkpoints et restauration
 
-Le Tooling encadre les opérations de maintenance avec des vérifications préalables, des checkpoints, des restaurations indépendantes et des contrôles après rollback. Composer, Git, npm et une base de données ne constituent pas une transaction atomique unique.
+Le Tooling encadre des opérations locales avec préconditions, checkpoints, tentatives de restauration indépendantes et vérifications. Composer, fichiers, npm et base de données **ne forment pas une transaction atomique unique**.
 
-## Composer encadré
+## Distinguer les parcours
 
-Le lanceur transactionnel exige un `composer.lock` initial. Il sauvegarde les manifests Composer, les sources du workspace, `vendor/` et les artefacts des interfaces présentes. Flex et les scripts Composer sont exécutés dans la transaction ; les options qui les désactivent sont refusées.
+- `symsvel require/update/remove <package>` : lanceur Composer transactionnel de Tooling, non appliqué aux commandes Composer natives.
+- `symsvel update bo|app|front` : installation ou mise à jour native du composant, avec manifeste de provenance, analyse des conflits et checkpoints.
+- `php bin/console symsvel:update` : `WorkspaceUpdater`, parcours global distinct. Ne pas le présenter comme synonyme de `symsvel update bo` ou d'une mise à jour Composer sélective.
 
-Lorsqu'une `DATABASE_URL` est disponible, le code prévoit également un checkpoint global de la base. Les sauvegardes globales sont implémentées pour PostgreSQL et SQLite, pas pour tous les pilotes Doctrine.
+## Garanties et limites
 
-Les commandes `composer require/update/remove` exécutées directement ne sont **pas** interceptées par le lanceur SymSvel.
+Le lanceur Composer exige un `composer.lock` initial, conserve les manifests et les sources, `vendor/` et les artefacts pertinents des interfaces. Flex et scripts Composer sont exécutés ; les options qui les désactivent sont refusées. Une sauvegarde globale BDD est possible avec `DATABASE_URL` exploitable et un moteur pris en charge (PostgreSQL ou SQLite). Sans sauvegarde BDD effective, **ne pas promettre** de restauration de la base.
 
-## Mise à jour globale
+La mise à jour native des interfaces compare trois états : référence native installée, source amont et fichiers locaux. Elle refuse les collisions et n'impose ni propreté Git ni fusion Git des dépôts du projet. Voir [le contrat technique](../component-updates-v1.md).
 
-La mise à jour globale du workspace utilise un mécanisme distinct avec contrôles Git, snapshots de fichiers et dépendances, artefacts des interfaces et checkpoint BDD. Un composant Git comportant des modifications locales est refusé avant l'opération.
+En cas d'échec, les restaurations possibles sont tentées et vérifiées indépendamment. Un rollback incomplet est signalé ; les checkpoints correspondants restent disponibles pour diagnostic et ne doivent jamais être inscrits au nettoyage différé. Les opérations sur services externes et les références Git ne sont pas restaurées par ces snapshots.
 
-## Échec et récupération
+Après une opération réussie, le registre `backend/.symsvel/cleanup-pending.json` permet de reprendre le nettoyage via `php bin/console symsvel:cleanup`. Aucun cron n'est installé automatiquement.
 
-Les restaurations de base, manifests, dépendances, sources et artefacts sont tentées indépendamment. Après restauration, l'état est vérifié. Une récupération incomplète est signalée explicitement et les checkpoints sont conservés.
+## Statut de validation
 
-Les checkpoints d'opérations réussies peuvent être nettoyés ultérieurement via le registre de nettoyage. Ceux d'un rollback incomplet ne doivent jamais être soumis au nettoyage automatique.
+Les tests automatisés utilisent notamment des dépôts Git locaux pour éprouver Composer et les sources natives. Ils ne prouvent pas l'accès aux dépôts GitHub/Satis officiels ni le parcours complet CLI/Setup Wizard. La CI des PR est un jalon ; les crash-tests XT et les scénarios de rollback dégradé restent requis avant validation finale.
 
-## Limites
-
-- Les opérations sur services externes ne sont pas annulées par un snapshot local.
-- La sauvegarde globale BDD ne couvre actuellement que PostgreSQL et SQLite.
-- Des connexions PostgreSQL actives peuvent bloquer la restauration ; le checkpoint est alors conservé.
-
-Voir [le diagnostic](incidents.md).
+Voir [le lanceur Composer](../composer-transactions.md) et [le diagnostic](incidents.md).

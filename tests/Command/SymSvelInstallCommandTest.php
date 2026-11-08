@@ -90,7 +90,8 @@ final class SymSvelInstallCommandTest extends TestCase
             $tester->setInputs(['1']);
             self::assertSame(0, $tester->execute([]));
             self::assertSame('preserved', file_get_contents($projectDir.'/bo/keep.txt'));
-            self::assertFileExists($projectDir.'/dev-doc/site/index.html');
+            self::assertFileExists($projectDir.'/dev-doc/docs/index.md');
+            self::assertFileDoesNotExist($projectDir.'/dev-doc/site/index.html');
         } finally {
             (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $projectDir.'/dev-doc', $projectDir.'/secrets']))->run();
             // Workspace bootstrap creates persistent setup state and a one-time token.
@@ -156,7 +157,8 @@ final class SymSvelInstallCommandTest extends TestCase
             $tester = new CommandTester(new SymSvelInstallCommand($root.'/backend'));
             self::assertSame(0, $tester->execute(['--components' => 'bo'], ['interactive' => false]));
             self::assertSame('preserved', file_get_contents($root.'/bo/keep.txt'));
-            self::assertFileExists($root.'/dev-doc/site/index.html');
+            self::assertFileExists($root.'/dev-doc/docs/index.md');
+            self::assertFileDoesNotExist($root.'/dev-doc/site/index.html');
             self::assertFileExists($root.'/secrets/.env.example');
         } finally {
             (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $root]))->run();

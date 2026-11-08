@@ -1,6 +1,6 @@
 # Transactions Composer SymSvel (expérimental)
 
-Le lanceur transactionnel est **optionnel** : les commandes natives `composer require`, `composer update` et `composer remove` ne sont **pas interceptées**. Le script est publié dans `backend/scripts/` par `symsvel:update`.
+Le lanceur transactionnel est **optionnel** : les commandes natives `composer require`, `composer update` et `composer remove` ne sont **pas interceptées**. Le script est publié dans `backend/scripts/` lors de l'installation des hooks Composer par le Tooling, notamment via le parcours `symsvel:update`. La CLI peut également utiliser le lanceur pour ses opérations transactionnelles.
 
 Depuis `backend/` :
 
@@ -30,7 +30,7 @@ Après succès, le lanceur inscrit son checkpoint dans `backend/.symsvel/cleanup
 
 ## Mise à jour globale du workspace
 
-`php bin/console symsvel:update` (en environnement Symfony `dev`) utilise un mécanisme distinct : checkpoints Git, Composer, sources, dépendances, builds et **base de données**. PostgreSQL et SQLite sont pris en charge ; une `DATABASE_URL` valide est obligatoire. Les échecs de restauration sont signalés et leurs checkpoints conservés.
+`php bin/console symsvel:update` (en environnement Symfony `dev`) utilise un mécanisme distinct : checkpoints Composer, sources natives, dépendances, builds et **base de données**. Le parcours actif des composants ne fusionne plus les dépôts Git du projet. PostgreSQL et SQLite sont pris en charge ; une `DATABASE_URL` valide est obligatoire. Les échecs de restauration sont signalés et leurs checkpoints conservés.
 
 Après une **mise à jour globale réussie**, les checkpoints sont inscrits dans `backend/.symsvel/cleanup-pending.json`. Le nettoyage peut être repris par :
 
@@ -41,3 +41,34 @@ php bin/console symsvel:cleanup
 Cette commande est conçue pour être exécutée périodiquement par cron, mais aucun cron n'est installé automatiquement. Elle ne doit jamais supprimer les checkpoints d'un rollback incomplet.
 
 Voir également [le README](../README.md).
+
+## Provenance des nouveaux modules en canal dev
+
+Pour un projet dont `backend/.symsvel/project.json` déclare `channel: dev`, la transaction `require symsvel-framework/module-*` prépare désormais le dépôt Git officiel `https://github.com/Symsvel-Framework/symsvel-module-*.git` **après la prise du checkpoint Composer et avant le require**. L'entrée `repositories.module-<nom>-dev` est vérifiée lorsqu'elle existe déjà : une définition incompatible provoque un échec sans écrasement. Les dépendances tierces et les opérations `update`/`remove` ne déclenchent aucune déclaration de dépôt.
+
+En cas d'échec, `composer.json` est restauré par le mécanisme transactionnel existant ; un test vérifie ce scénario par injection d'une erreur Composer. Le bootstrap initial est désormais délégué au même lanceur transactionnel par la CLI en cours de refonte (PR #10) ; sa déclaration VCS n'est plus effectuée avant le checkpoint. La résolution réelle via GitHub/Satis et les crash-tests XT restent à valider.
+
+### Fixtures de bootstrap (07/11/2026)
+
+Les tests de bootstrap des modules créent explicitement un canal `stable` lorsque la transaction atteint la résolution des sources. Cela évite de confondre une fixture sans provenance avec un défaut de la logique métier. Le nettoyage des fixtures retire également `backend/.symsvel/project.json`. La CI de la PR #62 était verte au commit `998642fb` le 07/11/2026, avant cette actualisation documentaire.
+
+### Intégration VCS Git locale (07/11/2026)
+
+Un test d'intégration supplémentaire initialise un vrai dépôt Git local avec un package `symsvel-framework/module-demo` sur `main`. Le lanceur transactionnel déclare le dépôt officiel puis l'injection de commande substitue uniquement l'URL par la fixture locale pour éviter le réseau. Composer effectue un vrai `require` en `dev-main`, suivi d'un échec injecté ; le test vérifie la restauration byte-à-byte de `composer.json` et `composer.lock` et l'absence du module dans `vendor`. Ce test ne prouve pas encore l'accès au dépôt GitHub réel. La CI de la PR #62 était verte au commit `998642fb` le 07/11/2026 ; les crash-tests XT restent à effectuer.
+
+### Dépôts VCS déjà déclarés
+
+Deux tests unitaires supplémentaires contrôlent la réutilisation sans mutation d'un dépôt officiel identique et le rejet d'un dépôt de même clé pointant vers une autre URL, avant tout `composer require`. Le rejet préserve le manifeste original. Ces scénarios sont couverts par la CI verte de la PR #62 au commit `998642fb` ; la vérification réseau réelle reste distincte.
+
+### Matrice finale avant crash-test XT
+
+- `dev` : intégration Composer réelle avec dépôt Git local sur `main`, installation réussie de `module-demo:dev-main` et conservation du canal ; un second scénario injecte un échec après l'installation et vérifie le rollback.
+- `stable` : test de non-déclaration VCS développement lors d'un `require` avec contrainte explicite.
+- Dépendances tierces : aucun dépôt VCS SymSvel ajouté en canal `dev`.
+- Dépôts existants : réutilisation de la définition officielle, refus des conflits sans écrasement.
+
+Les tests locaux Git substituent l'URL officielle par un dépôt temporaire uniquement dans l'exécuteur de test. Ils ne valident ni l'accès réseau GitHub, ni Satis, ni le parcours complet CLI/Setup Wizard. Ces points constituent les crash-tests XT à exécuter après confirmation de la CI.
+
+### Fixture Git de réussite
+
+La fixture de résolution Composer réussie inclut un manifeste `module.json` conforme au contrat SymSvel v1 et les répertoires `back/` et `docs/dev/`. Un simple `composer.json` suffit à la résolution Composer mais pas à la synchronisation des modules SymSvel après installation. La CI de la PR #62 était verte au commit `998642fb` ; le test sur XT reste nécessaire.

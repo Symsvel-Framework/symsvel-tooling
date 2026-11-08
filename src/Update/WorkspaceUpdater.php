@@ -11,14 +11,14 @@ use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 final class WorkspaceUpdater
 {
     /** @param null|callable(list<string>, string):void $runner */
-    public function __construct(private readonly mixed $runner = null, private readonly bool $snapshotWithRunner = false, private readonly ?string $databaseUrl = null)
+    public function __construct(private readonly mixed $runner = null, private readonly bool $snapshotWithRunner = false, private readonly ?string $databaseUrl = null, private readonly ?WorkspaceNativePreparation $nativePreparation = null)
     {
     }
 
     /** @param null|callable(string):void $progress */
     public function update(string $backendDir, string $environment, ?callable $progress = null): void
     {
-        if (!in_array($environment, ['core', 'dev', 'prod'], true)) {
+        if (!in_array($environment, ['dev', 'test', 'prod'], true)) {
             throw new \InvalidArgumentException('Environnement non pris en charge : '.$environment);
         }
         if ($environment === 'prod') {
@@ -37,20 +37,6 @@ final class WorkspaceUpdater
             }
         }
         $root = dirname($backendDir);
-        // Validate all present interfaces before changing Composer dependencies.
-        foreach (['bo', 'app', 'front'] as $component) {
-            $directory = $root.'/'.$component;
-            if (!is_dir($directory)) {
-                continue;
-            }
-            if (!is_dir($directory.'/.git')) {
-                throw new \RuntimeException('Le composant '.$component.' n’est pas un dépôt Git.');
-            }
-            $status = trim($this->output(['git', 'status', '--porcelain', '--untracked-files=all'], $directory));
-            if ($status !== '' && !$this->onlyManagedGeneratedFiles($status, $directory, $backendDir)) {
-                throw new \RuntimeException('Le composant '.$component.' contient des modifications locales : mise à jour annulée avant Composer.');
-            }
-        }
         // Validate the database configuration before creating any checkpoints.
         // A missing DATABASE_URL must leave the workspace untouched.
         $effectiveDatabaseUrl = $this->resolveDatabaseUrl($backendDir, $environment);
@@ -63,16 +49,16 @@ final class WorkspaceUpdater
             && !is_file($backendDir.'/composer.lock')) {
             throw new \RuntimeException('BACK : composer.lock initial obligatoire pour rollback.');
         }
-        $gitCheckpoints = [];
-        foreach (['bo', 'app', 'front'] as $component) {
-            $directory = $root.'/'.$component;
-            if (!is_dir($directory) || ($this->runner !== null && !is_file($directory.'/.git/HEAD'))) {
-                // Legacy command-mock tests use placeholder .git directories.
-                continue;
-            }
-            $checkpoint = new GitComponentCheckpoint($directory);
-            $checkpoint->capture();
-            $gitCheckpoints[$component] = $checkpoint;
+        // All native component conflicts are checked before Composer or npm can mutate
+        // the workspace. Upstream sources live in a private transaction checkpoint.
+        $nativeCheckpoint = $backendDir.'/.symsvel/transactions/native-'.bin2hex(random_bytes(12));
+        if (!mkdir($nativeCheckpoint, 0700, true) && !is_dir($nativeCheckpoint)) {
+            throw new \RuntimeException('Checkpoint natif impossible : '.$nativeCheckpoint);
+        }
+        try {
+            $prepared = ($this->nativePreparation ?? new WorkspaceNativePreparation())->prepare($backendDir, $nativeCheckpoint);
+        } catch (\Throwable $failure) {
+            throw new \RuntimeException('Préflight natif global échoué : '.$failure->getMessage().'; checkpoint conservé : '.$nativeCheckpoint, 0, $failure);
         }
         $composerSnapshot = null;
         $workspaceSnapshot = null;
@@ -138,36 +124,17 @@ final class WorkspaceUpdater
         $this->run(['composer', 'update', 'symsvel-framework/core', 'symsvel-framework/tooling', '--with-all-dependencies', '--no-interaction', '--no-scripts', '--no-plugins'], $backendDir);
         $stepInProgress = 'Publication des hooks Composer';
         $this->installComposerHooks($backendDir, $progress);
+        $componentInProgress = 'WORKSPACE';
+        $stepInProgress = 'Application native globale';
+        (new WorkspaceNativeApply())->apply($backendDir, $prepared);
         foreach (['bo', 'app', 'front'] as $component) {
             $componentInProgress = strtoupper($component);
-            $stepInProgress = 'Vérification du composant';
             $directory = $root.'/'.$component;
-            if (!is_dir($directory)) {
+            if (!isset($prepared[$component])) {
                 if ($progress !== null) {
                     $progress(strtoupper($component).' : absent, ignoré.');
                 }
                 continue;
-            }
-            if ($progress !== null) {
-                $progress(strtoupper($component).' : dépôt Git propre, vérifié avant Composer.');
-            }
-            if ($progress !== null) {
-                $progress(strtoupper($component).' : récupération des commits…');
-            }
-            $stepInProgress = 'Git fetch';
-            $this->run(['git', 'fetch', 'origin', '--tags'], $directory);
-            if ($progress !== null) {
-                $progress(strtoupper($component).($environment === 'core' ? ' : synchronisation main…' : ' : sélection de la dernière release…'));
-            }
-            $stepInProgress = 'Git checkout / merge';
-            if ($environment === 'core') {
-                $this->run(['git', 'merge', '--ff-only', 'origin/main'], $directory);
-            } else {
-                $tag = $this->latestReleaseTag($directory);
-                $this->run(['git', 'checkout', '--detach', $tag], $directory);
-                if ($progress !== null) {
-                    $progress(strtoupper($component).' : release '.$tag.' sélectionnée.');
-                }
             }
             if ($progress !== null) {
                 $progress(strtoupper($component).' : installation npm…');
@@ -185,13 +152,6 @@ final class WorkspaceUpdater
         }
         } catch (\Throwable $failure) {
             $rollbackErrors = [];
-            foreach (array_reverse($gitCheckpoints, true) as $component => $checkpoint) {
-                try {
-                    $checkpoint->restore();
-                } catch (\Throwable $recovery) {
-                    $rollbackErrors[] = strtoupper($component).' / Git : '.$recovery->getMessage();
-                }
-            }
             foreach (array_reverse($runtimeSnapshots, true) as $component => $snapshot) {
                 try {
                     $snapshot->restore();
@@ -229,8 +189,8 @@ final class WorkspaceUpdater
             }
             $rollbackStatus = $rollbackErrors === []
                 ? ($composerSnapshot === null
-                    ? 'Git et artefacts npm/build restaurés ; rollback Composer et BDD non garanti.'
-                    : 'Git, npm/build, vendor, sources et BDD restaurés.')
+                    ? 'Sources natives et artefacts npm/build : rollback Composer et BDD non garanti.'
+                    : 'npm/build, vendor, sources natives et BDD restaurés.')
                 : 'Rollback incomplet : '.implode(' ; ', $rollbackErrors).'. Rollback global non garanti.';
             throw new \RuntimeException(
                 sprintf('Échec de mise à jour [%s / %s] : %s. %s', $componentInProgress, $stepInProgress, $failure->getMessage(), $rollbackStatus),
@@ -240,7 +200,7 @@ final class WorkspaceUpdater
         }
         // The update is committed. Cleanup must never be reported as a transaction failure.
         // Register checkpoints BEFORE deleting anything so cron can retry interrupted cleanup.
-        $cleanupPaths = [];
+        $cleanupPaths = [$nativeCheckpoint];
         if ($databaseCheckpoint !== null) {
             $cleanupPaths[] = $databaseCheckpoint['path'];
         }
@@ -359,77 +319,6 @@ final class WorkspaceUpdater
         if ($progress !== null) {
             $progress('Backend : hooks Composer SymSvel installés.');
         }
-    }
-
-    /** Git changes are allowed only for intact, registered, untracked generated files. */
-    private function onlyManagedGeneratedFiles(string $status, string $directory, string $backendDir): bool
-    {
-        $registry = $backendDir.'/.symsvel/svelte-files.json';
-        if (!is_file($registry) || is_link($registry)) {
-            return false;
-        }
-        try {
-            $entries = json_decode((string) file_get_contents($registry), true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
-            return false;
-        }
-        if (!is_array($entries)) {
-            return false;
-        }
-        foreach (preg_split('/\R/', $status) ?: [] as $line) {
-            if (!str_starts_with($line, '?? ')) {
-                return false;
-            }
-            $relative = substr($line, 3);
-            if ($relative === '' || str_contains($relative, '..') || str_contains($relative, '\\') || str_starts_with($relative, '/')) {
-                return false;
-            }
-            $path = $directory.'/'.$relative;
-            if (!str_starts_with($path, $directory.'/src/lib/vendor/') && !str_starts_with($path, $directory.'/src/routes/')) {
-                return false;
-            }
-            $hash = $entries[$path] ?? null;
-            if (!is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash) || !is_file($path) || is_link($path)) {
-                return false;
-            }
-            $parent = dirname($path);
-            while ($parent !== $directory && $parent !== dirname($parent)) {
-                if (is_link($parent)) {
-                    return false;
-                }
-                $parent = dirname($parent);
-            }
-            if (hash_file('sha256', $path) !== $hash) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private function latestReleaseTag(string $directory): string
-    {
-        $tags = $this->output(['git', 'tag', '--list', 'v[0-9]*'], $directory);
-        $versions = array_filter(
-            preg_split('/\R/', trim($tags)) ?: [],
-            static fn (string $tag): bool => preg_match('/^v\d+\.\d+\.\d+$/', $tag) === 1,
-        );
-        if ($versions === []) {
-            throw new \RuntimeException('Aucune release stable (tag vX.Y.Z) disponible dans '.$directory);
-        }
-        usort($versions, static fn (string $a, string $b): int => version_compare($b, $a));
-        return $versions[0];
-    }
-
-    /** @param list<string> $command */
-    private function output(array $command, string $cwd): string
-    {
-        if ($this->runner !== null) {
-            $result = ($this->runner)($command, $cwd);
-            return is_string($result) ? $result : '';
-        }
-        $process = new Process($command, $cwd);
-        $process->mustRun();
-        return $process->getOutput();
     }
 
     /** @param list<string> $command */
