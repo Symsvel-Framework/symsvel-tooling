@@ -85,3 +85,5 @@ Les tests automatisés et la CI ne remplacent pas les crash-tests XT sur Mac. Av
 ### Chantier setup en deux phases (en cours)
 
 L'installation initiale doit préparer les sources et modules sans déclencher de build Svelte. La première phase du Setup configure le projet, la base choisie parmi PostgreSQL, MySQL, MariaDB et SQLite, puis exécute les migrations. La deuxième phase crée directement le premier administrateur sans fichier temporaire de secrets. La finalisation lance les builds après les migrations, puis clôt le setup. Les tests doivent vérifier les reprises après erreur, les permissions du fichier `.env.local` et l'absence de build prématuré. Cette section décrit la cible et non l'état implémenté.
+
+La machine d'état introduit `database_ready` entre `running` et `completed`, afin de matérialiser la fin des migrations avant la création de l'administrateur. Le parcours du Wizard et le découpage des commandes restent à adapter avant validation du chantier.
