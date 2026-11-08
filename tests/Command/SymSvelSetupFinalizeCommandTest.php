@@ -263,7 +263,7 @@ PHP
             file_put_contents($path, '{"schema":1}');
             $tester = new CommandTester(new SymSvelSetupFinalizeCommand($root.'/backend'));
             self::assertSame(1, $tester->execute([]));
-            self::assertSame(SetupState::PENDING, $state->read($root));
+            self::assertSame(SetupState::DATABASE_READY, $state->read($root));
             self::assertFileDoesNotExist($path);
             file_put_contents($path, '{"schema":1}');
             file_put_contents($console, "<?php exit(0);\n");
