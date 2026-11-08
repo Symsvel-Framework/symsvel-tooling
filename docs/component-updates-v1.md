@@ -1,5 +1,7 @@
 # Contrat de mise à jour des composants Svelte (V1)
 
+> **Lecture de ce journal (08/11/2026) :** les sections datées retracent les étapes successives du chantier #60. Les phrases « reste à réaliser » décrivent parfois un état **historique**, pas l'état du code courant. Le parcours actif de `WorkspaceUpdater::update()` appelle désormais `WorkspaceNativePreparation` avant Composer et `WorkspaceNativeApply` après Composer ; il ne fait plus de fusion Git dans les composants du projet. Les tests d'intégration, la CI et les crash-tests XT restent des validations distinctes.
+
 ## Propriété des sources
 
 Une fois installés, les fichiers de `bo/`, `app/` et `front/` appartiennent au projet. Les dépôts Git du projet (par exemple Choralys) sont indépendants de ceux de SymSvel. La CLI ne doit ni modifier les remotes/branches ni effectuer de `git merge`, `git reset` ou `git checkout` dans les composants du projet.
@@ -119,19 +121,19 @@ Entre le préflight trois voies et l'application, un fichier local peut être cr
 
 ### Préparation native de l'ensemble du workspace (07/11/2026)
 
-`WorkspaceNativePreparation` réutilise `ComponentNativePreparation` pour préparer successivement les interfaces installées (`bo`, `app`, `front`) dans un checkpoint appartenant à l'appelant. Les interfaces absentes sont ignorées ; les liens symboliques au niveau d'un composant sont refusés. Aucun fichier du projet ni manifeste n'est modifié pendant cette phase. Si le dernier composant présente un conflit, les composants précédents restent intacts. Les tests couvrent ce comportement ainsi que la préparation des composants présents. Cette classe constitue une étape préparatoire : `WorkspaceUpdater` utilise encore son ancien parcours Git et doit être raccordé à cette préparation et à une transaction native globale avant validation de #60.
+`WorkspaceNativePreparation` réutilise `ComponentNativePreparation` pour préparer successivement les interfaces installées (`bo`, `app`, `front`) dans un checkpoint appartenant à l'appelant. Les interfaces absentes sont ignorées ; les liens symboliques au niveau d'un composant sont refusés. Aucun fichier du projet ni manifeste n'est modifié pendant cette phase. Si le dernier composant présente un conflit, les composants précédents restent intacts. Les tests couvrent ce comportement ainsi que la préparation des composants présents. **État au moment de cette étape (historique) :** `WorkspaceUpdater` utilisait encore l'ancien parcours Git. Le raccordement natif a ensuite été réalisé ; voir « Premier raccordement effectif de WorkspaceUpdater » plus bas.
 
 ### Application native globale préparée (07/11/2026)
 
-`WorkspaceNativeApply` applique les plans prévalidés des interfaces présentes, sans exécuter Composer, npm ni créer de checkpoint. Il refuse les conflits résiduels avant la première mutation, utilise `ComponentNativeFileApplier` pour chaque interface, puis écrit les révisions et empreintes dans `ComponentManifest` seulement après l'application de tous les fichiers. Un échec pendant l'application ou l'écriture des manifestes doit être pris en charge par la transaction englobante, qui restaure sources et manifeste. Tests : plusieurs interfaces, conservation des fichiers personnalisés, refus global d'un plan conflictuel. Le raccordement de `WorkspaceUpdater` à cette phase et la couverture du rollback Composer/BDD restent nécessaires avant clôture.
+`WorkspaceNativeApply` applique les plans prévalidés des interfaces présentes, sans exécuter Composer, npm ni créer de checkpoint. Il refuse les conflits résiduels avant la première mutation, utilise `ComponentNativeFileApplier` pour chaque interface, puis écrit les révisions et empreintes dans `ComponentManifest` seulement après l'application de tous les fichiers. Un échec pendant l'application ou l'écriture des manifestes doit être pris en charge par la transaction englobante, qui restaure sources et manifeste. Tests : plusieurs interfaces, conservation des fichiers personnalisés, refus global d'un plan conflictuel. **État au moment de cette étape (historique) :** le raccordement à `WorkspaceUpdater` restait à réaliser. Il est désormais présent dans le parcours actif ; sa validation transactionnelle complète reste distincte.
 
 ### Contrôle global juste avant application (07/11/2026)
 
-`WorkspaceNativeApply` revérifie les cibles `add`, `replace` et `delete` de **tous** les composants avant d'écrire le premier fichier. Une modification locale tardive dans App bloque ainsi toute mutation préalable dans BO. Les contrôles par fichier de `ComponentNativeFileApplier` restent actifs pendant l'application ; cette double vérification réduit les risques de modifications concurrentes, sans fournir à elle seule de verrou atomique. Test de non-régression : conflit tardif sur le second composant, premier composant intact, manifeste non modifié. L'intégration transactionnelle à `WorkspaceUpdater` reste à effectuer.
+`WorkspaceNativeApply` revérifie les cibles `add`, `replace` et `delete` de **tous** les composants avant d'écrire le premier fichier. Une modification locale tardive dans App bloque ainsi toute mutation préalable dans BO. Les contrôles par fichier de `ComponentNativeFileApplier` restent actifs pendant l'application ; cette double vérification réduit les risques de modifications concurrentes, sans fournir à elle seule de verrou atomique. Test de non-régression : conflit tardif sur le second composant, premier composant intact, manifeste non modifié. **État au moment de cette étape (historique) :** l'intégration à `WorkspaceUpdater` restait à effectuer ; le raccordement natif a depuis été ajouté.
 
 ### Indépendance du Git projet (07/11/2026)
 
-Un test de `WorkspaceNativeApply` vérifie qu'une mise à jour d'un fichier natif ne modifie ni `.git/HEAD` (branche locale du projet) ni un fichier personnalisé non géré. Cette garantie concerne la phase d'application native uniquement : tant que `WorkspaceUpdater` appelle encore `git fetch`, `git merge` ou `git checkout`, le parcours global n'est **pas** indépendant du Git projet. Cette distinction est obligatoire dans les validations et les communications du chantier #60.
+Un test de `WorkspaceNativeApply` vérifie qu'une mise à jour d'un fichier natif ne modifie ni `.git/HEAD` (branche locale du projet) ni un fichier personnalisé non géré. Cette garantie concerne la phase d'application native uniquement : l'ancien parcours de `WorkspaceUpdater` appelait encore `git fetch`, `git merge` ou `git checkout`. Ces appels ont depuis été retirés du parcours actif, sans que cela dispense de valider le rollback global. Cette distinction est obligatoire dans les validations et les communications du chantier #60.
 
 ### Validation des chemins dans les plans globaux (07/11/2026)
 
@@ -159,7 +161,7 @@ Le préflight global rejette aussi les répertoires parents symboliques des fich
 
 ## Raccordement transactionnel à WorkspaceUpdater : contrat d'intégration
 
-Le parcours historique de `WorkspaceUpdater` est encore actif. Le raccordement doit être réalisé en un changement cohérent, accompagné de la migration des tests qui simulent actuellement les commandes Git des composants.
+**Historique de conception (avant raccordement du 07/11/2026) :** le parcours Git de `WorkspaceUpdater` était encore actif. Le plan ci-dessous documente le chantier réalisé ensuite et ses critères de sortie, pas des instructions à réimplémenter.
 
 1. **Préflight global avant Composer** : après validation du backend, de la configuration BDD et de `composer.lock`, créer un checkpoint transactionnel privé ; appeler `WorkspaceNativePreparation::prepare($backend, $checkpoint)` pour tous les composants installés. Toute collision interrompt l'opération sans modifier Composer, les interfaces ou le manifeste.
 2. **Snapshots avant mutation** : conserver les sauvegardes Composer, vendor, runtime npm/build et BDD existantes ; inclure explicitement les sources des composants et `.symsvel/components.json` dans `WorkspaceFileSnapshot`. Les clones upstream sont conservés dans le checkpoint jusqu'à la fin de la transaction.
@@ -202,11 +204,11 @@ Les tests d'échec de build FRONT, de restauration des artefacts npm/build, de r
 
 ### Politique de provenance persistante (07/11/2026)
 
-Le projet conserve son canal dans `backend/.symsvel/project.json` : `{"schema":1,"channel":"stable"}` par défaut ou `{"schema":1,"channel":"dev"}` lors de `create-project --dev` (mainteneurs et crash-tests uniquement). Le canal est indépendant de `APP_ENV` et ne change pas implicitement. La classe `ProjectChannel` assure la lecture stricte et l'écriture initiale sans écrasement ; les tests couvrent les configurations manquantes, invalides et symboliques. **Intégration encore à réaliser** : écriture depuis CLI create-project, lecture par tous les parcours require/update et résolution stable par tags/releases pour les sources Svelte. Ne pas merger avant le raccordement complet et les tests de bout en bout. Aucun mécanisme de migration d'anciens projets ni de changement de canal n'est prévu.
+Le projet conserve son canal dans `backend/.symsvel/project.json` : `{"schema":1,"channel":"stable"}` par défaut ou `{"schema":1,"channel":"dev"}` lors de `create-project --dev` (mainteneurs et crash-tests uniquement). Le canal est indépendant de `APP_ENV` et ne change pas implicitement. La classe `ProjectChannel` assure la lecture stricte et l'écriture initiale sans écrasement ; les tests couvrent les configurations manquantes, invalides et symboliques. **État historique de ce jalon :** l'écriture depuis CLI create-project et la lecture par les différents parcours restaient à raccorder. Les implémentations ont évolué dans les PR CLI #10 et Tooling #62 ; vérifier le code et les CT avant de conclure à la validation de bout en bout. Aucun mécanisme de migration d'anciens projets ni de changement de canal n'est prévu.
 
 #### Résolution des sources Svelte
 
-La préparation native lit désormais `ProjectChannel` depuis le backend. Pour `dev`, le clone de référence cible explicitement `main` ; pour `stable`, le résolveur choisit le tag SemVer stable le plus récent (`vMAJOR.MINOR.PATCH` ou `MAJOR.MINOR.PATCH`) depuis le dépôt officiel. Les tests d'intégration créent un canal `dev` et des upstream Git locaux. La configuration initiale depuis CLI et le parcours Composer restent à raccorder avant merge ; la CI doit valider les changements.
+La préparation native lit désormais `ProjectChannel` depuis le backend. Pour `dev`, le clone de référence cible explicitement `main` ; pour `stable`, le résolveur choisit le tag SemVer stable le plus récent (`vMAJOR.MINOR.PATCH` ou `MAJOR.MINOR.PATCH`) depuis le dépôt officiel. Les tests d'intégration créent un canal `dev` et des upstream Git locaux. **État historique :** la configuration initiale CLI et le parcours Composer restaient à raccorder à cette étape. Se reporter aux PR actuelles et à leurs tests pour l'état effectif.
 
 #### Fixtures Git de CI
 
