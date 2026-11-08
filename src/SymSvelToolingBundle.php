@@ -6,6 +6,7 @@ namespace SymSvel\Tooling;
 
 use SymSvel\Tooling\Command\SymSvelInstallCommand;
 use SymSvel\Tooling\Command\SymSvelSetupFinalizeCommand;
+use SymSvel\Tooling\Command\SymSvelSetupDatabaseCommand;
 use SymSvel\Tooling\Command\SymSvelMakeModuleCommand;
 use SymSvel\Tooling\Module\ModuleMaker;
 use SymSvel\Tooling\Module\ModuleManifest;
@@ -143,6 +144,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelInstallCommand::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelSetupDatabaseCommand::class)
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelSetupFinalizeCommand::class)
