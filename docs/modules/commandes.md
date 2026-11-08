@@ -1,48 +1,38 @@
-# Référence CLI : modules SymSvel
+# Commandes des modules SymSvel
 
-> État vérifié dans `symsvel-tooling`. Les commandes ci-dessous reflètent le code existant, avant l'intégration Composer/Flex. À intégrer à la documentation MkDocs du projet.
+La CLI `symsvel` est le point d'entrée utilisateur pour installer, mettre à jour ou retirer des packages. Les commandes Symfony du Tooling servent à la synchronisation, aux migrations, aux plans et à la récupération. **Composer/Flex est intégré au code**, mais la résolution réseau officielle et le parcours XT complet restent à valider.
 
-Exécuter depuis `backend/` avec `php bin/console`, sauf le maker autonome `./symsvel make:module` depuis le workspace.
-
-| Commande (préfixe `php bin/console`) | Rôle | Arguments et options propres |
-| --- | --- | --- |
-| `symsvel:make:module <name>` | Génère un module local | `--workspace=...`, `--scopes=back\|bo\|app\|front\|all` (défaut back), `--vendor=...` (défaut symsvel-framework) |
-| `symsvel:module:plan` | Vérifie et prévisualise le plan des modules | `--workspace=...`, `--json`, `--source=local|composer` (défaut `local`) |
-| `symsvel:module:sync` | Publie l'inventaire et la carte des Bundles, **sans les activer** | `--workspace=...`, `--source=local|composer` (défaut `local`) |
-| `symsvel:module:migrations:compile` | Compile les migrations sources non enregistrées | `--workspace=...`, `--execute` (exécute et enregistre les migrations) |
-| `symsvel:module:migrations:recovery:status` | Consulte une récupération SQL en attente, sans modifier la base | `--workspace=...`, `--json` |
-| `symsvel:module:migrations:recover` | Reprend les compensations possibles après incident SQL | `--workspace=...` |
-| `symsvel:module:remove:plan <module>` | Prévisualise la suppression et les dépendants | `--workspace=...`, `--cascade`, `--json` |
-| `symsvel:module:remove:migrations:plan <module>` | Prépare la désinstallation SQL et son empreinte de confirmation | `--workspace=...`, `--cascade`, `--json` |
-| `symsvel:module:remove:migrations:execute <module>` | Exécute les migrations descendantes avec sauvegarde SQL | `--workspace=...`, `--cascade`, `--confirm=<empreinte>` |
-| `symsvel:module:remove:recovery:status` | Affiche l'état d'une récupération de suppression | `--workspace=...` |
-
-## Exemples
+## Parcours utilisateur
 
 ```bash
-./symsvel make:module documents --scopes=all
-php bin/console symsvel:module:plan --json
-php bin/console symsvel:module:plan --source=composer --json
-php bin/console symsvel:module:sync
-php bin/console symsvel:module:sync --source=composer # publie backend/.symsvel/modules.json, sans activation de Bundle
-php bin/console symsvel:module:migrations:compile
-php bin/console symsvel:module:migrations:compile --execute
-php bin/console symsvel:module:migrations:recovery:status
-php bin/console symsvel:module:remove:migrations:plan documents
-php bin/console symsvel:module:remove:migrations:execute documents --confirm=<empreinte_du_plan>
+symsvel make:module documents --scopes=back,bo,app
+symsvel require symsvel-framework/module-test-back
+symsvel update symsvel-framework/module-test-back
+symsvel remove symsvel-framework/module-test-back
 ```
 
-## Sécurité et ordre
+Le canal `dev` ou `stable` vient de `backend/.symsvel/project.json`, pas de `APP_ENV`. La CLI délègue les opérations Composer au lanceur transactionnel du Tooling. Les contraintes explicites fournies à `require` restent prioritaires.
 
-- `plan` et `status` n'exécutent pas de SQL destructif.
-- `migrations:compile` sans `--execute` génère du PHP Doctrine, sans l'exécuter.
-- Les migrations sont ordonnées selon les dépendances des modules puis les noms de fichiers. Le `down` inverse cet ordre.
-- Une suppression SQL exige une empreinte issue du plan ; `--cascade` inclut les modules dépendants.
-- Après un échec SQL, examiner le statut de récupération avant toute nouvelle opération. Ne jamais supposer qu'une migration interrompue a été annulée automatiquement.
-- Les options Symfony globales (`--env`, `--no-interaction`, etc.) ne sont pas détaillées ici.
+## Commandes Symfony internes
 
-## Évolution prévue
+Depuis `backend/`, préfixer les commandes par `php bin/console` :
 
-Lorsque les modules seront installés par Composer et intégrés via Symfony Flex, mettre à jour cette référence pour distinguer clairement commandes Composer, recettes Flex et commandes SymSvel. Ne pas présenter l'activation Composer/Flex comme déjà opérationnelle.
+| Commande | Fonction |
+| --- | --- |
+| `symsvel:make:module <name>` | Génération avec ModuleMaker |
+| `symsvel:module:plan` | Prévisualisation des modules |
+| `symsvel:module:sync` | Inventaire et carte des Bundles |
+| `symsvel:module:sync:svelte` | Synchronisation des ressources Svelte |
+| `symsvel:module:migrations:compile` | Compilation des migrations |
+| `symsvel:module:migrations:recovery:status` | Diagnostic d'une récupération |
+| `symsvel:module:migrations:recover` | Récupération des migrations |
+| `symsvel:module:remove:plan <module>` | Plan de suppression et dépendants |
+| `symsvel:module:remove:migrations:plan <module>` | Préparation de la suppression SQL |
+| `symsvel:module:remove:migrations:execute <module>` | Suppression SQL après confirmation |
+| `symsvel:module:remove:recovery:status` | Diagnostic de récupération après retrait |
 
-**Attention :** `module:sync --source=composer` publie l'inventaire dans `backend/.symsvel/modules.json` sans activer de Bundle. L'intégration Symfony/Flex reste une étape distincte.
+Les signatures exactes et options sont fournies par `php bin/console <commande> --help`. Un plan ou un statut ne doit pas être confondu avec une exécution. Les migrations sont ordonnées selon les dépendances ; la suppression destructrice nécessite les confirmations et protections du Tooling. Après incident, consulter les états de récupération avant une nouvelle opération.
+
+Le Maker produit un **modèle** de recette Flex ; sa publication dans `symsvel-recipes` et son référencement sont distincts. Ne pas développer directement dans `vendor/`.
+
+Voir [le contrat des modules](contrat.md) et [les transactions Composer](../composer-transactions.md).
