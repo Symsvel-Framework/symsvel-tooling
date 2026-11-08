@@ -93,11 +93,15 @@ final class ComponentLifecycleInstaller
                 }
             }
             $this->synchronizer->sync($backend);
-            $build = new Process(['npm', 'run', 'build'], $target);
-            $build->setTimeout(600);
-            $build->run();
-            if (!$build->isSuccessful()) {
-                throw new \RuntimeException('Build après synchronisation impossible : '.trim($build->getErrorOutput() ?: $build->getOutput()));
+            // During initial setup, defer all interface builds until the wizard
+            // has finished provisioning the database and first administrator.
+            if (getenv('SYMSVEL_DEFER_BUILDS') !== '1') {
+                $build = new Process(['npm', 'run', 'build'], $target);
+                $build->setTimeout(600);
+                $build->run();
+                if (!$build->isSuccessful()) {
+                    throw new \RuntimeException('Build après synchronisation impossible : '.trim($build->getErrorOutput() ?: $build->getOutput()));
+                }
             }
             if ($component === 'app') {
                 // The initial Setup Wizard executes migrations separately; after
