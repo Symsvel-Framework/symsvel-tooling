@@ -213,3 +213,7 @@ La préparation native lit désormais `ProjectChannel` depuis le backend. Pour `
 #### Fixtures Git de CI
 
 Les tests d'intégration des mises à jour natives créent explicitement leurs dépôts Git locaux sur `main` (source et dépôt bare). Le résolveur `dev` cible cette branche par contrat ; les tests ne dépendent plus de la branche initiale configurée sur le runner GitHub Actions. La création du répertoire `.symsvel` est assurée par `ProjectChannel`, sans double `mkdir` dans les fixtures.
+
+### Nettoyage des vestiges Git de WorkspaceUpdater (08/11/2026)
+
+La revue pré-merge a confirmé que `onlyManagedGeneratedFiles()`, `latestReleaseTag()` et `output()` étaient des méthodes privées sans appel dans `WorkspaceUpdater`. Elles ont été supprimées, sans modifier le parcours actif de mise à jour native. `run()` et son exécution de Composer et npm sont conservés. Le code actif continue de préparer et appliquer les sources natives sans fusion ni checkout Git des dépôts du projet. La CI du commit de nettoyage et les crash-tests XT restent des validations distinctes.
