@@ -95,3 +95,5 @@ La commande `symsvel:setup:database` (en cours de raccordement au Wizard) réali
 Les tests de `SymSvelSetupDatabaseCommand` couvrent la réussite de la phase BDD seule, l'absence de réexécution après `database_ready`, la reprise depuis `running` après échec des migrations et le blocage en présence d'un journal de récupération. Ils simulent les sous-processus Symfony ; les tests réels multibase restent requis.
 
 Correctif de fixture : dans le test de reprise, `\$argv` doit rester littéral lors de la génération du faux `bin/console` et n'être évalué que par le sous-processus. Cela évite les warnings PHPUnit liés à l'interpolation prématurée.
+
+Le chemin `ComponentLifecycleInstaller` respecte également `SYMSVEL_DEFER_BUILDS=1` : après synchronisation des modules Svelte, le build npm est différé pendant l'installation initiale. Hors de cette variable, le build reste obligatoire et son échec conserve le comportement transactionnel précédent. La commande de finalisation des builds et sa validation de bout en bout restent à réaliser.
