@@ -69,7 +69,7 @@ exit('.$exitExpression.');
 
     public function testFailureCanResumeFromRunningWithoutAdminCreation(): void
     {
-        $this->fakeConsole("($argv[1] === 'symsvel:module:migrations:compile' ? 1 : 0)");
+        $this->fakeConsole("(\$argv[1] === 'symsvel:module:migrations:compile' ? 1 : 0)");
         self::assertSame(1, $this->command()->execute([]));
         self::assertSame(SetupState::RUNNING, (new SetupState())->read($this->root));
         $this->fakeConsole();
