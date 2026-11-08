@@ -36,7 +36,7 @@ final class SymSvelSetupFinalizeCommand extends Command
                 $io->success('Setup déjà terminé.');
                 return Command::SUCCESS;
             }
-            if ($status !== SetupState::PENDING && $status !== SetupState::RUNNING) {
+            if (!in_array($status, [SetupState::PENDING, SetupState::RUNNING, SetupState::DATABASE_READY], true)) {
                 throw new \RuntimeException('Setup non initialisé.');
             }
             if (file_exists($workspace.'/.symsvel/migration-recovery.json')
@@ -85,6 +85,9 @@ final class SymSvelSetupFinalizeCommand extends Command
             if (!$process->isSuccessful()) {
                 throw new \RuntimeException('Migrations non finalisées : '.trim($process->getErrorOutput().' '.$process->getOutput()));
             }
+            if ($this->state->read($workspace) === SetupState::RUNNING) {
+                $this->state->transition($workspace, SetupState::RUNNING, SetupState::DATABASE_READY);
+            }
             $bootstrap = new Process([
                 PHP_BINARY, 'bin/console', 'symsvel:admins:bootstrap', '--no-interaction',
             ], $this->projectDir);
@@ -100,7 +103,7 @@ final class SymSvelSetupFinalizeCommand extends Command
             if (!unlink($pendingAdmin)) {
                 throw new \RuntimeException('Impossible de supprimer les données administrateur temporaires.');
             }
-            $this->state->transition($workspace, SetupState::RUNNING, SetupState::COMPLETED);
+            $this->state->transition($workspace, SetupState::DATABASE_READY, SetupState::COMPLETED);
             $tokenFile = $workspace.'/.symsvel/setup-token';
             if (is_file($tokenFile) && !is_link($tokenFile)) {
                 unlink($tokenFile);
