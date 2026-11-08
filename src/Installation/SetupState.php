@@ -9,6 +9,7 @@ final class SetupState
 {
     public const PENDING = 'pending';
     public const RUNNING = 'running';
+    public const DATABASE_READY = 'database_ready';
     public const COMPLETED = 'completed';
 
     public function read(string $workspace): ?string
@@ -26,7 +27,7 @@ final class SetupState
         }
         $data = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($data) || ($data['schema'] ?? null) !== 1
-            || !in_array($data['status'] ?? null, [self::PENDING, self::RUNNING, self::COMPLETED], true)) {
+            || !in_array($data['status'] ?? null, [self::PENDING, self::RUNNING, self::DATABASE_READY, self::COMPLETED], true)) {
             throw new \RuntimeException('État setup invalide.');
         }
         return $data['status'];
@@ -44,18 +45,19 @@ final class SetupState
     {
         if (!in_array([$expected, $next], [
             [self::PENDING, self::RUNNING],
-            [self::RUNNING, self::COMPLETED],
+            [self::RUNNING, self::DATABASE_READY],
+            [self::DATABASE_READY, self::COMPLETED],
         ], true)) {
             throw new \DomainException('Transition setup interdite.');
         }
         if ($this->read($workspace) !== $expected) {
             throw new \DomainException('État setup inattendu.');
         }
-        if ($next === self::COMPLETED && (!is_file(rtrim($workspace, '/').'/backend/.env.local')
+        if (in_array($next, [self::DATABASE_READY, self::COMPLETED], true) && (!is_file(rtrim($workspace, '/').'/backend/.env.local')
             || is_link(rtrim($workspace, '/').'/backend/.env.local'))) {
             throw new \DomainException('Setup impossible à terminer : configuration BDD absente.');
         }
-        if ($next === self::COMPLETED && (file_exists(rtrim($workspace, '/').'/.symsvel/migration-recovery.json')
+        if (in_array($next, [self::DATABASE_READY, self::COMPLETED], true) && (file_exists(rtrim($workspace, '/').'/.symsvel/migration-recovery.json')
             || is_link(rtrim($workspace, '/').'/.symsvel/migration-recovery.json'))) {
             throw new \DomainException('Setup impossible à terminer : récupération de migrations en attente.');
         }
@@ -66,7 +68,7 @@ final class SetupState
     public function reset(string $workspace): void
     {
         $status = $this->read($workspace);
-        if ($status === self::COMPLETED || $status === null) {
+        if (in_array($status, [self::DATABASE_READY, self::COMPLETED, null], true)) {
             throw new \DomainException('Impossible de réinitialiser un setup terminé ou absent.');
         }
         $this->write($workspace, self::PENDING);
