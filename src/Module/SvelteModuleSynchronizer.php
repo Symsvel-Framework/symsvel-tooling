@@ -52,12 +52,12 @@ final class SvelteModuleSynchronizer
                 $files = $this->files($source);
                 foreach ($files as $relative => $content) {
                     if (str_starts_with($relative, 'lib/')) {
-                        $destination = $app.'/src/lib/vendor/'.$slug.'/'.substr($relative, 4);
+                        $destination = $app.'/src/'. $relative;
                     } elseif (str_starts_with($relative, 'routes/')) {
-                        $destination = $app.'/src/lib/vendor/'.$slug.'/'.$relative;
+                        $destination = $app.'/src/lib/modules/'.$slug.'/'.$relative;
                         if (preg_match('~^routes/(.*)\+page\.svelte$~', $relative, $matches)) {
                             $route = $app.'/src/routes/'.$matches[1].'+page.svelte';
-                            $import = '#lib/vendor/'.$slug.'/'.$relative;
+                            $import = '#lib/modules/'.$slug.'/'.$relative;
                             if (isset($targets[$route])) {
                                 throw new \RuntimeException('Collision de routes : '.$route);
                             }
@@ -74,6 +74,8 @@ final class SvelteModuleSynchronizer
             }
         }
 
+        // Module-owned lib files retain their original paths. Route sources are
+        // namespaced under lib/modules/<slug>/routes to avoid SvelteKit route conflicts.
         $registry = $backend.'/.symsvel/svelte-files.json';
         if (is_link($registry)) {
             throw new \RuntimeException('Registre symbolique interdit.');
@@ -153,7 +155,7 @@ final class SvelteModuleSynchronizer
     private function pruneEmptyParents(string $directory, string $workspace): void
     {
         foreach (['bo', 'app', 'front'] as $scope) {
-            foreach ([$workspace.'/'.$scope.'/src/lib/vendor', $workspace.'/'.$scope.'/src/routes'] as $root) {
+            foreach ([$workspace.'/'.$scope.'/src/lib', $workspace.'/'.$scope.'/src/routes'] as $root) {
                 if (!str_starts_with($directory, $root.'/')) {
                     continue;
                 }
@@ -178,7 +180,7 @@ final class SvelteModuleSynchronizer
             $prefix = $workspace.'/'.$scope.'/src/';
             if (str_starts_with($path, $prefix)) {
                 $relative = substr($path, strlen($prefix));
-                return str_starts_with($relative, 'lib/vendor/') || str_starts_with($relative, 'routes/');
+                return str_starts_with($relative, 'lib/') || str_starts_with($relative, 'routes/');
             }
         }
         return false;
