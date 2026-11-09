@@ -60,7 +60,8 @@ final class SymSvelSetupCompleteCommand extends Command
                 $build->setTimeout(600);
                 $build->run();
                 if (!$build->isSuccessful()) {
-                    throw new \RuntimeException('Static build failed for '.$component.'. Setup remains resumable.');
+                    $diagnostic = trim($build->getErrorOutput()."\n".$build->getOutput());
+                    throw new \RuntimeException('Static build failed for '.$component.' (exit '.$build->getExitCode().'). Setup remains resumable.'.($diagnostic !== '' ? "\n".$diagnostic : ' No output from npm.'));
                 }
             }
             $this->state->transition($workspace, SetupState::DATABASE_READY, SetupState::COMPLETED);
