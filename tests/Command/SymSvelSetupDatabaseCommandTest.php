@@ -58,6 +58,23 @@ exit('.$exitExpression.');
         ], file($this->root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
     }
 
+    public function testQuotedDatabaseUrlIsRecognized(): void
+    {
+        file_put_contents($this->root.'/backend/.env.local', "APP_ENV=dev\nDATABASE_URL=\"postgresql://localhost/test?serverVersion=17.0.0\"\n");
+        $this->fakeConsole();
+        self::assertSame(0, $this->command()->execute([]));
+        self::assertSame(SetupState::DATABASE_READY, (new SetupState())->read($this->root));
+    }
+
+    public function testMissingDatabaseUrlFailsWithoutChangingState(): void
+    {
+        file_put_contents($this->root.'/backend/.env.local', "APP_ENV=dev\n");
+        $this->fakeConsole();
+        self::assertSame(1, $this->command()->execute([]));
+        self::assertSame(SetupState::PENDING, (new SetupState())->read($this->root));
+        self::assertFileDoesNotExist($this->root.'/backend/commands.log');
+    }
+
     public function testReadyStateNeverReplaysMigrations(): void
     {
         $this->fakeConsole();
