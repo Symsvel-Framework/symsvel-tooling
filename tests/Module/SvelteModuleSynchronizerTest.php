@@ -52,23 +52,23 @@ final class SvelteModuleSynchronizerTest extends TestCase
         self::assertSame(['written' => 15, 'removed' => 0], $sync->sync($this->backend));
         self::assertSame(['written' => 0, 'removed' => 0], $sync->sync($this->backend));
         foreach (['bo', 'app', 'front'] as $scope) {
-            self::assertFileExists($this->workspace.'/'.$scope.'/src/lib/vendor/catalog/modules/catalog/index.ts');
+            self::assertFileExists($this->workspace.'/'.$scope.'/src/lib/modules/catalog/index.ts');
             self::assertFileDoesNotExist($this->workspace.'/'.$scope.'/tsconfig.json');
-            self::assertFileDoesNotExist($this->workspace.'/'.$scope.'/src/lib/vendor/catalog/tests/catalog.test.ts');
+            self::assertFileDoesNotExist($this->workspace.'/'.$scope.'/src/lib/tests/catalog.test.ts');
             self::assertStringContainsString(
                 "export const moduleId = 'catalog';",
-                (string) file_get_contents($this->workspace.'/'.$scope.'/src/lib/vendor/catalog/modules/catalog/index.ts'),
+                (string) file_get_contents($this->workspace.'/'.$scope.'/src/lib/modules/catalog/index.ts'),
             );
         }
         self::assertStringContainsString('DO NOT EDIT', (string) file_get_contents($this->workspace.'/bo/src/routes/catalog/+page.svelte'));
-        self::assertStringContainsString('#lib/vendor/catalog/routes/catalog/+page.svelte', (string) file_get_contents($this->workspace.'/bo/src/routes/catalog/+page.svelte'));
+        self::assertStringContainsString('#lib/modules/catalog/routes/catalog/+page.svelte', (string) file_get_contents($this->workspace.'/bo/src/routes/catalog/+page.svelte'));
         file_put_contents($this->module.'/bo/src/lib/widget.svelte', '<p>Updated</p>');
         self::assertSame(['written' => 1, 'removed' => 0], $sync->sync($this->backend));
-        self::assertSame('<p>Updated</p>', file_get_contents($this->workspace.'/bo/src/lib/vendor/catalog/widget.svelte'));
+        self::assertSame('<p>Updated</p>', file_get_contents($this->workspace.'/bo/src/lib/widget.svelte'));
         $this->installed(false);
         self::assertSame(['written' => 0, 'removed' => 15], $sync->sync($this->backend));
         self::assertDirectoryDoesNotExist($this->workspace.'/bo/src/routes/catalog');
-        self::assertDirectoryDoesNotExist($this->workspace.'/bo/src/lib/vendor/catalog');
+        self::assertDirectoryDoesNotExist($this->workspace.'/bo/src/lib/modules/catalog');
         self::assertDirectoryExists($this->workspace.'/bo/src/routes');
     }
 
@@ -93,7 +93,7 @@ final class SvelteModuleSynchronizerTest extends TestCase
         file_put_contents($this->module.'/bo/src/lib/widget.svelte', 'Original');
         $sync = new SvelteModuleSynchronizer();
         $sync->sync($this->backend);
-        $generated = $this->workspace.'/bo/src/lib/vendor/catalog/widget.svelte';
+        $generated = $this->workspace.'/bo/src/lib/widget.svelte';
         file_put_contents($generated, 'User edit');
         $this->installed(false);
         $this->expectException(\RuntimeException::class);
