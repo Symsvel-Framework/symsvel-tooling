@@ -25,3 +25,7 @@ Lors du CT XT PostgreSQL, `npm run build` fonctionne depuis les terminaux de l'i
 ## CT XT du 09/11/2026 : diagnostic des builds Setup
 
 Le build BO réussit depuis le terminal mais échoue dans le sous-processus PHP du wizard. Cause à établir. `symsvel:setup:complete` inclut maintenant code de sortie, stdout et stderr de npm en cas d'échec. L'état `database_ready` reste récupérable. Validation : CI puis reprise du Setup XT, sans modification des sources XT.
+
+## Build npm introuvable depuis le Wizard (09/11/2026)
+
+Diagnostic XT : `Static build failed for bo (exit 127): exec: npm: not found`, alors que `npm run build` réussit dans le terminal. Tooling utilise `SYMSVEL_SETUP_NPM` transmis par la CLI quand il désigne un exécutable valide et préfixe son dossier au PATH pour trouver Node. Sinon, résolution npm standard. Reprise XT à valider après intégration CLI + Tooling.
