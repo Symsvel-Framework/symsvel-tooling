@@ -80,3 +80,26 @@ composer qa
 ```
 
 Les tests automatisés et la CI ne remplacent pas les crash-tests XT sur Mac. Avant merge des PR CLI #10 et Tooling #62 : vérifier les parcours réels GitHub/Satis, le Setup Wizard, les modules, migrations, mises à jour, désinstallations et rollbacks. Toute modification de code doit actualiser sa documentation. Ne pas exécuter les opérations de maintenance sur un serveur de production.
+
+
+### Chantier setup en deux phases (en cours)
+
+L'installation initiale doit préparer les sources et modules sans déclencher de build Svelte. La première phase du Setup configure le projet, la base choisie parmi PostgreSQL, MySQL, MariaDB et SQLite, puis exécute les migrations. La deuxième phase crée directement le premier administrateur sans fichier temporaire de secrets. La finalisation lance les builds après les migrations, puis clôt le setup. Les tests doivent vérifier les reprises après erreur, les permissions du fichier `.env.local` et l'absence de build prématuré. Cette section décrit la cible et non l'état implémenté.
+
+La machine d'état introduit `database_ready` entre `running` et `completed`, afin de matérialiser la fin des migrations avant la création de l'administrateur. Le parcours du Wizard et le découpage des commandes restent à adapter avant validation du chantier.
+
+**Compatibilité transitoire :** le module natif `symsvel-module-admins` impose encore `running` et le fichier `pending-admin.json` pour `symsvel:admins:bootstrap`. La commande actuelle conserve donc cette séquence jusqu'à la migration coordonnée du module Admins. L'état `database_ready` est défini mais son exploitation complète dans le parcours à deux écrans reste à implémenter.
+
+La commande `symsvel:setup:database` (en cours de raccordement au Wizard) réalise exclusivement la création de la base et la compilation/exécution des migrations, puis passe de `running` à `database_ready`. Elle ne crée aucun administrateur, ne lance aucun build et ne marque jamais le setup comme terminé. Un état `database_ready` permet une reprise sans réexécuter les migrations. La commande historique `symsvel:setup:finalize` reste temporairement disponible pour les installations non migrées. Les erreurs de sous-processus ne doivent pas exposer les secrets de connexion.
+
+Les tests de `SymSvelSetupDatabaseCommand` couvrent la réussite de la phase BDD seule, l'absence de réexécution après `database_ready`, la reprise depuis `running` après échec des migrations et le blocage en présence d'un journal de récupération. Ils simulent les sous-processus Symfony ; les tests réels multibase restent requis.
+
+Correctif de fixture : dans le test de reprise, `\$argv` doit rester littéral lors de la génération du faux `bin/console` et n'être évalué que par le sous-processus. Cela évite les warnings PHPUnit liés à l'interpolation prématurée.
+
+Le chemin `ComponentLifecycleInstaller` respecte également `SYMSVEL_DEFER_BUILDS=1` : après synchronisation des modules Svelte, le build npm est différé pendant l'installation initiale. Hors de cette variable, le build reste obligatoire et son échec conserve le comportement transactionnel précédent. La commande de finalisation des builds et sa validation de bout en bout restent à réaliser.
+
+La nouvelle commande `symsvel:setup:complete` finalise le parcours à deux phases uniquement depuis `database_ready`. Elle appelle `symsvel:admins:bootstrap:verify`, puis `npm run build` pour chaque composant présent (`bo`, `app`, `front`), et ne passe à `completed` qu'après réussite de toutes les étapes. Une erreur conserve `database_ready` et permet une reprise ; une exécution en état `completed` ne rejoue rien. Les sorties des sous-processus ne sont pas réémises afin d'éviter la divulgation de secrets. La commande historique `symsvel:setup:finalize` est conservée. Les tests unitaires couvrent le refus si la vérification échoue, l'idempotence sans interface et le rejet d'un composant invalide. Les vrais builds seront éprouvés en crash-test.
+
+### Stabilisation Setup PostgreSQL
+
+La commande interne `symsvel:setup:database` accepte `DATABASE_URL` dans `backend/.env.local`, avec ou sans guillemets, puis crée la base PostgreSQL et exécute les migrations des modules Composer. L'absence de cette variable bloque la phase sans modifier l'état initial. Les tests couvrent les deux formes et la configuration manquante. Le support MySQL/MariaDB/SQLite, i18n et 2FA reste hors périmètre de cette stabilisation ; la validation distribuée nécessite un merge suivi des crash-tests XT.

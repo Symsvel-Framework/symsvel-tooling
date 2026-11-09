@@ -77,7 +77,8 @@ final class SetupStateTest extends TestCase
             $state->transition($root, SetupState::PENDING, SetupState::RUNNING);
             $this->expectException(\DomainException::class);
             $this->expectExceptionMessage('configuration BDD absente');
-            $state->transition($root, SetupState::RUNNING, SetupState::COMPLETED);
+            $state->transition($root, SetupState::RUNNING, SetupState::DATABASE_READY);
+            $state->transition($root, SetupState::DATABASE_READY, SetupState::COMPLETED);
         } finally {
             @unlink($root.'/.symsvel/setup.json');
             @rmdir($root.'/.symsvel');
@@ -98,14 +99,16 @@ final class SetupStateTest extends TestCase
             $journal = $root.'/.symsvel/migration-recovery.json';
             file_put_contents($journal, '{}');
             try {
-                $state->transition($root, SetupState::RUNNING, SetupState::COMPLETED);
+                $state->transition($root, SetupState::RUNNING, SetupState::DATABASE_READY);
+            $state->transition($root, SetupState::DATABASE_READY, SetupState::COMPLETED);
                 self::fail('A pending recovery must prevent setup completion.');
             } catch (\DomainException $exception) {
                 self::assertStringContainsString('récupération de migrations', $exception->getMessage());
             }
             self::assertSame(SetupState::RUNNING, $state->read($root));
             unlink($journal);
-            $state->transition($root, SetupState::RUNNING, SetupState::COMPLETED);
+            $state->transition($root, SetupState::RUNNING, SetupState::DATABASE_READY);
+            $state->transition($root, SetupState::DATABASE_READY, SetupState::COMPLETED);
             self::assertSame(SetupState::COMPLETED, $state->read($root));
         } finally {
             @unlink($root.'/.symsvel/migration-recovery.json');
@@ -130,7 +133,8 @@ final class SetupStateTest extends TestCase
             self::assertSame(SetupState::PENDING, $state->read($root));
             $state->transition($root, SetupState::PENDING, SetupState::RUNNING);
             self::assertSame(SetupState::RUNNING, $state->read($root));
-            $state->transition($root, SetupState::RUNNING, SetupState::COMPLETED);
+            $state->transition($root, SetupState::RUNNING, SetupState::DATABASE_READY);
+            $state->transition($root, SetupState::DATABASE_READY, SetupState::COMPLETED);
             $state->initialize($root);
             self::assertSame(SetupState::COMPLETED, $state->read($root));
             $this->expectException(\DomainException::class);
