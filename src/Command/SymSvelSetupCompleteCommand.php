@@ -56,7 +56,13 @@ final class SymSvelSetupCompleteCommand extends Command
                 if (is_link($directory) || !is_dir($directory) || !is_file($directory.'/package.json')) {
                     throw new \RuntimeException('Invalid interface component: '.$component);
                 }
-                $build = new Process(['npm', 'run', 'build'], $directory);
+                $npm = getenv('SYMSVEL_SETUP_NPM');
+                $executable = is_string($npm) && $npm !== '' && is_file($npm) && is_executable($npm) ? $npm : 'npm';
+                // npm may use /usr/bin/env node; preserve its sibling node directory.
+                $environment = $executable !== 'npm'
+                    ? ['PATH' => dirname($executable).PATH_SEPARATOR.(string) getenv('PATH')]
+                    : null;
+                $build = new Process([$executable, 'run', 'build'], $directory, $environment);
                 $build->setTimeout(600);
                 $build->run();
                 if (!$build->isSuccessful()) {

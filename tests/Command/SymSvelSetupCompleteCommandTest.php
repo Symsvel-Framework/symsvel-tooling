@@ -84,6 +84,26 @@ exit('.$exitCode.');
         self::assertSame(SetupState::DATABASE_READY, (new SetupState())->read($this->root));
     }
 
+    public function testSetupUsesCliResolvedNpmWhenPathDoesNotContainNpm(): void
+    {
+        $this->fakeVerification(0);
+        $npm = trim((string) shell_exec('command -v npm'));
+        if ($npm === '' || !is_executable($npm)) {
+            self::markTestSkipped('npm unavailable in test environment');
+        }
+        $previous = getenv('SYMSVEL_SETUP_NPM');
+        $previousPath = getenv('PATH');
+        putenv('SYMSVEL_SETUP_NPM='.$npm);
+        putenv('PATH=/usr/bin:/bin');
+        try {
+            self::assertSame(0, $this->command()->execute([]));
+            self::assertSame(SetupState::COMPLETED, (new SetupState())->read($this->root));
+        } finally {
+            $previous === false ? putenv('SYMSVEL_SETUP_NPM') : putenv('SYMSVEL_SETUP_NPM='.$previous);
+            $previousPath === false ? putenv('PATH') : putenv('PATH='.$previousPath);
+        }
+    }
+
     public function testInvalidComponentPreservesResumableState(): void
     {
         $this->fakeVerification(0);
