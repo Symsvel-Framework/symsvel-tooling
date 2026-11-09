@@ -42,7 +42,7 @@ final class SymSvelSetupDatabaseCommand extends Command
                 throw new \RuntimeException('Database configuration is missing or unreadable.');
             }
             $contents = file_get_contents($env);
-            if (!is_string($contents) || preg_match('/^\\s*DATABASE_URL\\s*=\\s*[^\\r\\n]+/m', $contents) !== 1) {
+            if (!is_string($contents) || preg_match('/^\s*DATABASE_URL\s*=\s*[^\r\n]+/m', $contents) !== 1) {
                 throw new \RuntimeException('DATABASE_URL is missing.');
             }
             $recovery = $workspace.'/.symsvel/migration-recovery.json';
