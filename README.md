@@ -103,3 +103,7 @@ La nouvelle commande `symsvel:setup:complete` finalise le parcours à deux phase
 ### Stabilisation Setup PostgreSQL
 
 La commande interne `symsvel:setup:database` accepte `DATABASE_URL` dans `backend/.env.local`, avec ou sans guillemets, puis crée la base PostgreSQL et exécute les migrations des modules Composer. L'absence de cette variable bloque la phase sans modifier l'état initial. Les tests couvrent les deux formes et la configuration manquante. Le support MySQL/MariaDB/SQLite, i18n et 2FA reste hors périmètre de cette stabilisation ; la validation distribuée nécessite un merge suivi des crash-tests XT.
+
+### Diagnostic temporaire npm du Setup (09/11/2026)
+
+Pendant le crash-test local, le parcours Setup ajoute des traces dans `.symsvel/npm-trace.log` à la racine du workspace. Les étapes CLI, contrôleur et Tooling journalisent l'horodatage, le PID, le chemin npm et le PATH utiles au diagnostic ; Tooling journalise également la commande de build choisie et son code de sortie. Aucun secret ni environnement complet n'est journalisé. Ces traces sont temporaires, réservées au diagnostic local et doivent être retirées après identification de la cause. Ne pas publier ce journal.
