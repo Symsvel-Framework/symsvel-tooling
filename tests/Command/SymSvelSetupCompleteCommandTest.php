@@ -71,6 +71,19 @@ exit('.$exitCode.');
         self::assertCount(1, file($this->root.'/backend/verify.log'));
     }
 
+    public function testFailedBuildReportsNpmDiagnosticAndPreservesState(): void
+    {
+        $this->fakeVerification(0);
+        file_put_contents($this->root.'/bo/package.json', json_encode([
+            'scripts' => ['build' => 'echo symsvel-build-diagnostic >&2; exit 17'],
+        ], JSON_THROW_ON_ERROR));
+        $tester = $this->command();
+        self::assertSame(1, $tester->execute([]));
+        self::assertStringContainsString('Static build failed for bo', $tester->getDisplay());
+        self::assertStringContainsString('symsvel-build-diagnostic', $tester->getDisplay());
+        self::assertSame(SetupState::DATABASE_READY, (new SetupState())->read($this->root));
+    }
+
     public function testInvalidComponentPreservesResumableState(): void
     {
         $this->fakeVerification(0);
