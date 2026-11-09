@@ -42,6 +42,13 @@ final class SymSvelSetupCompleteCommand extends Command
             if (file_exists($recovery) || is_link($recovery)) {
                 throw new \RuntimeException('Pending migration recovery must be resolved first.');
             }
+            // Temporary setup diagnostic, without credentials or full environment.
+            $trace = static function (string $line) use ($workspace): void {
+                @file_put_contents($workspace.'/.symsvel/npm-trace.log',
+                    gmdate('c').' [tooling pid='.getmypid().'] '.$line."\n", FILE_APPEND | LOCK_EX);
+            };
+            $trace('start npm='.var_export(getenv('SYMSVEL_SETUP_NPM'), true)
+                .' PATH='.var_export(getenv('PATH'), true).' php='.PHP_BINARY);
             $verify = new Process([PHP_BINARY, 'bin/console', 'symsvel:admins:bootstrap:verify', '--no-interaction'], $this->projectDir);
             $verify->setTimeout(60);
             $verify->run();
@@ -62,9 +69,11 @@ final class SymSvelSetupCompleteCommand extends Command
                 $environment = $executable !== 'npm'
                     ? ['PATH' => dirname($executable).PATH_SEPARATOR.(string) getenv('PATH')]
                     : null;
+                $trace('build component='.$component.' npm_env='.var_export($npm, true).' executable='.$executable.' executable_exists='.(is_file($executable) ? 'yes' : 'no').' build_PATH='.var_export($environment['PATH'] ?? getenv('PATH'), true));
                 $build = new Process([$executable, 'run', 'build'], $directory, $environment);
                 $build->setTimeout(600);
                 $build->run();
+                $trace('build component='.$component.' exit='.var_export($build->getExitCode(), true));
                 if (!$build->isSuccessful()) {
                     $diagnostic = trim($build->getErrorOutput()."\n".$build->getOutput());
                     throw new \RuntimeException('Static build failed for '.$component.' (exit '.$build->getExitCode().'). Setup remains resumable.'.($diagnostic !== '' ? "\n".$diagnostic : ' No output from npm.'));
