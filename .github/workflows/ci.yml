@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Cost control: superseded runs on the same branch/PR are cancelled.
+# Keep PostgreSQL service/client and PHPUnit enabled: rollback tests depend on them.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   qa:
     runs-on: ubuntu-24.04
