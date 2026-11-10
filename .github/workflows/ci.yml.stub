@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cost control: superseded runs on the same branch/PR are cancelled.
+# Keep PostgreSQL service/client and PHPUnit enabled: rollback tests depend on them.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: symsvel_ci
+          POSTGRES_PASSWORD: symsvel_ci_only
+          POSTGRES_DB: symsvel_rollback_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U symsvel_ci -d symsvel_rollback_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+      - name: Validate Composer manifest
+        run: composer validate --no-check-publish --no-check-lock
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Lint PHP files
+        run: find src tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: PostgreSQL client tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y curl ca-certificates
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          # Never publish a partial key: curl can fail while a pipe still exits 0.
+          key_file="$(mktemp)"
+          trap 'rm -f "$key_file"' EXIT
+          curl --fail --show-error --silent --location --retry 5 --retry-all-errors --retry-delay 3 \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc --output "$key_file"
+          gpg --batch --show-keys "$key_file" > /dev/null
+          sudo install -m 0644 "$key_file" /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -o Acquire::Retries=5 -qq
+          sudo apt-get install -y postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+      - name: PHPUnit
+        env:
+          SYMSVEL_TEST_POSTGRES_URL: postgresql://symsvel_ci:symsvel_ci_only@127.0.0.1:5432/symsvel_rollback_ci
+        run: vendor/bin/phpunit --display-warnings --fail-on-warning
