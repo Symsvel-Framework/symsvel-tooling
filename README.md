@@ -107,3 +107,11 @@ La commande interne `symsvel:setup:database` accepte `DATABASE_URL` dans `backen
 ### Diagnostic temporaire npm du Setup (09/11/2026)
 
 Pendant le crash-test local, le parcours Setup ajoute des traces dans `.symsvel/npm-trace.log` à la racine du workspace. Les étapes CLI, contrôleur et Tooling journalisent l'horodatage, le PID, le chemin npm et le PATH utiles au diagnostic ; Tooling journalise également la commande de build choisie et son code de sortie. Aucun secret ni environnement complet n'est journalisé. Ces traces sont temporaires, réservées au diagnostic local et doivent être retirées après identification de la cause. Ne pas publier ce journal.
+
+## CI locale ARM64 (10/11/2026)
+
+Le workflow `.github/workflows/ci.yml` s'exécute sur le runner Docker d'organisation `[self-hosted, linux, ARM64, symsvel]` avec PHP 8.4, Composer 2 et le client PostgreSQL 17 préinstallés. La version GitHub-hosted d'origine est conservée dans `.github/workflows/ci.yml.stub` et peut être restaurée en `ci.yml` pour revenir à l'ancienne infrastructure.
+
+Le PostgreSQL 17 est fourni par le service `postgres` du Compose du runner, sur son réseau Docker interne, et non par `jobs.qa.services`. Le secret **de dépôt** GitHub Actions `SYMSVEL_CI_POSTGRES_PASSWORD` doit correspondre à la valeur du `.env` du Compose. Avant PHPUnit, le job recrée exclusivement la base dédiée `symsvel_rollback_ci` avec le compte `symsvel_ci` (qui doit avoir les droits de création/suppression de cette base). Ce mécanisme détruit les données précédentes de cette base de test : ne jamais y stocker de données réelles. Le mot de passe est encodé pour l'URL Doctrine. Les tests PostgreSQL de rollback et les autres vérifications PHPUnit restent activés.
+
+L'exécution exige que le Mac, Docker et le service PostgreSQL soient disponibles. Ne pas lancer de jobs Tooling concurrents sur la même base. Le runner auto-hébergé doit être réservé aux contributions de confiance. Validation finale : CI verte, crash-tests XT applicables et documentation synchronisée.
