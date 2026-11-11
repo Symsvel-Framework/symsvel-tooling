@@ -49,6 +49,7 @@ final class ModuleMigrationCatalog
             }
         }
 
+        usort($result, static fn (array $a, array $b): int => strcmp($a['name'], $b['name']));
         return $result;
     }
 }
