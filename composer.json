@@ -80,6 +80,8 @@
             "@php -l src/Module/ModuleDesiredSchema.php",
             "@php -l tests/Module/ModuleWorkingDirectoryResolverTest.php",
             "@php -l tests/Module/ModuleEntityMetadataSelectorTest.php",
+            "@php -l src/Module/ModuleSchemaScope.php",
+            "@php -l tests/Module/ModuleSchemaScopeTest.php",
             "@php vendor/bin/phpunit",
             "@php -l src/Command/SymSvelModuleMigrationRecoveryStatusCommand.php"
         ]
