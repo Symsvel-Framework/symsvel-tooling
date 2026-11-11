@@ -81,3 +81,7 @@ Le garde-fou refuse aussi la **création** de schémas et de séquences, en comp
 ## Correctif du nettoyage des tests (CI)
 
 Le test de refus d'un répertoire `Migration` symbolique pointe volontairement vers `/tmp`. Son `tearDown()` ne doit **jamais parcourir la cible du lien** : il supprime d'abord le lien lui-même et ne parcourt que les fichiers `Version*.php` du dossier de test lorsqu'il s'agit d'un véritable répertoire. Cela élimine les avertissements `unlink(...): Is a directory` sur les runners et protège leurs répertoires temporaires. Aucun changement au writer de production.
+
+## Renderer PHP Schema (premier périmètre)
+
+`ModuleSchemaMigrationRenderer::render()` produit une classe `VersionYYYYMMDDHHMMSS` avec `up(Schema $schema)` et `down(Schema $schema)` pour les **créations de tables simples** seulement. Les colonnes et clés primaires sont représentées avec l'API Doctrine Schema ; le `down()` supprime les tables nouvellement créées en ordre inverse. Le renderer refuse les clés étrangères et index secondaires jusqu'à leur prise en charge explicite. Le garde-fou DBAL continue de refuser les modifications et suppressions. Le renderer ne crée aucun fichier, n'exécute rien et n'est pas encore raccordé à la commande. Le test réel DBAL est ignoré lorsque Doctrine n'est pas installé dans le Tooling isolé ; il reste à valider dans le projet hôte, notamment sur PostgreSQL et MySQL.
