@@ -73,3 +73,7 @@ Le comparateur renvoie désormais `changed: bool` en plus du diff et des tables 
 ## Couverture des objets hors tables
 
 Le garde-fou refuse aussi la **création** de schémas et de séquences, en complément de leur suppression ou modification. Le booléen `changed` ne doit jamais considérer comme « sans changement » un diff contenant une opération que le renderer ne sait pas représenter. Les tests couvrent les créations de séquence et de schéma, notamment en présence d'une nouvelle table. Ces refus restent conservateurs jusqu'à la prise en charge explicite de ces opérations.
+
+## Écriture immuable d'une migration source
+
+`ModuleMigrationSourceWriter` crée un fichier `Migration/VersionYYYYMMDDHHMMSS.php` dans le module résolu, sans toucher aux migrations compilées. L'ouverture exclusive (`fopen(..., 'x')`) interdit tout écrasement en cas de collision de timestamp ; le dossier `Migration` symbolique est refusé. Une écriture partielle entraîne la suppression du nouveau fichier. Les tests vérifient la création, la collision et le refus des liens symboliques. **Ce composant ne fabrique pas encore le contenu PHP Schema** : il sera appelé uniquement après un diff autorisé et un rendu valide ; la commande n'est pas encore raccordée.

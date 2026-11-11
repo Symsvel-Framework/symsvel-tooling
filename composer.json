@@ -90,6 +90,8 @@
             "@php -l tests/Module/ModuleSchemaComparatorTest.php",
             "@php -l src/Module/ModuleSchemaDiffGuard.php",
             "@php -l tests/Module/ModuleSchemaDiffGuardTest.php",
+            "@php -l src/Module/ModuleMigrationSourceWriter.php",
+            "@php -l tests/Module/ModuleMigrationSourceWriterTest.php",
             "@php vendor/bin/phpunit",
             "@php -l src/Command/SymSvelModuleMigrationRecoveryStatusCommand.php"
         ]
