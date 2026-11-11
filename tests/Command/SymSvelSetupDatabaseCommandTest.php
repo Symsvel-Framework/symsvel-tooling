@@ -62,7 +62,7 @@ exit('.$exitExpression.');
 
     public function testSqliteSkipsDatabaseCreateAndPreparesParentDirectory(): void
     {
-        file_put_contents($this->root.'/backend/.env.local', "DATABASE_URL=\\\"sqlite:///%kernel.project_dir%/var/data/test.db\\\"\\n");
+        file_put_contents($this->root.'/backend/.env.local', 'DATABASE_URL="sqlite:///%kernel.project_dir%/var/data/test.db"'.PHP_EOL);
         $this->fakeConsole();
         self::assertSame(0, $this->command()->execute([]));
         self::assertDirectoryExists($this->root.'/backend/var/data');
