@@ -36,6 +36,8 @@ PHP);
             self::assertSame('DoctrineMigrations\\Version20200101000000', $compiled['version']);
             self::assertSame($root.'/migrations/Version20200101000000.php', $compiled['path']);
             self::assertStringContainsString('INSERT INTO reference_table', file_get_contents($compiled['path']));
+            self::assertStringContainsString('createComparator()->compareSchemas', file_get_contents($compiled['path']));
+            self::assertStringContainsString('getAlterSchemaSQL', file_get_contents($compiled['path']));
             $this->expectException(\RuntimeException::class);
             $this->expectExceptionMessage('Version Doctrine déjà présente');
             $compiler->compile($root, [$entry]);
