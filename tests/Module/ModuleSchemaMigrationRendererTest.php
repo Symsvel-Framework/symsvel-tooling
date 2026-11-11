@@ -27,6 +27,38 @@ final class ModuleSchemaMigrationRendererTest extends TestCase
         self::assertStringNotContainsString('addSql(', $php);
     }
 
+    public function testRendersSimpleIndexes(): void
+    {
+        if (!class_exists(\Doctrine\DBAL\Schema\Table::class)) {
+            self::markTestSkipped('Doctrine DBAL fourni par le projet hôte.');
+        }
+        $table = new \Doctrine\DBAL\Schema\Table('demo_items');
+        $table->addColumn('id', 'integer');
+        $table->addColumn('email', 'string', ['length' => 150]);
+        $table->setPrimaryKey(['id']);
+        $table->addUniqueIndex(['email'], 'uniq_demo_email');
+        $table->addIndex(['id', 'email'], 'idx_demo_lookup');
+
+        $php = (new ModuleSchemaMigrationRenderer())->render($this->diff([$table]), 'Version20261111150100');
+        self::assertStringContainsString('$table->addUniqueIndex(', $php);
+        self::assertStringContainsString('uniq_demo_email', $php);
+        self::assertStringContainsString('$table->addIndex(', $php);
+        self::assertStringContainsString('idx_demo_lookup', $php);
+    }
+
+    public function testRejectsIndexFlags(): void
+    {
+        if (!class_exists(\Doctrine\DBAL\Schema\Table::class)) {
+            self::markTestSkipped('Doctrine DBAL fourni par le projet hôte.');
+        }
+        $table = new \Doctrine\DBAL\Schema\Table('demo_items');
+        $table->addColumn('email', 'string');
+        $table->addIndex(['email'], 'idx_special', [], ['where' => 'email IS NOT NULL']);
+
+        $this->expectException(\DomainException::class);
+        (new ModuleSchemaMigrationRenderer())->render($this->diff([$table]), 'Version20261111150200');
+    }
+
     public function testRejectsEmptyDiff(): void
     {
         $this->expectException(\DomainException::class);
