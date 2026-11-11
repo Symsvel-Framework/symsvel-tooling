@@ -32,6 +32,7 @@ use SymSvel\Tooling\Command\SymSvelModulePlanCommand;
 use SymSvel\Tooling\Command\SymSvelModuleSyncCommand;
 use SymSvel\Tooling\Command\SymSvelModuleRemovalPlanCommand;
 use SymSvel\Tooling\Command\SymSvelModuleMigrationsCompileCommand;
+use SymSvel\Tooling\Command\SymSvelModuleMigrateCommand;
 use SymSvel\Tooling\Command\SymSvelModuleMigrationRecoveryStatusCommand;
 use SymSvel\Tooling\Command\SymSvelModuleMigrationRecoverCommand;
 use SymSvel\Tooling\Command\SymSvelModuleMigrationsRecoveryFinalizeCommand;
@@ -124,6 +125,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelModuleMigrationRecoveryStatusCommand::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelModuleMigrateCommand::class)
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelModuleMigrationsCompileCommand::class)

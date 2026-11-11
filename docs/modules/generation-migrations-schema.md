@@ -96,7 +96,7 @@ Un test supplémentaire passe le fichier PHP généré au lint lorsque Doctrine 
 
 ## Commande Tooling interne
 
-La commande Symfony `symsvel:module:migrate [module]` appelle l'orchestrateur avec le `ManagerRegistry` Doctrine du projet hôte. Options : `--workspace` et `--cwd` (répertoire d'origine transmis par la CLI). Sans changement de schéma, elle ne produit pas de fichier. Elle ne compile ni n'exécute la migration. **La CLI publique n'est pas encore raccordée** ; la commande Symfony constitue uniquement le point d'entrée interne. Son fonctionnement avec l'EntityManager réel et les différents SGBD doit encore être testé.
+La commande Symfony `symsvel:module:migrate [module]` appelle l'orchestrateur avec le `ManagerRegistry` Doctrine du projet hôte. Options : `--workspace` et `--cwd` (répertoire d'origine transmis par la CLI). Sans changement de schéma, elle ne produit pas de fichier. Elle ne compile ni n'exécute la migration. La CLI publique (PR #15) délègue à cette commande Symfony interne. Le service doit être déclaré explicitement dans `SymSvelToolingBundle::loadExtension()` pour être découvert par Symfony. Son fonctionnement avec l'EntityManager réel et les différents SGBD doit encore être testé.
 
 ### Compatibilité avec la CLI draft #15
 
