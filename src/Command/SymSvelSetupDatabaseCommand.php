@@ -60,16 +60,16 @@ final class SymSvelSetupDatabaseCommand extends Command
                 // Doctrine's database:create --if-not-exists cannot list SQLite databases.
                 $prefix = 'sqlite:///%kernel.project_dir%/';
                 if (!str_starts_with($databaseUrl, $prefix)) {
-                    throw new \\RuntimeException('Unsupported SQLite database path for local setup.');
+                    throw new \RuntimeException('Unsupported SQLite database path for local setup.');
                 }
                 $relativePath = substr($databaseUrl, strlen($prefix));
                 if ($relativePath === '' || str_contains($relativePath, '..')
                     || preg_match('~^[a-zA-Z0-9_./-]+$~D', $relativePath) !== 1) {
-                    throw new \\RuntimeException('Invalid SQLite database path.');
+                    throw new \RuntimeException('Invalid SQLite database path.');
                 }
                 $directory = dirname($this->projectDir.'/'.$relativePath);
                 if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
-                    throw new \\RuntimeException('Unable to create SQLite database directory.');
+                    throw new \RuntimeException('Unable to create SQLite database directory.');
                 }
             }
             $commands = [];
