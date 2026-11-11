@@ -28,6 +28,36 @@ final class ModuleSchemaComparatorTest extends TestCase
         self::assertSame(1, $manager->comparisons);
     }
 
+    public function testRejectsIncomingForeignKeyFromOtherModule(): void
+    {
+        $manager = new ComparatorFakeManager(new ComparatorFakeSchema(['orders', 'users'], ['users' => ['orders']]));
+        $this->expectException(\\DomainException::class);
+        $this->expectExceptionMessage('Clé étrangère entrante');
+        try {
+            (new ModuleSchemaComparator())->compare(new ComparatorFakeConnection($manager), new ComparatorFakeSchema(['orders']), [
+                'orders' => ['manifest' => ['tables' => ['orders']]],
+                'users' => ['manifest' => ['tables' => ['users']]],
+            ], 'orders');
+        } finally {
+            self::assertSame(0, $manager->comparisons);
+        }
+    }
+
+    public function testRejectsMissingExternalForeignKeyTarget(): void
+    {
+        $manager = new ComparatorFakeManager(new ComparatorFakeSchema(['orders']));
+        $this->expectException(\\DomainException::class);
+        $this->expectExceptionMessage('absente de la base');
+        try {
+            (new ModuleSchemaComparator())->compare(new ComparatorFakeConnection($manager), new ComparatorFakeSchema(['orders'], ['orders' => ['users']]), [
+                'orders' => ['manifest' => ['tables' => ['orders']]],
+                'users' => ['manifest' => ['tables' => ['users']]],
+            ], 'orders');
+        } finally {
+            self::assertSame(0, $manager->comparisons);
+        }
+    }
+
     public function testRefusesConflictBeforeComparing(): void
     {
         $manager = new ComparatorFakeManager(new ComparatorFakeSchema(['orders']));
@@ -65,13 +95,19 @@ final class ComparatorFakeManager
 final class ComparatorFakeSchema
 {
     /** @param list<string> $names */
-    public function __construct(private array $names) {}
+    public function __construct(private array $names, private array $references = []) {}
     public function getTables(): array
     {
-        return array_map(static fn (string $name): object => new class($name) {
-            public function __construct(private readonly string $name) {}
+        return array_map(fn (string $name): object => new class($name, $this->references[$name] ?? []) {
+            public function __construct(private readonly string $name, private readonly array $targets) {}
             public function getName(): string { return $this->name; }
-            public function getForeignKeys(): array { return []; }
+            public function getForeignKeys(): array
+            {
+                return array_map(static fn (string $target): object => new class($target) {
+                    public function __construct(private readonly string $target) {}
+                    public function getForeignTableName(): string { return $this->target; }
+                }, $this->targets);
+            }
         }, $this->names);
     }
     public function dropTable(string $name): void

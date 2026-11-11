@@ -47,3 +47,9 @@ Après intégration de la commande : `./pull.sh`, création d'un module de labor
 `ModuleSchemaComparator::compare()` introspecte le schéma réel via le SchemaManager de la connexion, vérifie l'exclusivité des tables déclarées et les clés étrangères sortantes, restreint les deux schémas aux tables ORM du module, puis appelle `createComparator()->compareSchemas()`. Le résultat contient le `SchemaDiff` DBAL et la liste des tables ciblées. Aucun SQL n'est produit, aucune migration n'est écrite ni exécutée. Les tests unitaires avec doubles vérifient l'isolation et le refus d'un conflit avant la comparaison.
 
 **Important :** ce composant ne valide pas encore les opérations destructrices du diff, les contraintes entrantes, ni l'existence des tables référencées. Il n'est pas encore branché à la commande. Une intégration avec un vrai DBAL et les crash-tests PostgreSQL/MySQL restent nécessaires avant d'utiliser le diff pour générer du PHP Schema.
+
+## Protection des dépendances intermodules lors du diff
+
+Avant toute comparaison DBAL, `ModuleSchemaComparator` refuse désormais les clés étrangères **entrantes** depuis une table extérieure vers une table ORM du module. Il vérifie aussi qu'une cible de clé étrangère **sortante** située hors du module existe physiquement dans le schéma introspecté, même si elle est déclarée dans un manifeste. Ces refus sont volontaires : retirer les tables extérieures du schéma comparé pourrait masquer une dépendance. Les tests vérifient l'arrêt avant `compareSchemas()`. Aucune suppression automatique de contrainte externe n'est autorisée.
+
+Limite : le diff n'est toujours pas analysé opération par opération pour empêcher les suppressions de colonnes ou de tables. Ce contrôle et les essais sur vrais moteurs DBAL restent nécessaires avant le raccordement à la génération de migrations.

@@ -32,12 +32,52 @@ final class ModuleSchemaComparator
         // All validations precede the actual DBAL comparison.
         $this->ownership->assertExclusive($modules, $slug, $this->tableNames($desiredSchema));
         $this->foreignKeys->assertDeclaredTargets($desiredSchema, $modules, $slug);
+        $this->assertNoExternalIncomingForeignKeys($databaseSchema, $desiredSchema);
+        $this->assertExistingExternalTargets($databaseSchema, $desiredSchema);
         $scoped = $this->scope->restrict($databaseSchema, $desiredSchema, $modules[$slug]);
 
         return [
             'diff' => $schemaManager->createComparator()->compareSchemas($scoped['before'], $scoped['after']),
             'tables' => $scoped['tables'],
         ];
+    }
+
+    /**
+     * Scoping away a referencing table could conceal a dependency on a module
+     * table. Fail closed until incoming constraints can be preserved safely.
+     */
+    private function assertNoExternalIncomingForeignKeys(object $database, object $desired): void
+    {
+        $targets = array_fill_keys($this->tableNames($desired), true);
+        foreach ($database->getTables() as $table) {
+            if (isset($targets[$table->getName()])) {
+                continue;
+            }
+            foreach ($table->getForeignKeys() as $foreignKey) {
+                if (isset($targets[$foreignKey->getForeignTableName()])) {
+                    throw new \\DomainException(sprintf(
+                        'Clé étrangère entrante depuis une table externe : %s -> %s.',
+                        $table->getName(),
+                        $foreignKey->getForeignTableName(),
+                    ));
+                }
+            }
+        }
+    }
+
+    /** A declared target in another module must already exist physically. */
+    private function assertExistingExternalTargets(object $database, object $desired): void
+    {
+        $available = array_fill_keys($this->tableNames($database), true);
+        $local = array_fill_keys($this->tableNames($desired), true);
+        foreach ($desired->getTables() as $table) {
+            foreach ($table->getForeignKeys() as $foreignKey) {
+                $target = $foreignKey->getForeignTableName();
+                if (!isset($local[$target]) && !isset($available[$target])) {
+                    throw new \\DomainException('Table référencée absente de la base : '.$target);
+                }
+            }
+        }
     }
 
     /** @return list<string> */
