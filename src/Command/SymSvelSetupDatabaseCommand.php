@@ -52,10 +52,32 @@ final class SymSvelSetupDatabaseCommand extends Command
             if ($status === SetupState::PENDING) {
                 $this->state->transition($workspace, SetupState::PENDING, SetupState::RUNNING);
             }
-            foreach ([
-                [PHP_BINARY, 'bin/console', 'doctrine:database:create', '--if-not-exists', '--no-interaction'],
-                [PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--no-interaction'],
-            ] as $arguments) {
+            preg_match('/^\\s*DATABASE_URL\\s*=\\s*([^\\r\\n]+)/m', $contents, $matches);
+            $databaseUrl = trim($matches[1], " \\t\\\"'");
+            $sqlite = str_starts_with($databaseUrl, 'sqlite:');
+            if ($sqlite) {
+                // SQLite opens/creates its database file on first connection.
+                // Doctrine's database:create --if-not-exists cannot list SQLite databases.
+                $prefix = 'sqlite:///%kernel.project_dir%/';
+                if (!str_starts_with($databaseUrl, $prefix)) {
+                    throw new \\RuntimeException('Unsupported SQLite database path for local setup.');
+                }
+                $relativePath = substr($databaseUrl, strlen($prefix));
+                if ($relativePath === '' || str_contains($relativePath, '..')
+                    || preg_match('~^[a-zA-Z0-9_./-]+$~D', $relativePath) !== 1) {
+                    throw new \\RuntimeException('Invalid SQLite database path.');
+                }
+                $directory = dirname($this->projectDir.'/'.$relativePath);
+                if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+                    throw new \\RuntimeException('Unable to create SQLite database directory.');
+                }
+            }
+            $commands = [];
+            if (!$sqlite) {
+                $commands[] = [PHP_BINARY, 'bin/console', 'doctrine:database:create', '--if-not-exists', '--no-interaction'];
+            }
+            $commands[] = [PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--no-interaction'];
+            foreach ($commands as $arguments) {
                 $process = new Process($arguments, $this->projectDir);
                 $process->setTimeout(null);
                 $process->run();
