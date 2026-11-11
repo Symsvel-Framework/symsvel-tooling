@@ -41,3 +41,9 @@ Après intégration de la commande : `./pull.sh`, création d'un module de labor
 `ModuleForeignKeyGuard` refuse les clés étrangères vers des tables absentes des déclarations `tables` des modules découverts. Les tables sources doivent appartenir au module sélectionné ; les références à une table déclarée par un autre module sont autorisées sans en transférer la propriété. Les déclarations en conflit sont refusées. Tests unitaires : référence intermodule autorisée, cible inconnue, source étrangère.
 
 **Non raccordé à la commande** : ce contrôle ne garantit ni la présence physique de la table cible ni l'absence de clés étrangères entrantes depuis d'autres modules. Ces vérifications restent nécessaires avant l'écriture d'une migration ; aucune exécution n'est validée à ce stade.
+
+## Comparaison DBAL ciblée (jalon en cours)
+
+`ModuleSchemaComparator::compare()` introspecte le schéma réel via le SchemaManager de la connexion, vérifie l'exclusivité des tables déclarées et les clés étrangères sortantes, restreint les deux schémas aux tables ORM du module, puis appelle `createComparator()->compareSchemas()`. Le résultat contient le `SchemaDiff` DBAL et la liste des tables ciblées. Aucun SQL n'est produit, aucune migration n'est écrite ni exécutée. Les tests unitaires avec doubles vérifient l'isolation et le refus d'un conflit avant la comparaison.
+
+**Important :** ce composant ne valide pas encore les opérations destructrices du diff, les contraintes entrantes, ni l'existence des tables référencées. Il n'est pas encore branché à la commande. Une intégration avec un vrai DBAL et les crash-tests PostgreSQL/MySQL restent nécessaires avant d'utiliser le diff pour générer du PHP Schema.
