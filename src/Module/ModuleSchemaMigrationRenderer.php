@@ -30,12 +30,6 @@ final class ModuleSchemaMigrationRenderer
             if ($table->getForeignKeys() !== []) {
                 throw new \DomainException('Clés étrangères non prises en charge : '.$table->getName());
             }
-            foreach ($table->getIndexes() as $index) {
-                if (!$index->isPrimary()) {
-                    throw new \DomainException('Index secondaire non pris en charge : '.$table->getName());
-                }
-            }
-
             $name = var_export($table->getName(), true);
             $up[] = '        $table = $schema->createTable('.$name.');';
             foreach ($table->getColumns() as $column) {
@@ -61,6 +55,16 @@ final class ModuleSchemaMigrationRenderer
             $primary = $table->getPrimaryKey();
             if ($primary !== null) {
                 $up[] = '        $table->setPrimaryKey('.var_export($primary->getColumns(), true).');';
+            }
+            foreach ($table->getIndexes() as $index) {
+                if ($index->isPrimary()) {
+                    continue;
+                }
+                if ($index->getFlags() !== [] || $index->getOptions() !== []) {
+                    throw new \DomainException('Options d’index non prises en charge : '.$index->getName());
+                }
+                $method = $index->isUnique() ? 'addUniqueIndex' : 'addIndex';
+                $up[] = '        $table->'.$method.'('.var_export($index->getColumns(), true).', '.var_export($index->getName(), true).');';
             }
             $down[] = '        $schema->dropTable('.$name.');';
         }
