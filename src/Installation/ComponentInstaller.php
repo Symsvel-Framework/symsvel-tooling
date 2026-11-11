@@ -7,6 +7,7 @@ namespace SymSvel\Tooling\Installation;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\ComponentManifest;
 use SymSvel\Tooling\Update\ComponentNativeSource;
+use SymSvel\Tooling\Update\ProjectChannel;
 
 final class ComponentInstaller
 {
@@ -39,8 +40,11 @@ final class ComponentInstaller
      * @param list<string> $components
      * @param null|callable(string):void $progress
      */
-    public function install(string $projectDir, array $components, ?callable $progress = null): void
+    public function install(string $projectDir, array $components, ?callable $progress = null, string $channel = ProjectChannel::STABLE): void
     {
+        if (!in_array($channel, [ProjectChannel::STABLE, ProjectChannel::DEV], true)) {
+            throw new \InvalidArgumentException('Canal de composants invalide.');
+        }
         foreach ($components as $component) {
             if (!isset(($this->repositories ?? self::REPOSITORIES)[$component])) {
                 throw new \InvalidArgumentException(sprintf('Composant inconnu : %s', $component));
@@ -59,7 +63,7 @@ final class ComponentInstaller
                     $progress($component);
                 }
                 $created[] = $target;
-                $process = new Process(['git', 'clone', '--depth', '1', ($this->repositories ?? self::REPOSITORIES)[$component], $target]);
+                $process = new Process(['git', 'clone', '--depth', '1', '--branch', $channel === ProjectChannel::DEV ? 'dev' : 'main', '--', ($this->repositories ?? self::REPOSITORIES)[$component], $target]);
                 $process->setTimeout(300);
                 $process->run();
                 if (!$process->isSuccessful()) {
