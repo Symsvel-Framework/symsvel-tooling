@@ -28,12 +28,12 @@ final class ModuleMigrationCompiler
         }
         // A source version is permanent. Never manufacture a new Doctrine version.
         if (count($sources) !== 1 || !preg_match('/^(Version[0-9]{14})\\.php$/D', $sources[0]['name'], $matches)) {
-            throw new \\InvalidArgumentException('Une migration source VersionYYYYMMDDHHMMSS.php est requise par compilation.');
+            throw new \InvalidArgumentException('Une migration source VersionYYYYMMDDHHMMSS.php est requise par compilation.');
         }
         $version = $matches[1];
         $destination = $directory.'/'.$version.'.php';
         if (file_exists($destination) || is_link($destination)) {
-            throw new \\RuntimeException('Version Doctrine déjà présente : '.$version);
+            throw new \RuntimeException('Version Doctrine déjà présente : '.$version);
         }
         $up = [];
         $down = [];
