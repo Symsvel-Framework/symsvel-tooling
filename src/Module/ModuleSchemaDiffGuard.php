@@ -12,7 +12,7 @@ final class ModuleSchemaDiffGuard
 {
     public function assertNonDestructive(object $diff): void
     {
-        if (!method_exists($diff, 'getDroppedTables') || !method_exists($diff, 'getAlteredTables')) {
+        if (!method_exists($diff, 'getCreatedTables') || !method_exists($diff, 'getDroppedTables') || !method_exists($diff, 'getAlteredTables')) {
             throw new \DomainException('Format de diff Doctrine non reconnu.');
         }
 
@@ -34,5 +34,13 @@ final class ModuleSchemaDiffGuard
         if ($diff->getAlteredTables() !== []) {
             throw new \DomainException('Modification de table existante à examiner manuellement.');
         }
+    }
+
+    /** Only the creation of new tables is currently eligible for rendering. */
+    public function hasChanges(object $diff): bool
+    {
+        $this->assertNonDestructive($diff);
+
+        return $diff->getCreatedTables() !== [];
     }
 }

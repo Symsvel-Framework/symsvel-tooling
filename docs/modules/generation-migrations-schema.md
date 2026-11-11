@@ -65,3 +65,7 @@ Correction des noms pleinement qualifiés `\\DomainException` accidentellement �
 ## Alignement sur l'API Doctrine DBAL 4
 
 Le diff utilise `SchemaDiff::getAlteredTables()` et non `getChangedTables()` (nom inexistant dans DBAL 4). Le garde-fou vérifie également les suppressions de schémas et de séquences ainsi que les modifications de séquences, pour éviter de valider un diff destructeur non limité aux tables. Les doubles des tests reproduisent ces accesseurs DBAL 4. Cette vérification statique ne remplace pas un test d'intégration sur une véritable connexion Doctrine.
+
+## Diff vide et création de fichier
+
+Le comparateur renvoie désormais `changed: bool` en plus du diff et des tables ciblées. Le garde-fou utilise `getCreatedTables()` de DBAL pour distinguer une création réelle d'un schéma inchangé, après avoir refusé les suppressions et modifications de tables. La future commande devra **ne créer aucun fichier** si `changed` vaut `false`. Des tests vérifient le cas sans changement et la création d'une nouvelle table. Aucun fichier de migration n'est encore généré par cette étape.

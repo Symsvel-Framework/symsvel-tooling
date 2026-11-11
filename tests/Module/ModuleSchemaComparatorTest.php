@@ -26,6 +26,23 @@ final class ModuleSchemaComparatorTest extends TestCase
         self::assertSame(['orders'], $result['diff']->after);
         self::assertSame(['orders', 'users'], $database->names());
         self::assertSame(1, $manager->comparisons);
+        self::assertFalse($result['changed']);
+    }
+
+    public function testMarksNewTableAsChange(): void
+    {
+        $manager = new ComparatorFakeManager(new ComparatorFakeSchema(['users']));
+        $result = (new ModuleSchemaComparator())->compare(
+            new ComparatorFakeConnection($manager),
+            new ComparatorFakeSchema(['orders']),
+            [
+                'orders' => ['manifest' => ['tables' => ['orders']]],
+                'users' => ['manifest' => ['tables' => ['users']]],
+            ],
+            'orders',
+        );
+        self::assertTrue($result['changed']);
+        self::assertSame(['orders'], $result['tables']);
     }
 
     public function testRejectsIncomingForeignKeyFromOtherModule(): void
@@ -93,6 +110,7 @@ final class ComparatorFakeManager
             public function getDroppedSchemas(): array { return []; }
             public function getDroppedSequences(): array { return []; }
             public function getAlteredSequences(): array { return []; }
+            public function getCreatedTables(): array { return array_values(array_diff($this->after, $this->before)); }
             public function getDroppedTables(): array { return array_values(array_diff($this->before, $this->after)); }
             public function getAlteredTables(): array { return []; }
         };

@@ -20,7 +20,7 @@ final class ModuleSchemaComparator
 
     /**
      * @param array<string, array{manifest: array<string, mixed>}> $modules
-     * @return array{diff: object, tables: list<string>}
+     * @return array{diff: object, tables: list<string>, changed: bool}
      */
     public function compare(object $connection, object $desiredSchema, array $modules, string $slug): array
     {
@@ -38,11 +38,12 @@ final class ModuleSchemaComparator
         $scoped = $this->scope->restrict($databaseSchema, $desiredSchema, $modules[$slug]);
 
         $diff = $schemaManager->createComparator()->compareSchemas($scoped['before'], $scoped['after']);
-        $this->diffGuard->assertNonDestructive($diff);
+        $changed = $this->diffGuard->hasChanges($diff);
 
         return [
             'diff' => $diff,
             'tables' => $scoped['tables'],
+            'changed' => $changed,
         ];
     }
 
