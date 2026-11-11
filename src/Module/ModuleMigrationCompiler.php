@@ -26,10 +26,14 @@ final class ModuleMigrationCompiler
         if (is_link($directory)) {
             throw new \RuntimeException('Répertoire Doctrine symbolique interdit.');
         }
-        $version = 'Version'.date('YmdHis');
-        $suffix = 0;
-        while (file_exists($directory.'/'.$version.'.php')) {
-            $version = 'Version'.date('YmdHis').sprintf('%02d', ++$suffix);
+        // A source version is permanent. Never manufacture a new Doctrine version.
+        if (count($sources) !== 1 || !preg_match('/^(Version[0-9]{14})\\.php$/D', $sources[0]['name'], $matches)) {
+            throw new \InvalidArgumentException('Une migration source VersionYYYYMMDDHHMMSS.php est requise par compilation.');
+        }
+        $version = $matches[1];
+        $destination = $directory.'/'.$version.'.php';
+        if (file_exists($destination) || is_link($destination)) {
+            throw new \RuntimeException('Version Doctrine déjà présente : '.$version);
         }
         $up = [];
         $down = [];
@@ -69,12 +73,29 @@ final class {$version} extends AbstractMigration
 
     public function up(Schema \$schema): void
     {
+        \$this->applySchemaChanges(function (Schema \$schema): void {
 {$upBody}
+        });
     }
 
     public function down(Schema \$schema): void
     {
+        \$this->applySchemaChanges(function (Schema \$schema): void {
 {$downBody}
+        });
+    }
+
+    /** Translate schema changes using the database platform selected at setup. */
+    private function applySchemaChanges(\Closure \$change): void
+    {
+        \$manager = \$this->connection->createSchemaManager();
+        \$before = \$manager->introspectSchema();
+        \$after = clone \$before;
+        \$change(\$after);
+        \$diff = \$manager->createComparator()->compareSchemas(\$before, \$after);
+        foreach (\$this->connection->getDatabasePlatform()->getAlterSchemaSQL(\$diff) as \$sql) {
+            \$this->addSql(\$sql);
+        }
     }
 }
 PHP;

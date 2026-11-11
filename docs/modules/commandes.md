@@ -31,8 +31,12 @@ Depuis `backend/`, préfixer les commandes par `php bin/console` :
 | `symsvel:module:remove:migrations:execute <module>` | Suppression SQL après confirmation |
 | `symsvel:module:remove:recovery:status` | Diagnostic de récupération après retrait |
 
-Les signatures exactes et options sont fournies par `php bin/console <commande> --help`. Un plan ou un statut ne doit pas être confondu avec une exécution. Les migrations sont ordonnées selon les dépendances ; la suppression destructrice nécessite les confirmations et protections du Tooling. Après incident, consulter les états de récupération avant une nouvelle opération.
+Les signatures exactes et options sont fournies par `php bin/console <commande> --help`. Un plan ou un statut ne doit pas être confondu avec une exécution. Les sources de migration sont collectées auprès des modules et triées globalement par nom de fichier avant compilation. Cette préparation ne modifie pas l'orchestration Doctrine. Les migrations sont actuellement ordonnées selon les dépendances lors de la planification des modules ; la suppression destructrice nécessite les confirmations et protections du Tooling. Après incident, consulter les états de récupération avant une nouvelle opération.
 
 Le Maker produit un **modèle** de recette Flex ; sa publication dans `symsvel-recipes` et son référencement sont distincts. Ne pas développer directement dans `vendor/`.
 
 Voir [le contrat des modules](contrat.md) et [les transactions Composer](../composer-transactions.md).
+
+### Contrat des versions de migration (chantier en cours)
+
+Chaque fichier source doit être nommé `VersionYYYYMMDDHHMMSS.php`. Le compilateur conserve cet identifiant dans `backend/migrations/` et refuse une version déjà présente au lieu de la renommer. Les fichiers historiques `001_*.php` des modules natifs doivent être normalisés avant utilisation de cette branche. Le compilateur génère une migration Doctrine qui compare le schéma réel de la connexion DBAL avec une copie modifiée par les opérations `Schema` du module, puis transmet les instructions SQL adaptées à la plateforme à `addSql()`. Les migrations de données conservent leurs appels `addSql()`. **Ce mécanisme doit encore être validé en intégration sur PostgreSQL et MySQL avant tout merge.** Les fichiers historiques `001_*.php` restent incompatibles tant que les modules natifs ne sont pas normalisés.
