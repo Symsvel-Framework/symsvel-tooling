@@ -88,7 +88,11 @@ final class ComparatorFakeManager
     public function compareSchemas(object $before, object $after): object
     {
         ++$this->comparisons;
-        return (object) ['before' => $before->names(), 'after' => $after->names()];
+        return new class($before->names(), $after->names()) {
+            public function __construct(public array $before, public array $after) {}
+            public function getDroppedTables(): array { return array_values(array_diff($this->before, $this->after)); }
+            public function getChangedTables(): array { return []; }
+        };
     }
 }
 

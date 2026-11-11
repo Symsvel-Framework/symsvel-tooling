@@ -88,6 +88,8 @@
             "@php -l tests/Module/ModuleForeignKeyGuardTest.php",
             "@php -l src/Module/ModuleSchemaComparator.php",
             "@php -l tests/Module/ModuleSchemaComparatorTest.php",
+            "@php -l src/Module/ModuleSchemaDiffGuard.php",
+            "@php -l tests/Module/ModuleSchemaDiffGuardTest.php",
             "@php vendor/bin/phpunit",
             "@php -l src/Command/SymSvelModuleMigrationRecoveryStatusCommand.php"
         ]

@@ -57,3 +57,7 @@ Limite : le diff n'est toujours pas analysé opération par opération pour emp�
 ### Correctif de syntaxe
 
 Correction des noms pleinement qualifiés `\\DomainException` accidentellement écrits avec deux antislashs dans le comparateur et ses tests. Le lint PHP doit passer avant toute validation fonctionnelle.
+
+## Garde-fou sur les opérations destructrices
+
+`ModuleSchemaDiffGuard` est exécuté après la comparaison DBAL et avant la remise du résultat au générateur. Il rejette les suppressions de tables et, par précaution, **toute modification d'une table existante** : un changement peut cacher une suppression de colonne, un renommage ou une conversion avec perte de données. La création de tables neuves reste permise. Les tests couvrent les trois cas et les objets de diff incompatibles. Ce choix est provisoirement restrictif et devra être affiné pour les ajouts de colonnes sûrs. La commande et le rendu PHP Schema ne sont toujours pas raccordés.

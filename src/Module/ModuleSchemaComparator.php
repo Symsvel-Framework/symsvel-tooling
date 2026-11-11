@@ -14,6 +14,7 @@ final class ModuleSchemaComparator
         private readonly ModuleSchemaScope $scope = new ModuleSchemaScope(),
         private readonly ModuleTableOwnershipGuard $ownership = new ModuleTableOwnershipGuard(),
         private readonly ModuleForeignKeyGuard $foreignKeys = new ModuleForeignKeyGuard(),
+        private readonly ModuleSchemaDiffGuard $diffGuard = new ModuleSchemaDiffGuard(),
     ) {
     }
 
@@ -36,8 +37,11 @@ final class ModuleSchemaComparator
         $this->assertExistingExternalTargets($databaseSchema, $desiredSchema);
         $scoped = $this->scope->restrict($databaseSchema, $desiredSchema, $modules[$slug]);
 
+        $diff = $schemaManager->createComparator()->compareSchemas($scoped['before'], $scoped['after']);
+        $this->diffGuard->assertNonDestructive($diff);
+
         return [
-            'diff' => $schemaManager->createComparator()->compareSchemas($scoped['before'], $scoped['after']),
+            'diff' => $diff,
             'tables' => $scoped['tables'],
         ];
     }
