@@ -53,7 +53,7 @@ final class SymSvelSetupDatabaseCommand extends Command
                 $this->state->transition($workspace, SetupState::PENDING, SetupState::RUNNING);
             }
             preg_match('/^\\s*DATABASE_URL\\s*=\\s*([^\\r\\n]+)/m', $contents, $matches);
-            $databaseUrl = trim($matches[1], " \\t\\\"'");
+            $databaseUrl = trim(trim($matches[1]), chr(34).chr(39));
             $sqlite = str_starts_with($databaseUrl, 'sqlite:');
             if ($sqlite) {
                 // SQLite opens/creates its database file on first connection.
