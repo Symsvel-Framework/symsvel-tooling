@@ -18,12 +18,12 @@ final class ModuleMigrationCompilerTest extends TestCase
 <?php
 final class Source
 {
-    public function up(\\Doctrine\\DBAL\\Schema\\Schema $schema): void
+    public function up(\Doctrine\\DBAL\\Schema\\Schema $schema): void
     {
         $this->addSql('INSERT INTO reference_table (id) VALUES (1)');
     }
 
-    public function down(\\Doctrine\\DBAL\\Schema\\Schema $schema): void
+    public function down(\Doctrine\\DBAL\\Schema\\Schema $schema): void
     {
         $this->addSql('DELETE FROM reference_table WHERE id = 1');
     }
@@ -36,7 +36,7 @@ PHP);
             self::assertSame('DoctrineMigrations\\\\Version20200101000000', $compiled['version']);
             self::assertSame($root.'/migrations/Version20200101000000.php', $compiled['path']);
             self::assertStringContainsString('INSERT INTO reference_table', file_get_contents($compiled['path']));
-            $this->expectException(\\RuntimeException::class);
+            $this->expectException(\RuntimeException::class);
             $this->expectExceptionMessage('Version Doctrine déjà présente');
             $compiler->compile($root, [$entry]);
         } finally {
@@ -58,7 +58,7 @@ PHP);
         $source = $root.'/001.php';
         file_put_contents($source, '<?php');
         try {
-            $this->expectException(\\InvalidArgumentException::class);
+            $this->expectException(\InvalidArgumentException::class);
             (new ModuleMigrationCompiler())->compile($root, [
                 ['module' => 'legacy', 'name' => '001.php', 'path' => $source, 'sha256' => hash_file('sha256', $source)],
             ]);
