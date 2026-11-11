@@ -73,12 +73,29 @@ final class {$version} extends AbstractMigration
 
     public function up(Schema \$schema): void
     {
+        \$this->applySchemaChanges(function (Schema \$schema): void {
 {$upBody}
+        });
     }
 
     public function down(Schema \$schema): void
     {
+        \$this->applySchemaChanges(function (Schema \$schema): void {
 {$downBody}
+        });
+    }
+
+    /** Translate schema changes using the database platform selected at setup. */
+    private function applySchemaChanges(\Closure \$change): void
+    {
+        \$manager = \$this->connection->createSchemaManager();
+        \$before = \$manager->introspectSchema();
+        \$after = clone \$before;
+        \$change(\$after);
+        \$diff = \$manager->createComparator()->compareSchemas(\$before, \$after);
+        foreach (\$this->connection->getDatabasePlatform()->getAlterSchemaSQL(\$diff) as \$sql) {
+            \$this->addSql(\$sql);
+        }
     }
 }
 PHP;
