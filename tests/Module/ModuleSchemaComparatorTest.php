@@ -31,7 +31,7 @@ final class ModuleSchemaComparatorTest extends TestCase
     public function testRejectsIncomingForeignKeyFromOtherModule(): void
     {
         $manager = new ComparatorFakeManager(new ComparatorFakeSchema(['orders', 'users'], ['users' => ['orders']]));
-        $this->expectException(\\DomainException::class);
+        $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('Clé étrangère entrante');
         try {
             (new ModuleSchemaComparator())->compare(new ComparatorFakeConnection($manager), new ComparatorFakeSchema(['orders']), [
@@ -46,7 +46,7 @@ final class ModuleSchemaComparatorTest extends TestCase
     public function testRejectsMissingExternalForeignKeyTarget(): void
     {
         $manager = new ComparatorFakeManager(new ComparatorFakeSchema(['orders']));
-        $this->expectException(\\DomainException::class);
+        $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('absente de la base');
         try {
             (new ModuleSchemaComparator())->compare(new ComparatorFakeConnection($manager), new ComparatorFakeSchema(['orders'], ['orders' => ['users']]), [

@@ -55,7 +55,7 @@ final class ModuleSchemaComparator
             }
             foreach ($table->getForeignKeys() as $foreignKey) {
                 if (isset($targets[$foreignKey->getForeignTableName()])) {
-                    throw new \\DomainException(sprintf(
+                    throw new \DomainException(sprintf(
                         'Clé étrangère entrante depuis une table externe : %s -> %s.',
                         $table->getName(),
                         $foreignKey->getForeignTableName(),
@@ -74,7 +74,7 @@ final class ModuleSchemaComparator
             foreach ($table->getForeignKeys() as $foreignKey) {
                 $target = $foreignKey->getForeignTableName();
                 if (!isset($local[$target]) && !isset($available[$target])) {
-                    throw new \\DomainException('Table référencée absente de la base : '.$target);
+                    throw new \DomainException('Table référencée absente de la base : '.$target);
                 }
             }
         }

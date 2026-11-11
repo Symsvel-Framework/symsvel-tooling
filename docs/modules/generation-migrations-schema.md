@@ -53,3 +53,7 @@ Après intégration de la commande : `./pull.sh`, création d'un module de labor
 Avant toute comparaison DBAL, `ModuleSchemaComparator` refuse désormais les clés étrangères **entrantes** depuis une table extérieure vers une table ORM du module. Il vérifie aussi qu'une cible de clé étrangère **sortante** située hors du module existe physiquement dans le schéma introspecté, même si elle est déclarée dans un manifeste. Ces refus sont volontaires : retirer les tables extérieures du schéma comparé pourrait masquer une dépendance. Les tests vérifient l'arrêt avant `compareSchemas()`. Aucune suppression automatique de contrainte externe n'est autorisée.
 
 Limite : le diff n'est toujours pas analysé opération par opération pour empêcher les suppressions de colonnes ou de tables. Ce contrôle et les essais sur vrais moteurs DBAL restent nécessaires avant le raccordement à la génération de migrations.
+
+### Correctif de syntaxe
+
+Correction des noms pleinement qualifiés `\\DomainException` accidentellement écrits avec deux antislashs dans le comparateur et ses tests. Le lint PHP doit passer avant toute validation fonctionnelle.
