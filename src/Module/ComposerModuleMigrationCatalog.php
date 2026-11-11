@@ -48,6 +48,7 @@ final class ComposerModuleMigrationCatalog
                 $sources[] = ['module' => $slug, 'name' => $name, 'path' => $path, 'sha256' => $sha256];
             }
         }
+        usort($sources, static fn (array $a, array $b): int => strcmp($a['name'], $b['name']));
         return $sources;
     }
 }
