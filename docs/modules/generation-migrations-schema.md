@@ -25,3 +25,9 @@ La compilation, l'exécution et le registre existants restent la responsabilité
 ## Test de développement prévu
 
 Après intégration de la commande : `./pull.sh`, création d'un module de laboratoire avec `symsvel make:module`, ajout d'une entité Doctrine simple, lancement de `symsvel module:migrate` depuis le module, puis modification de l'entité et seconde génération. Les crash-tests d'exécution multi-SGBD seront réalisés dans une étape ultérieure.
+
+## Protection du périmètre de comparaison (jalon en cours)
+
+`ModuleSchemaScope` prépare deux schémas comparables, sans comparer l'intégralité de la base au sous-ensemble ORM du module. Les tables cibles doivent être déclarées dans `module.json` (`tables`), sinon la génération est refusée. Les tables de la base qui ne figurent pas dans le schéma ORM cible sont écartées **des deux côtés de la comparaison**, même si elles sont déclarées : une entité manquante ne doit pas déclencher une suppression implicite. Les schémas d'entrée restent intacts. Les tests vérifient l'isolement et les refus.
+
+**Limites :** ce composant prépare seulement le périmètre. Il n'effectue pas encore le diff DBAL ni la génération PHP. La propriété exclusive des tables entre tous les manifests et les clés étrangères intermodules doivent encore être contrôlées avant l'écriture. Les suppressions de tables ne sont volontairement pas déduites de la disparition d'une entité.
