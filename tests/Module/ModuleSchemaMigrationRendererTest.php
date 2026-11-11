@@ -59,6 +59,27 @@ final class ModuleSchemaMigrationRendererTest extends TestCase
         (new ModuleSchemaMigrationRenderer())->render($this->diff([$table]), 'Version20261111150200');
     }
 
+    public function testGeneratedMigrationIsValidPhp(): void
+    {
+        if (!class_exists(\Doctrine\DBAL\Schema\Table::class)) {
+            self::markTestSkipped('Doctrine DBAL fourni par le projet hôte.');
+        }
+        $table = new \Doctrine\DBAL\Schema\Table('demo_items');
+        $table->addColumn('id', 'integer');
+        $php = (new ModuleSchemaMigrationRenderer())->render($this->diff([$table]), 'Version20261111150300');
+        $path = tempnam(sys_get_temp_dir(), 'symsvel-php-');
+        self::assertNotFalse($path);
+        try {
+            self::assertNotFalse(file_put_contents($path, $php));
+            $output = [];
+            $status = 0;
+            exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($path).' 2>&1', $output, $status);
+            self::assertSame(0, $status, implode("\n", $output));
+        } finally {
+            unlink($path);
+        }
+    }
+
     public function testRejectsEmptyDiff(): void
     {
         $this->expectException(\DomainException::class);

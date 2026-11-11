@@ -85,3 +85,7 @@ Le test de refus d'un répertoire `Migration` symbolique pointe volontairement v
 ## Renderer PHP Schema (premier périmètre)
 
 `ModuleSchemaMigrationRenderer::render()` produit une classe `VersionYYYYMMDDHHMMSS` avec `up(Schema $schema)` et `down(Schema $schema)` pour les **créations de tables simples** seulement. Les colonnes et clés primaires sont représentées avec l'API Doctrine Schema ; le `down()` supprime les tables nouvellement créées en ordre inverse. Le renderer refuse les clés étrangères. Les index secondaires simples (uniques ou non) sont désormais rendus via `addUniqueIndex()` et `addIndex()`, en conservant leurs noms et colonnes ; les index avec options ou flags sont refusés afin de ne pas perdre leur sémantique. Le garde-fou DBAL continue de refuser les modifications et suppressions. Le renderer ne crée aucun fichier, n'exécute rien et n'est pas encore raccordé à la commande. Le test réel DBAL est ignoré lorsque Doctrine n'est pas installé dans le Tooling isolé ; il reste à valider dans le projet hôte, notamment sur PostgreSQL et MySQL.
+
+### Validation du PHP produit
+
+Un test supplémentaire passe le fichier PHP généré au lint lorsque Doctrine DBAL est disponible. Les valeurs par défaut des colonnes non scalaires sont refusées plutôt que sérialisées implicitement. Ces tests ne remplacent pas une exécution des migrations sur les moteurs réels.

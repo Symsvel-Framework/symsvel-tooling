@@ -50,6 +50,10 @@ final class ModuleSchemaMigrationRenderer
                 if ($column->getScale() !== null) {
                     $options['scale'] = $column->getScale();
                 }
+                $default = $column->getDefault();
+                if ($default !== null && !is_scalar($default)) {
+                    throw new \DomainException('Valeur par défaut non représentable : '.$column->getName());
+                }
                 $up[] = '        $table->addColumn('.var_export($column->getName(), true).', '.var_export($type, true).', '.var_export($options, true).');';
             }
             $primary = $table->getPrimaryKey();
