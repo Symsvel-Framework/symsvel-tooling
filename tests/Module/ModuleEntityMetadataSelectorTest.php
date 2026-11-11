@@ -21,6 +21,9 @@ final class ModuleEntityMetadataSelectorTest extends TestCase
     protected function tearDown(): void
     {
         foreach (['catalogue', 'neighbor'] as $name) {
+            foreach (glob($this->workspace.'/'.$name.'/back/src/Entity/*.php') ?: [] as $file) {
+                unlink($file);
+            }
             rmdir($this->workspace.'/'.$name.'/back/src/Entity');
             rmdir($this->workspace.'/'.$name.'/back/src');
             rmdir($this->workspace.'/'.$name.'/back');
