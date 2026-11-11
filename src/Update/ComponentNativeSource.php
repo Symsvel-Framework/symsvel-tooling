@@ -25,7 +25,7 @@ final class ComponentNativeSource
     public function fetch(string $component, string $directory, string $channel = ProjectChannel::DEV): string
     {
         $repository = ($this->repositories ?? self::REPOSITORIES)[$component] ?? throw new \InvalidArgumentException('Composant inconnu.');
-        $reference = $channel === ProjectChannel::DEV ? 'main' : $this->latestRelease($repository);
+        $reference = $channel === ProjectChannel::DEV ? 'dev' : $this->latestRelease($repository);
         $process = new Process(['git', 'clone', '--depth', '1', '--branch', $reference, '--', $repository, $directory]);
         $process->setTimeout(300);
         $process->mustRun();
