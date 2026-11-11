@@ -31,7 +31,7 @@ Depuis `backend/`, préfixer les commandes par `php bin/console` :
 | `symsvel:module:remove:migrations:execute <module>` | Suppression SQL après confirmation |
 | `symsvel:module:remove:recovery:status` | Diagnostic de récupération après retrait |
 
-Les signatures exactes et options sont fournies par `php bin/console <commande> --help`. Un plan ou un statut ne doit pas être confondu avec une exécution. Les migrations sont ordonnées selon les dépendances ; la suppression destructrice nécessite les confirmations et protections du Tooling. Après incident, consulter les états de récupération avant une nouvelle opération.
+Les signatures exactes et options sont fournies par `php bin/console <commande> --help`. Un plan ou un statut ne doit pas être confondu avec une exécution. Les sources de migration sont collectées auprès des modules et triées globalement par nom de fichier avant compilation. Cette préparation ne modifie pas l'orchestration Doctrine. Les migrations sont actuellement ordonnées selon les dépendances lors de la planification des modules ; la suppression destructrice nécessite les confirmations et protections du Tooling. Après incident, consulter les états de récupération avant une nouvelle opération.
 
 Le Maker produit un **modèle** de recette Flex ; sa publication dans `symsvel-recipes` et son référencement sont distincts. Ne pas développer directement dans `vendor/`.
 
