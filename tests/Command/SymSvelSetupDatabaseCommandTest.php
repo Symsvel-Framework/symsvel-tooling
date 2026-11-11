@@ -28,6 +28,8 @@ final class SymSvelSetupDatabaseCommandTest extends TestCase
         foreach (['backend/commands.log', 'backend/bin/console', 'backend/.env.local', '.symsvel/migration-recovery.json', '.symsvel/setup.json'] as $path) {
             @unlink($this->root.'/'.$path);
         }
+        @rmdir($this->root.'/backend/var/data');
+        @rmdir($this->root.'/backend/var');
         @rmdir($this->root.'/backend/bin');
         @rmdir($this->root.'/backend');
         @rmdir($this->root.'/.symsvel');
@@ -56,6 +58,18 @@ exit('.$exitExpression.');
             'doctrine:database:create --if-not-exists --no-interaction',
             'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
         ], file($this->root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
+    }
+
+    public function testSqliteSkipsDatabaseCreateAndPreparesParentDirectory(): void
+    {
+        file_put_contents($this->root.'/backend/.env.local', "DATABASE_URL=\\\"sqlite:///%kernel.project_dir%/var/data/test.db\\\"\\n");
+        $this->fakeConsole();
+        self::assertSame(0, $this->command()->execute([]));
+        self::assertDirectoryExists($this->root.'/backend/var/data');
+        self::assertSame([
+            'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
+        ], file($this->root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
+        self::assertSame(SetupState::DATABASE_READY, (new SetupState())->read($this->root));
     }
 
     public function testQuotedDatabaseUrlIsRecognized(): void
