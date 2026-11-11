@@ -84,6 +84,8 @@
             "@php -l tests/Module/ModuleSchemaScopeTest.php",
             "@php -l src/Module/ModuleTableOwnershipGuard.php",
             "@php -l tests/Module/ModuleTableOwnershipGuardTest.php",
+            "@php -l src/Module/ModuleForeignKeyGuard.php",
+            "@php -l tests/Module/ModuleForeignKeyGuardTest.php",
             "@php vendor/bin/phpunit",
             "@php -l src/Command/SymSvelModuleMigrationRecoveryStatusCommand.php"
         ]

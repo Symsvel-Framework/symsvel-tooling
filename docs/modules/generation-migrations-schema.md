@@ -35,3 +35,9 @@ Après intégration de la commande : `./pull.sh`, création d'un module de labor
 ## Exclusivité des tables déclarées
 
 `ModuleTableOwnershipGuard::assertExclusive()` vérifie les déclarations `tables` de **tous** les modules découverts, rejette les collisions entre modules et exige que chaque table ORM cible appartienne exclusivement au module sélectionné. Ce contrôle doit être appelé avant toute écriture de migration ; il n'est pas encore raccordé à une commande. Des tests unitaires couvrent les collisions, les tables non déclarées et le cas valide. Il ne vérifie pas encore les contraintes de clés étrangères intermodules et ne prouve pas qu'une table existante en base appartient au module sans déclaration contradictoire extérieure au workspace.
+
+## Vérification des clés étrangères sortantes
+
+`ModuleForeignKeyGuard` refuse les clés étrangères vers des tables absentes des déclarations `tables` des modules découverts. Les tables sources doivent appartenir au module sélectionné ; les références à une table déclarée par un autre module sont autorisées sans en transférer la propriété. Les déclarations en conflit sont refusées. Tests unitaires : référence intermodule autorisée, cible inconnue, source étrangère.
+
+**Non raccordé à la commande** : ce contrôle ne garantit ni la présence physique de la table cible ni l'absence de clés étrangères entrantes depuis d'autres modules. Ces vérifications restent nécessaires avant l'écriture d'une migration ; aucune exécution n'est validée à ce stade.
