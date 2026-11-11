@@ -93,3 +93,7 @@ Un test supplémentaire passe le fichier PHP généré au lint lorsque Doctrine 
 ## Orchestration du générateur (sans commande)
 
 `ModuleSchemaMigrationGenerator::generate()` relie désormais les composants existants dans l'ordre : résolution du module, découverte du registre, collecte du schéma ORM, comparaison DBAL sécurisée, rendu PHP puis écriture exclusive de la source. Si le diff est vide, aucun fichier n'est créé. Le timestamp du nom de fichier est partagé avec celui de la classe générée. La commande publique CLI reste à raccorder ; cette orchestration ne compile ni n'exécute les migrations et ne modifie pas la base. Les tests d'intégration avec un véritable EntityManager et les crash-tests restent indispensables.
+
+## Commande Tooling interne
+
+La commande Symfony `symsvel:module:migrate [module]` appelle l'orchestrateur avec le `ManagerRegistry` Doctrine du projet hôte. Options : `--workspace` et `--working-directory` (répertoire d'origine transmis par la CLI). Sans changement de schéma, elle ne produit pas de fichier. Elle ne compile ni n'exécute la migration. **La CLI publique n'est pas encore raccordée** ; la commande Symfony constitue uniquement le point d'entrée interne. Son fonctionnement avec l'EntityManager réel et les différents SGBD doit encore être testé.
