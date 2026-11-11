@@ -10,7 +10,7 @@ La compilation, l'exécution et le registre existants restent la responsabilité
 
 `ModuleWorkingDirectoryResolver` s'appuie sur `ModuleRegistry` et `ModuleManifest`, déjà présents. Un argument explicite peut être le slug ou le nom PascalCase du manifeste. Sans argument, le répertoire courant doit se trouver dans le dossier du module, y compris un sous-répertoire. Un contexte ambigu ou extérieur à un module est refusé. Le chemin canonique est vérifié par `realpath` et la comparaison respecte les frontières de répertoire.
 
-**État :** seul ce résolveur et ses tests sont ajoutés. La commande publique, la collecte des métadonnées ORM, le diff, le renderer PHP et la génération du fichier ne sont **pas encore implémentés**. Aucun crash-test n'est revendiqué.
+**État :** le résolveur, un sélecteur de métadonnées ORM par emplacement physique des classes et leurs premiers tests sont ajoutés. Le sélecteur ne construit pas encore de schéma ni de diff. La commande publique, la collecte des métadonnées ORM, le diff, le renderer PHP et la génération du fichier ne sont **pas encore implémentés**. Aucun crash-test n'est revendiqué.
 
 ## Contrat de sécurité et périmètre à réaliser
 
