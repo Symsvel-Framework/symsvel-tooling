@@ -9,41 +9,36 @@ use SymSvel\Tooling\Module\ModuleMigrationCompiler;
 
 final class ModuleMigrationCompilerTest extends TestCase
 {
-    public function testCompilesUpAndReverseDownWithoutExecutingSources(): void
+    public function testPreservesSourceVersionForSqlMigration(): void
     {
         $root = sys_get_temp_dir().'/symsvel-compiler-'.bin2hex(random_bytes(6));
         mkdir($root);
-        $first = $root.'/first.php';
-        $second = $root.'/second.php';
-        $template = <<<'PHP'
+        $source = $root.'/Version20200101000000.php';
+        file_put_contents($source, <<<'PHP'
 <?php
 final class Source
 {
-    public function up(\Doctrine\DBAL\Schema\Schema $schema): void
+    public function up(\\Doctrine\\DBAL\\Schema\\Schema $schema): void
     {
-        $this->addSql('CREATE TABLE %s (id INT)');
+        $this->addSql('INSERT INTO reference_table (id) VALUES (1)');
     }
 
-    public function down(\Doctrine\DBAL\Schema\Schema $schema): void
+    public function down(\\Doctrine\\DBAL\\Schema\\Schema $schema): void
     {
-        $this->addSql('DROP TABLE %s');
+        $this->addSql('DELETE FROM reference_table WHERE id = 1');
     }
 }
-PHP;
-        file_put_contents($first, sprintf($template, 'first', 'first'));
-        file_put_contents($second, sprintf($template, 'second', 'second'));
+PHP);
         try {
-            $sources = [
-                ['module' => 'first', 'name' => '001.php', 'path' => $first, 'sha256' => hash_file('sha256', $first)],
-                ['module' => 'second', 'name' => '001.php', 'path' => $second, 'sha256' => hash_file('sha256', $second)],
-            ];
-            $compiled = (new ModuleMigrationCompiler())->compile($root, $sources);
-            self::assertNotNull($compiled);
-            $output = (string) file_get_contents($compiled['path']);
-            self::assertLessThan(strpos($output, 'CREATE TABLE second'), strpos($output, 'CREATE TABLE first'));
-            self::assertLessThan(strpos($output, 'DROP TABLE first'), strpos($output, 'DROP TABLE second'));
-            self::assertCount(2, $compiled['entries']);
-            self::assertStringContainsString('DoctrineMigrations', $output);
+            $entry = ['module' => 'reference', 'name' => basename($source), 'path' => $source, 'sha256' => hash_file('sha256', $source)];
+            $compiler = new ModuleMigrationCompiler();
+            $compiled = $compiler->compile($root, [$entry]);
+            self::assertSame('DoctrineMigrations\\\\Version20200101000000', $compiled['version']);
+            self::assertSame($root.'/migrations/Version20200101000000.php', $compiled['path']);
+            self::assertStringContainsString('INSERT INTO reference_table', file_get_contents($compiled['path']));
+            $this->expectException(\\RuntimeException::class);
+            $this->expectExceptionMessage('Version Doctrine déjà présente');
+            $compiler->compile($root, [$entry]);
         } finally {
             foreach (glob($root.'/migrations/*') ?: [] as $path) {
                 unlink($path);
@@ -51,8 +46,27 @@ PHP;
             if (is_dir($root.'/migrations')) {
                 rmdir($root.'/migrations');
             }
-            unlink($first);
-            unlink($second);
+            unlink($source);
+            rmdir($root);
+        }
+    }
+
+    public function testRejectsLegacySourceNames(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-compiler-'.bin2hex(random_bytes(6));
+        mkdir($root);
+        $source = $root.'/001.php';
+        file_put_contents($source, '<?php');
+        try {
+            $this->expectException(\\InvalidArgumentException::class);
+            (new ModuleMigrationCompiler())->compile($root, [
+                ['module' => 'legacy', 'name' => '001.php', 'path' => $source, 'sha256' => hash_file('sha256', $source)],
+            ]);
+        } finally {
+            if (is_dir($root.'/migrations')) {
+                rmdir($root.'/migrations');
+            }
+            unlink($source);
             rmdir($root);
         }
     }
