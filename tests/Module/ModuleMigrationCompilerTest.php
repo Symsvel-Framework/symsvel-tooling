@@ -33,7 +33,7 @@ PHP);
             $entry = ['module' => 'reference', 'name' => basename($source), 'path' => $source, 'sha256' => hash_file('sha256', $source)];
             $compiler = new ModuleMigrationCompiler();
             $compiled = $compiler->compile($root, [$entry]);
-            self::assertSame('DoctrineMigrations\\\\Version20200101000000', $compiled['version']);
+            self::assertSame('DoctrineMigrations\\Version20200101000000', $compiled['version']);
             self::assertSame($root.'/migrations/Version20200101000000.php', $compiled['path']);
             self::assertStringContainsString('INSERT INTO reference_table', file_get_contents($compiled['path']));
             $this->expectException(\RuntimeException::class);
