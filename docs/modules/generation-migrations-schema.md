@@ -89,3 +89,7 @@ Le test de refus d'un répertoire `Migration` symbolique pointe volontairement v
 ### Validation du PHP produit
 
 Un test supplémentaire passe le fichier PHP généré au lint lorsque Doctrine DBAL est disponible. Les valeurs par défaut des colonnes non scalaires sont refusées plutôt que sérialisées implicitement. Ces tests ne remplacent pas une exécution des migrations sur les moteurs réels.
+
+## Orchestration du générateur (sans commande)
+
+`ModuleSchemaMigrationGenerator::generate()` relie désormais les composants existants dans l'ordre : résolution du module, découverte du registre, collecte du schéma ORM, comparaison DBAL sécurisée, rendu PHP puis écriture exclusive de la source. Si le diff est vide, aucun fichier n'est créé. Le timestamp du nom de fichier est partagé avec celui de la classe générée. La commande publique CLI reste à raccorder ; cette orchestration ne compile ni n'exécute les migrations et ne modifie pas la base. Les tests d'intégration avec un véritable EntityManager et les crash-tests restent indispensables.

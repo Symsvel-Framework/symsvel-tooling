@@ -92,6 +92,8 @@
             "@php -l tests/Module/ModuleSchemaDiffGuardTest.php",
             "@php -l src/Module/ModuleMigrationSourceWriter.php",
             "@php -l src/Module/ModuleSchemaMigrationRenderer.php",
+            "@php -l src/Module/ModuleSchemaMigrationGenerator.php",
+            "@php -l tests/Module/ModuleSchemaMigrationGeneratorTest.php",
             "@php -l tests/Module/ModuleSchemaMigrationRendererTest.php",
             "@php -l tests/Module/ModuleMigrationSourceWriterTest.php",
             "@php vendor/bin/phpunit",
