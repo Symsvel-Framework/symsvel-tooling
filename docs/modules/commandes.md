@@ -36,3 +36,7 @@ Les signatures exactes et options sont fournies par `php bin/console <commande> 
 Le Maker produit un **modèle** de recette Flex ; sa publication dans `symsvel-recipes` et son référencement sont distincts. Ne pas développer directement dans `vendor/`.
 
 Voir [le contrat des modules](contrat.md) et [les transactions Composer](../composer-transactions.md).
+
+### Contrat des versions de migration (chantier en cours)
+
+Chaque fichier source doit être nommé `VersionYYYYMMDDHHMMSS.php`. Le compilateur conserve cet identifiant dans `backend/migrations/` et refuse une version déjà présente au lieu de la renommer. Les fichiers historiques `001_*.php` des modules natifs doivent être normalisés avant utilisation de cette branche. La conversion des opérations `Schema` en SQL DBAL est **encore à implémenter** : cette branche ne doit pas être utilisée pour installer les modules natifs tant que la conversion et les crash-tests ne sont pas validés.
