@@ -107,7 +107,9 @@ final class ComparatorFakeManager
         ++$this->comparisons;
         return new class($before->names(), $after->names()) {
             public function __construct(public array $before, public array $after) {}
+            public function getCreatedSchemas(): array { return []; }
             public function getDroppedSchemas(): array { return []; }
+            public function getCreatedSequences(): array { return []; }
             public function getDroppedSequences(): array { return []; }
             public function getAlteredSequences(): array { return []; }
             public function getCreatedTables(): array { return array_values(array_diff($this->after, $this->before)); }

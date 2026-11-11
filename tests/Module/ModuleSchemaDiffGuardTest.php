@@ -30,17 +30,33 @@ final class ModuleSchemaDiffGuardTest extends TestCase
         (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff([], ['orders']));
     }
 
+    public function testRejectsSequenceCreationEvenWithNewTable(): void
+    {
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('getCreatedSequences');
+        (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff([], [], ['orders'], ['sequence']));
+    }
+
+    public function testRejectsSchemaCreation(): void
+    {
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('getCreatedSchemas');
+        (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff([], [], [], [], ['schema']));
+    }
+
     public function testRejectsUnknownDiffShape(): void
     {
         $this->expectException(\DomainException::class);
         (new ModuleSchemaDiffGuard())->assertNonDestructive(new \stdClass());
     }
 
-    private function diff(array $dropped, array $changed, array $created = []): object
+    private function diff(array $dropped, array $changed, array $created = [], array $sequences = [], array $schemas = []): object
     {
-        return new class($dropped, $changed, $created) {
-            public function __construct(private array $dropped, private array $changed, private array $created) {}
+        return new class($dropped, $changed, $created, $sequences, $schemas) {
+            public function __construct(private array $dropped, private array $changed, private array $created, private array $sequences, private array $schemas) {}
+            public function getCreatedSchemas(): array { return $this->schemas; }
             public function getDroppedSchemas(): array { return []; }
+            public function getCreatedSequences(): array { return $this->sequences; }
             public function getDroppedSequences(): array { return []; }
             public function getAlteredSequences(): array { return []; }
             public function getCreatedTables(): array { return $this->created; }

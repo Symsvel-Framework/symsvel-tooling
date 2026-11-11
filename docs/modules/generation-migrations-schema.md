@@ -69,3 +69,7 @@ Le diff utilise `SchemaDiff::getAlteredTables()` et non `getChangedTables()` (no
 ## Diff vide et création de fichier
 
 Le comparateur renvoie désormais `changed: bool` en plus du diff et des tables ciblées. Le garde-fou utilise `getCreatedTables()` de DBAL pour distinguer une création réelle d'un schéma inchangé, après avoir refusé les suppressions et modifications de tables. La future commande devra **ne créer aucun fichier** si `changed` vaut `false`. Des tests vérifient le cas sans changement et la création d'une nouvelle table. Aucun fichier de migration n'est encore généré par cette étape.
+
+## Couverture des objets hors tables
+
+Le garde-fou refuse aussi la **création** de schémas et de séquences, en complément de leur suppression ou modification. Le booléen `changed` ne doit jamais considérer comme « sans changement » un diff contenant une opération que le renderer ne sait pas représenter. Les tests couvrent les créations de séquence et de schéma, notamment en présence d'une nouvelle table. Ces refus restent conservateurs jusqu'à la prise en charge explicite de ces opérations.

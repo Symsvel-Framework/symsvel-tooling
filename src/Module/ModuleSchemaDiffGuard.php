@@ -16,12 +16,12 @@ final class ModuleSchemaDiffGuard
             throw new \DomainException('Format de diff Doctrine non reconnu.');
         }
 
-        foreach (['getDroppedSchemas', 'getDroppedSequences', 'getAlteredSequences'] as $method) {
+        foreach (['getCreatedSchemas', 'getDroppedSchemas', 'getCreatedSequences', 'getDroppedSequences', 'getAlteredSequences'] as $method) {
             if (!method_exists($diff, $method)) {
                 throw new \DomainException('Format de diff Doctrine non reconnu : '.$method);
             }
             if ($diff->{$method}() !== []) {
-                throw new \DomainException('Modification ou suppression de schéma ou séquence interdite : '.$method);
+                throw new \DomainException('Opération sur schéma ou séquence non prise en charge : '.$method);
             }
         }
 
