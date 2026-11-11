@@ -77,3 +77,7 @@ Le garde-fou refuse aussi la **création** de schémas et de séquences, en comp
 ## Écriture immuable d'une migration source
 
 `ModuleMigrationSourceWriter` crée un fichier `Migration/VersionYYYYMMDDHHMMSS.php` dans le module résolu, sans toucher aux migrations compilées. L'ouverture exclusive (`fopen(..., 'x')`) interdit tout écrasement en cas de collision de timestamp ; le dossier `Migration` symbolique est refusé. Une écriture partielle entraîne la suppression du nouveau fichier. Les tests vérifient la création, la collision et le refus des liens symboliques. **Ce composant ne fabrique pas encore le contenu PHP Schema** : il sera appelé uniquement après un diff autorisé et un rendu valide ; la commande n'est pas encore raccordée.
+
+## Correctif du nettoyage des tests (CI)
+
+Le test de refus d'un répertoire `Migration` symbolique pointe volontairement vers `/tmp`. Son `tearDown()` ne doit **jamais parcourir la cible du lien** : il supprime d'abord le lien lui-même et ne parcourt que les fichiers `Version*.php` du dossier de test lorsqu'il s'agit d'un véritable répertoire. Cela élimine les avertissements `unlink(...): Is a directory` sur les runners et protège leurs répertoires temporaires. Aucun changement au writer de production.

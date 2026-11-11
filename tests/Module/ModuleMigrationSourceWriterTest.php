@@ -19,13 +19,17 @@ final class ModuleMigrationSourceWriterTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach (glob($this->root.'/Migration/*') ?: [] as $file) {
-            unlink($file);
-        }
-        if (is_link($this->root.'/Migration')) {
-            unlink($this->root.'/Migration');
-        } elseif (is_dir($this->root.'/Migration')) {
-            rmdir($this->root.'/Migration');
+        $migrationDirectory = $this->root.'/Migration';
+        // Never traverse a symlink: the rejection test points it at /tmp.
+        if (is_link($migrationDirectory)) {
+            unlink($migrationDirectory);
+        } elseif (is_dir($migrationDirectory)) {
+            foreach (glob($migrationDirectory.'/Version*.php') ?: [] as $file) {
+                if (is_file($file) && !is_link($file)) {
+                    unlink($file);
+                }
+            }
+            rmdir($migrationDirectory);
         }
         rmdir($this->root);
     }
