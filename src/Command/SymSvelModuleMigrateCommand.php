@@ -33,7 +33,7 @@ final class SymSvelModuleMigrateCommand extends Command
     {
         $this->addArgument('module', InputArgument::OPTIONAL, 'Module slug or manifest name');
         $this->addOption('workspace', null, InputOption::VALUE_REQUIRED, 'Workspace root');
-        $this->addOption('working-directory', null, InputOption::VALUE_REQUIRED, 'Original CLI working directory');
+        $this->addOption('cwd', null, InputOption::VALUE_REQUIRED, 'Original CLI working directory');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -47,7 +47,7 @@ final class SymSvelModuleMigrateCommand extends Command
                 }
                 $workspace = dirname($this->projectDir);
             }
-            $cwd = $input->getOption('working-directory') ?? getcwd();
+            $cwd = $input->getOption('cwd') ?? getcwd();
             if (!is_string($cwd) || $cwd === '') {
                 throw new \InvalidArgumentException('Répertoire de travail invalide.');
             }

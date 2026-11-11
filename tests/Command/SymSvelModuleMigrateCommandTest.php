@@ -16,5 +16,6 @@ final class SymSvelModuleMigrateCommandTest extends TestCase
         self::assertCount(1, $attributes);
         self::assertSame('symsvel:module:migrate', $attributes[0]->newInstance()->name);
         self::assertTrue($reflection->hasMethod('execute'));
+        self::assertStringContainsString("'cwd'", (string) file_get_contents(dirname(__DIR__, 2).'/src/Command/SymSvelModuleMigrateCommand.php'));
     }
 }
