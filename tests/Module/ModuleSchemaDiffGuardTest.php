@@ -39,8 +39,11 @@ final class ModuleSchemaDiffGuardTest extends TestCase
     {
         return new class($dropped, $changed) {
             public function __construct(private array $dropped, private array $changed) {}
+            public function getDroppedSchemas(): array { return []; }
+            public function getDroppedSequences(): array { return []; }
+            public function getAlteredSequences(): array { return []; }
             public function getDroppedTables(): array { return $this->dropped; }
-            public function getChangedTables(): array { return $this->changed; }
+            public function getAlteredTables(): array { return $this->changed; }
         };
     }
 }

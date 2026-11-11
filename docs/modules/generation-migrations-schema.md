@@ -61,3 +61,7 @@ Correction des noms pleinement qualifiés `\\DomainException` accidentellement �
 ## Garde-fou sur les opérations destructrices
 
 `ModuleSchemaDiffGuard` est exécuté après la comparaison DBAL et avant la remise du résultat au générateur. Il rejette les suppressions de tables et, par précaution, **toute modification d'une table existante** : un changement peut cacher une suppression de colonne, un renommage ou une conversion avec perte de données. La création de tables neuves reste permise. Les tests couvrent les trois cas et les objets de diff incompatibles. Ce choix est provisoirement restrictif et devra être affiné pour les ajouts de colonnes sûrs. La commande et le rendu PHP Schema ne sont toujours pas raccordés.
+
+## Alignement sur l'API Doctrine DBAL 4
+
+Le diff utilise `SchemaDiff::getAlteredTables()` et non `getChangedTables()` (nom inexistant dans DBAL 4). Le garde-fou vérifie également les suppressions de schémas et de séquences ainsi que les modifications de séquences, pour éviter de valider un diff destructeur non limité aux tables. Les doubles des tests reproduisent ces accesseurs DBAL 4. Cette vérification statique ne remplace pas un test d'intégration sur une véritable connexion Doctrine.

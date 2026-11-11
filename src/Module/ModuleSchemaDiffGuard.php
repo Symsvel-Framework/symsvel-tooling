@@ -12,8 +12,17 @@ final class ModuleSchemaDiffGuard
 {
     public function assertNonDestructive(object $diff): void
     {
-        if (!method_exists($diff, 'getDroppedTables') || !method_exists($diff, 'getChangedTables')) {
+        if (!method_exists($diff, 'getDroppedTables') || !method_exists($diff, 'getAlteredTables')) {
             throw new \DomainException('Format de diff Doctrine non reconnu.');
+        }
+
+        foreach (['getDroppedSchemas', 'getDroppedSequences', 'getAlteredSequences'] as $method) {
+            if (!method_exists($diff, $method)) {
+                throw new \DomainException('Format de diff Doctrine non reconnu : '.$method);
+            }
+            if ($diff->{$method}() !== []) {
+                throw new \DomainException('Modification ou suppression de schéma ou séquence interdite : '.$method);
+            }
         }
 
         if ($diff->getDroppedTables() !== []) {
@@ -22,7 +31,7 @@ final class ModuleSchemaDiffGuard
 
         // A changed table may include a dropped column, a rename, a changed
         // constraint or a data-losing type change. Fail closed for now.
-        if ($diff->getChangedTables() !== []) {
+        if ($diff->getAlteredTables() !== []) {
             throw new \DomainException('Modification de table existante à examiner manuellement.');
         }
     }

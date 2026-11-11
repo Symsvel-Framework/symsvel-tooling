@@ -90,8 +90,11 @@ final class ComparatorFakeManager
         ++$this->comparisons;
         return new class($before->names(), $after->names()) {
             public function __construct(public array $before, public array $after) {}
+            public function getDroppedSchemas(): array { return []; }
+            public function getDroppedSequences(): array { return []; }
+            public function getAlteredSequences(): array { return []; }
             public function getDroppedTables(): array { return array_values(array_diff($this->before, $this->after)); }
-            public function getChangedTables(): array { return []; }
+            public function getAlteredTables(): array { return []; }
         };
     }
 }
