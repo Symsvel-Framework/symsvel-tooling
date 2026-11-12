@@ -29,6 +29,7 @@ final class SymSvelSetupDatabaseCommandTest extends TestCase
             @unlink($this->root.'/'.$path);
         }
         @unlink($this->root.'/backend/migrations/Version20261112171400.php');
+        @unlink($this->root.'/.symsvel/native-migration-setup.json');
         @rmdir($this->root.'/backend/migrations');
         @rmdir($this->root.'/backend/var/data');
         @rmdir($this->root.'/backend/var');
