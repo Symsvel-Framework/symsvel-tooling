@@ -141,3 +141,7 @@ Le générateur ordonne les créations de tables, les modifications de tables ex
 ### Alignement des tests du garde-fou (12 novembre 2026)
 
 Les tests `ModuleSchemaDiffGuardTest` utilisent désormais `assertSupported()` et attendent l'acceptation des suppressions de tables et colonnes, conformément à la décision ORM faisant foi. Les refus de diff DBAL inconnu et d'opérations sur schémas/séquences restent testés. Ce correctif concerne les tests, sans réintroduire l'ancienne interdiction des opérations destructrices.
+
+### Signature DBAL 4 de modification de colonne (12 novembre 2026)
+
+La génération d'un changement de type produit `Table::modifyColumn($name, ['type' => Type::getType($type), ...$options])` et non la signature à trois arguments de `addColumn()`. Le type est un objet Doctrine Type ; la migration source est générée sans exécuter la modification. Une régression vérifie les instructions `up()` et `down()`.
