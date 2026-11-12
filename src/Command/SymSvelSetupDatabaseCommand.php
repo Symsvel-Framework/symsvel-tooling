@@ -80,7 +80,7 @@ final class SymSvelSetupDatabaseCommand extends Command
             // applying module migrations. Never execute the generated file here.
             $nativeObservation = $workspace.'/.symsvel/native-migration-observation.json';
             if (is_link($nativeObservation)) {
-                throw new \\RuntimeException('Invalid native migration observation marker.');
+                throw new \RuntimeException('Invalid native migration observation marker.');
             }
             if (!is_file($nativeObservation)) {
                 $commands[] = [PHP_BINARY, 'bin/console', 'make:migration', '--no-interaction'];
@@ -92,6 +92,17 @@ final class SymSvelSetupDatabaseCommand extends Command
                 $process->run();
                 if (!$process->isSuccessful()) {
                     throw new \RuntimeException('Database preparation failed; inspect migrations and database access.');
+                }
+                if ($arguments[2] === 'make:migration') {
+                    $versions = glob($this->projectDir.'/migrations/Version??????????????.php');
+                    if ($versions === false || count($versions) !== 1 || is_link($versions[0])) {
+                        throw new \RuntimeException('Expected exactly one native migration for observation.');
+                    }
+                    $payload = json_encode(['schema' => 1, 'file' => basename($versions[0]), 'executed' => false], JSON_THROW_ON_ERROR);
+                    if (file_put_contents($nativeObservation, $payload."\n", LOCK_EX) === false) {
+                        throw new \RuntimeException('Cannot record native migration observation.');
+                    }
+                    $output->writeln('<info>Native migration for inspection: '.basename($versions[0]).' (not executed).</info>');
                 }
             }
             $this->state->transition($workspace, SetupState::RUNNING, SetupState::DATABASE_READY);
