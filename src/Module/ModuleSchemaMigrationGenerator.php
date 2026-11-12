@@ -21,7 +21,7 @@ final class ModuleSchemaMigrationGenerator
     }
 
     /**
-     * @return array{changed: bool, path: ?string, tables: list<string>}
+     * @return array{changed: bool, path: ?string, paths: list<string>, tables: list<string>}
      */
     public function generate(
         string $workspace,
@@ -36,15 +36,55 @@ final class ModuleSchemaMigrationGenerator
         $desired = $this->desired->build($entityManager, $selected);
         $comparison = $this->comparator->compare($connection, $desired['schema'], $modules, $selected['slug']);
         if (!$comparison['changed']) {
-            return ['changed' => false, 'path' => null, 'tables' => $comparison['tables']];
+            return ['changed' => false, 'path' => null, 'paths' => [], 'tables' => $comparison['tables']];
         }
 
         $date = $now ?? new \DateTimeImmutable();
-        $version = 'Version'.$date->format('YmdHis');
-        // Render and validate completely before creating any source file.
-        $php = $this->renderer->render($comparison['diff'], $version);
-        $path = $this->writer->write($selected['path'], $php, $date);
+        $diff = $comparison['diff'];
+        $operations = [];
+        foreach ($diff->getCreatedTables() as $table) {
+            // Render one new table per file; dependencies between newly created
+            // tables require a separate, explicit FK operation.
+            $operations[] = ['kind' => 'create', 'table' => $table];
+        }
+        foreach ($diff->getAlteredTables() as $alteration) {
+            $operations[] = ['kind' => 'alter', 'table' => $alteration];
+        }
+        // Validate all sources before writing any file.
+        $sources = [];
+        foreach ($operations as $offset => $operation) {
+            $stamp = $date->modify('+'.$offset.' seconds');
+            $version = 'Version'.$stamp->format('YmdHis');
+            if ($operation['kind'] === 'create') {
+                $singleDiff = new class($operation['table']) {
+                    public function __construct(private readonly object $table) {}
+                    public function getCreatedTables(): array { return [$this->table]; }
+                    public function getDroppedTables(): array { return []; }
+                    public function getAlteredTables(): array { return []; }
+                    public function getCreatedSchemas(): array { return []; }
+                    public function getDroppedSchemas(): array { return []; }
+                    public function getCreatedSequences(): array { return []; }
+                    public function getDroppedSequences(): array { return []; }
+                    public function getAlteredSequences(): array { return []; }
+                };
+                $source = $this->renderer->render($singleDiff, $version);
+            } else {
+                $source = $this->renderer->renderAlteration($operation['table'], $version);
+            }
+            $sources[] = ['source' => $source, 'stamp' => $stamp];
+        }
+        $paths = [];
+        try {
+            foreach ($sources as $entry) {
+                $paths[] = $this->writer->write($selected['path'], $entry['source'], $entry['stamp']);
+            }
+        } catch (\Throwable $exception) {
+            foreach ($paths as $path) {
+                @unlink($path);
+            }
+            throw $exception;
+        }
 
-        return ['changed' => true, 'path' => $path, 'tables' => $comparison['tables']];
+        return ['changed' => true, 'path' => $paths[0], 'paths' => $paths, 'tables' => $comparison['tables']];
     }
 }
