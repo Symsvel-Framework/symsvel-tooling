@@ -11,7 +11,7 @@ final class ModuleSchemaDiffGuardTest extends TestCase
 {
     public function testAllowsCreationOnly(): void
     {
-        (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff([], []));
+        (new ModuleSchemaDiffGuard())->assertSupported($this->diff([], []));
         self::assertFalse((new ModuleSchemaDiffGuard())->hasChanges($this->diff([], [])));
         self::assertTrue((new ModuleSchemaDiffGuard())->hasChanges($this->diff([], [], ['new_table'])));
         self::assertTrue((new ModuleSchemaDiffGuard())->hasChanges($this->diff([], [$this->additiveChange()])));
