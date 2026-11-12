@@ -115,7 +115,7 @@ final class ModuleSchemaMigrationRenderer
 
     private function changeColumnStatement(object $column): string
     {
-        return str_replace('$table->addColumn(', '$table->changeColumn(', $this->columnStatement($column));
+        return str_replace('$table->addColumn(', '$table->modifyColumn(', $this->columnStatement($column));
     }
 
     private function indexStatement(object $index): string
