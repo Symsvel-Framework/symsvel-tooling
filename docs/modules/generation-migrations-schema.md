@@ -121,3 +121,15 @@ Les ajouts de colonnes, d'index simples et de clés étrangères sont pris en ch
 ### Fichiers de métadonnées macOS
 
 La découverte des migrations ignore explicitement `.DS_Store` (Finder) et `.gitkeep` dans les dossiers `Migration/`, tant pour les modules du workspace que pour les modules Composer. Les autres fichiers non conformes restent refusés : cette tolérance ne désactive pas la validation des sources PHP.
+
+## Évolution des migrations destructrices (12 novembre 2026, chantier en cours)
+
+**Décision validée :** `symsvel module:migrate` se comporte comme `make:migration` à l'échelle d'un module. La modification ou disparition d'une entité ORM est intentionnelle ; la génération du fichier est une action explicite du développeur et ne demande pas de confirmation destructive supplémentaire. La génération n'exécute jamais le SQL. Les anciennes sections de ce document qui interdisent les suppressions décrivent l'état historique, désormais remplacé par cette décision.
+
+Le périmètre du diff inclut maintenant **toutes les tables déclarées dans `module.json`**, même si leur entité ORM a été supprimée. Les tables des autres modules restent exclues. Le contrôle des FK entrantes utilise également la liste complète des tables possédées, pour ne pas masquer les références externes vers une table supprimée.
+
+Le garde-fou accepte les suppressions de tables et les modifications de colonnes, suppressions de colonnes, d'index simples et de FK ; les formes inconnues, les modifications d'index ou de FK non représentées et les opérations sur schémas/séquences restent refusées. Le renderer produit des opérations Schema inverses : restauration de la structure de colonne/table/FK dans `down()`, **sans restauration des données supprimées**. Une conversion inverse de type peut échouer si les données ne sont plus compatibles.
+
+Le générateur ordonne les créations de tables, les modifications de tables existantes puis les suppressions de tables. Les contraintes entrantes depuis d'autres modules restent bloquantes. Les FK directes dans une table créée ou recréée sont encore refusées par le renderer : les cas complexes devront être traités et testés séparément. Les conversions de type dépendent de la plateforme DBAL ; les tests PostgreSQL/MySQL et le crash-test XT sont indispensables avant toute validation ou promotion vers `main`.
+
+**Statut : implémentation initiale sur `dev`, validation fonctionnelle et CI non encore établies.**
