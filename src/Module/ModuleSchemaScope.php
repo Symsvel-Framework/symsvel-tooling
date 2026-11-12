@@ -33,12 +33,9 @@ final class ModuleSchemaScope
             }
         }
 
-        // A declaration is not a license to delete an existing table. Only
-        // tables represented by ORM metadata may be considered in this diff.
-        $targetNames = [];
-        foreach ($desiredSchema->getTables() as $table) {
-            $targetNames[$table->getName()] = true;
-        }
+        // All declared tables belong to this module, including tables whose
+        // ORM entity was intentionally removed. Their removal is a real diff.
+        $targetNames = $lookup;
         $before = clone $databaseSchema;
         foreach ($before->getTables() as $table) {
             if (!isset($targetNames[$table->getName()])) {
@@ -57,7 +54,7 @@ final class ModuleSchemaScope
                 }
             }
         }
-        $tables = array_keys($targetNames);
+        $tables = array_keys($lookup);
         sort($tables, SORT_STRING);
 
         return ['before' => $before, 'after' => $after, 'tables' => $tables];
