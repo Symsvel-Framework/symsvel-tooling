@@ -87,6 +87,47 @@ final class ModuleSchemaMigrationRendererTest extends TestCase
         self::assertStringContainsString('idx_demo_lookup', $php);
     }
 
+    public function testAcceptsUnspecifiedIndexPrefixLengths(): void
+    {
+        if (!class_exists(\Doctrine\DBAL\Schema\Table::class)) {
+            self::markTestSkipped('Doctrine DBAL fourni par le projet hôte.');
+        }
+
+        $table = new \Doctrine\DBAL\Schema\Table('demo_items');
+        $table->addColumn('category_id', 'integer');
+        $table->addIndex(['category_id'], 'idx_category', [], ['lengths' => [null]]);
+
+        $renderer = new ModuleSchemaMigrationRenderer();
+        $created = $renderer->render($this->diff([$table]), 'Version20261112160000');
+        self::assertStringContainsString("'idx_category'", $created);
+
+        $before = new \Doctrine\DBAL\Schema\Schema();
+        $before->createTable('demo_items')->addColumn('category_id', 'integer');
+        $before->getTable('demo_items')->addIndex(['category_id'], 'idx_category', [], ['lengths' => [null]]);
+        $after = clone $before;
+        $after->getTable('demo_items')->dropIndex('idx_category');
+        $diff = (new \Doctrine\DBAL\Schema\Comparator(new \Doctrine\DBAL\Platforms\PostgreSQLPlatform()))
+            ->compareSchemas($before, $after);
+        $altered = array_values($diff->getAlteredTables());
+        self::assertCount(1, $altered);
+        $source = $renderer->renderAlteration($altered[0], 'Version20261112160100');
+        self::assertStringContainsString("dropIndex('idx_category')", $source);
+        self::assertStringContainsString("addIndex(array (", $source);
+    }
+
+    public function testRejectsActualIndexPrefixLength(): void
+    {
+        if (!class_exists(\Doctrine\DBAL\Schema\Table::class)) {
+            self::markTestSkipped('Doctrine DBAL fourni par le projet hôte.');
+        }
+        $table = new \Doctrine\DBAL\Schema\Table('demo_items');
+        $table->addColumn('label', 'string');
+        $table->addIndex(['label'], 'idx_prefix', [], ['lengths' => [12]]);
+
+        $this->expectException(\DomainException::class);
+        (new ModuleSchemaMigrationRenderer())->render($this->diff([$table]), 'Version20261112160200');
+    }
+
     public function testRejectsIndexFlags(): void
     {
         if (!class_exists(\Doctrine\DBAL\Schema\Table::class)) {
