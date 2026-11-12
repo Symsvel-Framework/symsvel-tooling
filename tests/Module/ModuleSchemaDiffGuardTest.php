@@ -14,6 +14,7 @@ final class ModuleSchemaDiffGuardTest extends TestCase
         (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff([], []));
         self::assertFalse((new ModuleSchemaDiffGuard())->hasChanges($this->diff([], [])));
         self::assertTrue((new ModuleSchemaDiffGuard())->hasChanges($this->diff([], [], ['new_table'])));
+        self::assertTrue((new ModuleSchemaDiffGuard())->hasChanges($this->diff([], [$this->additiveChange()]));
     }
 
     public function testRejectsDroppedTables(): void
@@ -26,7 +27,7 @@ final class ModuleSchemaDiffGuardTest extends TestCase
     public function testRejectsChangedTables(): void
     {
         $this->expectException(\DomainException::class);
-        $this->expectExceptionMessage('Modification de table');
+        $this->expectExceptionMessage('Format de modification DBAL');
         (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff([], ['orders']));
     }
 
@@ -48,6 +49,30 @@ final class ModuleSchemaDiffGuardTest extends TestCase
     {
         $this->expectException(\DomainException::class);
         (new ModuleSchemaDiffGuard())->assertNonDestructive(new \stdClass());
+    }
+
+    public function testRejectsDestructiveColumnChange(): void
+    {
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('getDroppedColumns');
+        (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff([], [$this->additiveChange(true)]));
+    }
+
+    private function additiveChange(bool $destructive = false): object
+    {
+        return new class($destructive) {
+            public function __construct(private bool $destructive) {}
+            public function getAddedColumns(): array { return []; }
+            public function getAddedIndexes(): array { return []; }
+            public function getAddedForeignKeys(): array { return []; }
+            public function getChangedColumns(): array { return []; }
+            public function getDroppedColumns(): array { return $this->destructive ? ['legacy'] : []; }
+            public function getModifiedIndexes(): array { return []; }
+            public function getDroppedIndexes(): array { return []; }
+            public function getRenamedIndexes(): array { return []; }
+            public function getModifiedForeignKeys(): array { return []; }
+            public function getDroppedForeignKeys(): array { return []; }
+        };
     }
 
     private function diff(array $dropped, array $changed, array $created = [], array $sequences = [], array $schemas = []): object
