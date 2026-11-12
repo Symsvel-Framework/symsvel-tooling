@@ -58,7 +58,7 @@ final class ModuleSchemaMigrationRendererTest extends TestCase
         $diff = (new \Doctrine\DBAL\Schema\Comparator($platform))->compareSchemas($before, $after);
         $alterations = $diff->getAlteredTables();
         self::assertCount(1, $alterations);
-        $php = (new ModuleSchemaMigrationRenderer())->renderAlteration($alterations[0], 'Version20261112143100');
+        $php = (new ModuleSchemaMigrationRenderer())->renderAlteration(array_values($alterations)[0], 'Version20261112143100');
         self::assertStringContainsString('$table->dropColumn(', $php);
         self::assertStringContainsString('$table->modifyColumn(', $php);
         self::assertStringContainsString("'text'", $php);
