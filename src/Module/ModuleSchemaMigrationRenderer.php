@@ -29,7 +29,7 @@ final class ModuleSchemaMigrationRenderer
             $down[] = $this->foreignKeyStatement($foreignKey);
         }
         foreach ($tableDiff->getDroppedIndexes() as $index) {
-            if ($index->getFlags() !== [] || $index->getOptions() !== []) {
+            if ($index->getFlags() !== [] || $this->meaningfulIndexOptions($index) !== []) {
                 throw new \DomainException('Options d’index non prises en charge.');
             }
             $up[] = '        $table->dropIndex('.var_export($index->getName(), true).');';
@@ -73,7 +73,7 @@ final class ModuleSchemaMigrationRenderer
             $down[] = '        $table->dropColumn('.var_export($column->getName(), true).');';
         }
         foreach ($tableDiff->getAddedIndexes() as $index) {
-            if ($index->getFlags() !== [] || $index->getOptions() !== []) {
+            if ($index->getFlags() !== [] || $this->meaningfulIndexOptions($index) !== []) {
                 throw new \DomainException('Options d’index non prises en charge.');
             }
             $method = $index->isUnique() ? 'addUniqueIndex' : 'addIndex';
@@ -134,6 +134,26 @@ final class ModuleSchemaMigrationRenderer
         $optionsCode = var_export($options, true);
         $optionsCode = 'array ('."\n".'  '.var_export('type', true).' => \\Doctrine\\DBAL\\Types\\Type::getType('.var_export($type, true).'),'."\n".substr($optionsCode, strlen('array ('));
         return '        $table->modifyColumn('.var_export($column->getName(), true).', '.$optionsCode.');';
+    }
+
+    /**
+     * DBAL introspection may report an unspecified index prefix as
+     * lengths => [null]. It carries no index-length restriction.
+     *
+     * @return array<string, mixed>
+     */
+    private function meaningfulIndexOptions(object $index): array
+    {
+        $options = $index->getOptions();
+        if (isset($options['lengths']) && is_array($options['lengths'])
+            && $options['lengths'] !== []
+            && count($options['lengths']) === count($index->getColumns())
+            && array_reduce($options['lengths'], static fn (bool $allNull, mixed $length): bool => $allNull && $length === null, true)
+        ) {
+            unset($options['lengths']);
+        }
+
+        return $options;
     }
 
     private function indexStatement(object $index): string
@@ -249,7 +269,7 @@ PHP;
                 if ($index->isPrimary()) {
                     continue;
                 }
-                if ($index->getFlags() !== [] || $index->getOptions() !== []) {
+                if ($index->getFlags() !== [] || $this->meaningfulIndexOptions($index) !== []) {
                     throw new \DomainException('Options d’index non prises en charge : '.$index->getName());
                 }
                 $method = $index->isUnique() ? 'addUniqueIndex' : 'addIndex';
