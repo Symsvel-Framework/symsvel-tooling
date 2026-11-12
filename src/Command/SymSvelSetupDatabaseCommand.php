@@ -76,6 +76,15 @@ final class SymSvelSetupDatabaseCommand extends Command
             if (!$sqlite) {
                 $commands[] = [PHP_BINARY, 'bin/console', 'doctrine:database:create', '--if-not-exists', '--no-interaction'];
             }
+            // Crash-test observation: generate the first native Doctrine diff before
+            // applying module migrations. Never execute the generated file here.
+            $nativeObservation = $workspace.'/.symsvel/native-migration-observation.json';
+            if (is_link($nativeObservation)) {
+                throw new \\RuntimeException('Invalid native migration observation marker.');
+            }
+            if (!is_file($nativeObservation)) {
+                $commands[] = [PHP_BINARY, 'bin/console', 'make:migration', '--no-interaction'];
+            }
             $commands[] = [PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--no-interaction'];
             foreach ($commands as $arguments) {
                 $process = new Process($arguments, $this->projectDir);
