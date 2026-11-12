@@ -18,6 +18,7 @@ final class ComponentLifecycleInstallerTest extends TestCase
         $this->workspace = sys_get_temp_dir().'/symsvel-lifecycle-'.bin2hex(random_bytes(8));
         mkdir($this->workspace.'/backend', 0775, true);
         file_put_contents($this->workspace.'/backend/composer.json', '{}');
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->workspace.'/backend', \SymSvel\Tooling\Update\ProjectChannel::DEV);
         mkdir($this->workspace.'/backend/vendor/composer', 0775, true);
         file_put_contents($this->workspace.'/backend/vendor/composer/installed.json', '{"packages":[]}');
         mkdir($this->workspace.'/backend/config');
