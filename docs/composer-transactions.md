@@ -89,3 +89,10 @@ Un défaut d'échappement dans l'expression régulière de `ComposerTransactionR
 
 **Validation restante :** CI du dépôt et crash-test complet `require → migrations → remove` sur XT ; contrôler ensemble les tables SQL, les versions Doctrine, le registre SymSvel et les fichiers compilés. Un message de restauration ne dispense pas de vérifier l'état final en cas d'échec.
 
+
+## Builds Svelte sélectifs après synchronisation Composer (12/11/2026)
+
+Le hook `assets/symsvel-module-sync.php` exécute toujours `symsvel:module:sync --source=composer`. Il compare ensuite les inventaires du registre existant `backend/.symsvel/svelte-files.json` avant et après la synchronisation, en utilisant les empreintes SHA-256 des fichiers gérés. Une création, modification ou suppression sous `bo/src/`, `app/src/` ou `front/src/` déclenche `npm run build` **uniquement pour le composant concerné**. Un composant sans modification gérée affiche `unchanged, skipping build`. Les vérifications de présence du composant et de `package.json`, ainsi que l'échec bloquant des builds réellement lancés, restent inchangés.
+
+Cette optimisation porte exclusivement sur les builds déclenchés par la synchronisation des **fichiers de modules Svelte gérés**. Elle ne remplace pas les builds explicites du setup, d'une mise à jour des dépendances npm ou d'une modification manuelle du code Svelte hors registre. Le registre absent avant une première synchronisation est traité comme vide ; les fichiers nouvellement publiés déclenchent leur build. Les tests unitaires couvrent les créations, modifications, suppressions, composants inchangés et frontières de chemins. CI et crash-test XT requis avant validation.
+
