@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Module;
 
 /**
- * Conservative gate for DBAL SchemaDiff: only additive changes are allowed.
- * All destructive or unrecognized table alterations fail closed.
+ * Validates supported DBAL SchemaDiff operations, including intentional
+ * destructive changes to module-owned tables. Unknown changes fail closed.
  */
 final class ModuleSchemaDiffGuard
 {
-    public function assertNonDestructive(object $diff): void
+    public function assertSupported(object $diff): void
     {
         if (!method_exists($diff, 'getCreatedTables') || !method_exists($diff, 'getDroppedTables') || !method_exists($diff, 'getAlteredTables')) {
             throw new \DomainException('Format de diff Doctrine non reconnu.');
@@ -25,14 +25,11 @@ final class ModuleSchemaDiffGuard
             }
         }
 
-        if ($diff->getDroppedTables() !== []) {
-            throw new \DomainException('Suppression de table interdite dans une migration générée.');
-        }
-
         foreach ($diff->getAlteredTables() as $tableDiff) {
             $allowed = ['getAddedColumns', 'getAddedIndexes', 'getAddedForeignKeys'];
-            $forbidden = ['getChangedColumns', 'getDroppedColumns', 'getModifiedIndexes', 'getDroppedIndexes', 'getRenamedIndexes', 'getModifiedForeignKeys', 'getDroppedForeignKeys'];
-            foreach ([...$allowed, ...$forbidden] as $method) {
+            $forbidden = ['getModifiedIndexes', 'getRenamedIndexes', 'getModifiedForeignKeys'];
+            $supported = ['getChangedColumns', 'getDroppedColumns', 'getDroppedIndexes', 'getDroppedForeignKeys'];
+            foreach ([...$allowed, ...$supported, ...$forbidden] as $method) {
                 if (!method_exists($tableDiff, $method)) {
                     throw new \DomainException('Format de modification DBAL non reconnu : '.$method);
                 }
@@ -50,11 +47,11 @@ final class ModuleSchemaDiffGuard
         }
     }
 
-    /** Additive table changes and new tables are eligible for rendering. */
+    /** Supported table creations, removals and alterations are eligible. */
     public function hasChanges(object $diff): bool
     {
-        $this->assertNonDestructive($diff);
+        $this->assertSupported($diff);
 
-        return $diff->getCreatedTables() !== [] || $diff->getAlteredTables() !== [];
+        return $diff->getCreatedTables() !== [] || $diff->getDroppedTables() !== [] || $diff->getAlteredTables() !== [];
     }
 }
