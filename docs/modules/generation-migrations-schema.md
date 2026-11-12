@@ -101,3 +101,7 @@ La commande Symfony `symsvel:module:migrate [module]` appelle l'orchestrateur av
 ### Compatibilité avec la CLI draft #15
 
 La CLI publique préexistante transmet `--cwd=<répertoire initial>` ; la commande Tooling accepte exactement cette option, sans changer la résolution de module ni dupliquer la logique CLI. Les deux PR doivent être validées ensemble sur un workspace avant merge.
+
+## Table technique Messenger exclue des migrations de modules
+
+Le transport Doctrine Messenger peut ajouter automatiquement `messenger_messages` au schéma retourné par `SchemaTool::getSchemaFromMetadata()` via `postGenerateSchema`, même lorsque seules les métadonnées d'un module sont fournies. `ModuleDesiredSchema` retire explicitement **cette seule table** du schéma cible avant de calculer les noms de tables et de vérifier leur propriété. Les autres tables restent soumises aux contrôles d'exclusivité, de clés étrangères et de diff existants. Le filtre ne modifie pas la base, ne produit pas de SQL et ne configure pas la création de la table technique Messenger : celle-ci relève du socle/transport. Test de non-régression dédié : table technique présente ou absente, table métier préservée. Validation CI et crash-test XT requis.
