@@ -76,6 +76,7 @@ final class SymSvelSetupDatabaseCommand extends Command
             if (!$sqlite) {
                 $commands[] = [PHP_BINARY, 'bin/console', 'doctrine:database:create', '--if-not-exists', '--no-interaction'];
             }
+            // Module-owned migrations must run before Doctrine computes the residual diff.
             $commands[] = [PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--no-interaction'];
             foreach ($commands as $arguments) {
                 $process = new Process($arguments, $this->projectDir);
@@ -84,6 +85,50 @@ final class SymSvelSetupDatabaseCommand extends Command
                 if (!$process->isSuccessful()) {
                     throw new \RuntimeException('Database preparation failed; inspect migrations and database access.');
                 }
+            }
+
+            // A retry must not regenerate an already-created native migration.
+            $marker = $workspace.'/.symsvel/native-migration-setup.json';
+            if (is_link($marker)) {
+                throw new \RuntimeException('Invalid native migration setup marker.');
+            }
+            if (!is_file($marker)) {
+                $before = glob($this->projectDir.'/migrations/Version??????????????.php');
+                if ($before === false) {
+                    throw new \RuntimeException('Unable to list existing migrations.');
+                }
+                $make = new Process([PHP_BINARY, 'bin/console', 'make:migration', '--no-interaction'], $this->projectDir);
+                $make->setTimeout(null);
+                $make->run();
+                if (!$make->isSuccessful()) {
+                    throw new \RuntimeException('Native Doctrine migration generation failed: '.trim($make->getErrorOutput().' '.$make->getOutput()));
+                }
+                $after = glob($this->projectDir.'/migrations/Version??????????????.php');
+                if ($after === false) {
+                    throw new \RuntimeException('Unable to list migrations after generation.');
+                }
+                $created = array_values(array_diff($after, $before));
+                if (count($created) > 1 || ($created !== [] && is_link($created[0]))) {
+                    throw new \RuntimeException('Unexpected native migration files after generation.');
+                }
+                $payload = json_encode(['schema' => 1, 'file' => $created === [] ? null : basename($created[0])], JSON_THROW_ON_ERROR);
+                if (file_put_contents($marker, $payload."\n", LOCK_EX) === false) {
+                    throw new \RuntimeException('Unable to record native migration setup.');
+                }
+            } else {
+                $payload = json_decode((string) file_get_contents($marker), true, 512, JSON_THROW_ON_ERROR);
+                $versions = glob($this->projectDir.'/migrations/Version??????????????.php');
+                $expected = $payload['file'] ?? null;
+                if (($payload['schema'] ?? null) !== 1 || ($expected !== null && !preg_match('/^Version[0-9]{14}\\.php$/D', $expected))
+                    || $versions === false || ($expected !== null && !in_array($this->projectDir.'/migrations/'.$expected, $versions, true))) {
+                    throw new \RuntimeException('Native migration setup marker does not match migration files.');
+                }
+            }
+            $migrate = new Process([PHP_BINARY, 'bin/console', 'doctrine:migrations:migrate', '--no-interaction'], $this->projectDir);
+            $migrate->setTimeout(null);
+            $migrate->run();
+            if (!$migrate->isSuccessful()) {
+                throw new \RuntimeException('Native Doctrine migration failed: '.trim($migrate->getErrorOutput().' '.$migrate->getOutput()));
             }
             $this->state->transition($workspace, SetupState::RUNNING, SetupState::DATABASE_READY);
             $output->writeln('<info>Database and migrations ready.</info>');

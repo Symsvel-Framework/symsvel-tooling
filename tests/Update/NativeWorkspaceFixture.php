@@ -47,7 +47,7 @@ final class NativeWorkspaceFixture
             $this->write($upstream.'/'.$path, $contents);
         }
         foreach ([
-            ['git', 'init', '-q', '-b', 'main', $upstream],
+            ['git', 'init', '-q', '-b', 'dev', $upstream],
             ['git', '-C', $upstream, 'add', '.'],
             ['git', '-C', $upstream, '-c', 'user.name=SymSvel Tests', '-c', 'user.email=tests@example.test', 'commit', '-qm', 'upstream'],
         ] as $command) {

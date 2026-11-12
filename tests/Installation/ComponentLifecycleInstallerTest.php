@@ -18,6 +18,7 @@ final class ComponentLifecycleInstallerTest extends TestCase
         $this->workspace = sys_get_temp_dir().'/symsvel-lifecycle-'.bin2hex(random_bytes(8));
         mkdir($this->workspace.'/backend', 0775, true);
         file_put_contents($this->workspace.'/backend/composer.json', '{}');
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->workspace.'/backend', \SymSvel\Tooling\Update\ProjectChannel::DEV);
         mkdir($this->workspace.'/backend/vendor/composer', 0775, true);
         file_put_contents($this->workspace.'/backend/vendor/composer/installed.json', '{"packages":[]}');
         mkdir($this->workspace.'/backend/config');
@@ -64,7 +65,7 @@ PHP
     {
         $repository = $this->workspace.'/fixture';
         mkdir($repository);
-        foreach ([['git', 'init'], ['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
+        foreach ([['git', 'init', '-b', 'dev'], ['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
             (new Process($command, $repository))->mustRun();
         }
         file_put_contents($repository.'/package.json', '{"name":"symsvel-fixture","version":"1.0.0","scripts":{"build":"echo build-ok"}}');
@@ -93,7 +94,7 @@ PHP
         mkdir($repository.'/src/lib', 0775, true);
         file_put_contents($repository.'/src/routes/.gitkeep', '');
         file_put_contents($repository.'/src/lib/.gitkeep', '');
-        foreach ([['git', 'init'], ['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
+        foreach ([['git', 'init', '-b', 'dev'], ['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
             (new Process($command, $repository))->mustRun();
         }
         file_put_contents($repository.'/package.json', '{"name":"symsvel-fixture","version":"1.0.0","scripts":{"build":"echo build-ok"}}');
@@ -117,7 +118,7 @@ PHP
         mkdir($repository.'/src/lib', 0775, true);
         file_put_contents($repository.'/src/routes/.gitkeep', '');
         file_put_contents($repository.'/src/lib/.gitkeep', '');
-        foreach ([['git', 'init'], ['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
+        foreach ([['git', 'init', '-b', 'dev'], ['git', 'config', 'user.email', 'ci@example.test'], ['git', 'config', 'user.name', 'CI']] as $command) {
             (new Process($command, $repository))->mustRun();
         }
         // ComponentInstaller builds once; lifecycle installer rebuilds after Svelte sync.
@@ -150,7 +151,8 @@ PHP
         } catch (\InvalidArgumentException $error) {
             self::assertStringContainsString('Composant inconnu', $error->getMessage());
         }
-        self::assertDirectoryDoesNotExist($this->workspace.'/backend/.symsvel');
+        self::assertSame(\SymSvel\Tooling\Update\ProjectChannel::DEV, \SymSvel\Tooling\Update\ProjectChannel::read($this->workspace.'/backend'));
+        self::assertSame(['project.json'], array_values(array_diff(scandir($this->workspace.'/backend/.symsvel') ?: [], ['.', '..'])));
     }
 
     public function testRejectsExistingComponentWithoutTouchingItsFiles(): void
@@ -164,6 +166,7 @@ PHP
             self::assertStringContainsString('déjà présent', $error->getMessage());
         }
         self::assertSame('keep me', file_get_contents($this->workspace.'/app/local.txt'));
-        self::assertDirectoryDoesNotExist($this->workspace.'/backend/.symsvel');
+        self::assertSame(\SymSvel\Tooling\Update\ProjectChannel::DEV, \SymSvel\Tooling\Update\ProjectChannel::read($this->workspace.'/backend'));
+        self::assertSame(['project.json'], array_values(array_diff(scandir($this->workspace.'/backend/.symsvel') ?: [], ['.', '..'])));
     }
 }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Symfony\Component\Process\Process;
+use SymSvel\Tooling\Module\SvelteBuildScopeDetector;
 
 require dirname(__DIR__).'/vendor/autoload.php';
 
@@ -12,6 +13,8 @@ if (!is_file($backend.'/vendor/symsvel-framework/tooling/src/Command/SymSvelModu
     exit(0);
 }
 
+$detector = new SvelteBuildScopeDetector();
+$before = $detector->readInventory($backend);
 $environment = getenv('APP_ENV') ?: 'dev';
 $sync = new Process([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--env='.$environment], $backend);
 $sync->setTimeout(900);
@@ -23,6 +26,7 @@ if (!$sync->isSuccessful()) {
     exit(1);
 }
 
+$changedScopes = $detector->changedScopes(dirname($backend), $before, $detector->readInventory($backend));
 foreach (['bo', 'app', 'front'] as $scope) {
     $directory = dirname($backend).'/'.$scope;
     if (!is_dir($directory)) {
@@ -31,6 +35,10 @@ foreach (['bo', 'app', 'front'] as $scope) {
     if (!is_file($directory.'/package.json')) {
         fwrite(STDERR, "Invalid Svelte component: ".$scope." (package.json missing).\n");
         exit(1);
+    }
+    if (!in_array($scope, $changedScopes, true)) {
+        echo 'SymSvel: '.strtoupper($scope)." unchanged, skipping build.\n";
+        continue;
     }
     echo 'SymSvel: building '.strtoupper($scope)."\n";
     $build = new Process(['npm', 'run', 'build'], $directory);

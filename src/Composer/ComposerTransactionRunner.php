@@ -290,15 +290,40 @@ final class ComposerTransactionRunner
             $name = $matches[2];
             $key = 'module-'.$name.'-dev';
             $url = 'https://github.com/Symsvel-Framework/symsvel-module-'.$name.'.git';
+            $local = dirname($backend).'/modules/'.$name;
+            $repository = ['type' => 'vcs', 'url' => $url];
+            if (is_dir($local) && !is_link($local)) {
+                // A local development module takes precedence over remote VCS/Satis.
+                // Composer path packages without a Git tag need an explicit dev-main version.
+                $manifest = $local.'/composer.json';
+                if (!is_file($manifest) || is_link($manifest)) {
+                    throw new \RuntimeException('composer.json du module local introuvable : '.$manifest);
+                }
+                $package = json_decode((string) file_get_contents($manifest), true, 512, JSON_THROW_ON_ERROR);
+                if (!is_array($package) || ($package['name'] ?? null) !== $matches[1]) {
+                    throw new \RuntimeException('Nom Composer du module local incompatible : '.$local);
+                }
+                $repository = [
+                    'type' => 'path',
+                    'url' => '../modules/'.$name,
+                    'options' => [
+                        'symlink' => true,
+                        'versions' => [$matches[1] => 'dev-main'],
+                    ],
+                ];
+            }
             if (array_key_exists($key, $repositories)) {
-                $existing = $repositories[$key];
-                if (!is_array($existing) || ($existing['type'] ?? null) !== 'vcs' || ($existing['url'] ?? null) !== $url) {
+                if ($repositories[$key] !== $repository) {
                     throw new \RuntimeException('Dépôt Composer existant incompatible : '.$key);
                 }
                 continue;
             }
-            $this->execute(['composer', 'config', 'repositories.'.$key, 'vcs', $url], $backend, $progress);
-            $repositories[$key] = ['type' => 'vcs', 'url' => $url];
+            if ($repository['type'] === 'path') {
+                $this->execute(['composer', 'config', '--json', 'repositories.'.$key, json_encode($repository, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)], $backend, $progress);
+            } else {
+                $this->execute(['composer', 'config', 'repositories.'.$key, 'vcs', $url], $backend, $progress);
+            }
+            $repositories[$key] = $repository;
         }
     }
 
@@ -361,7 +386,7 @@ final class ComposerTransactionRunner
     private function removeCompiledMigrations(string $backend, array $versions): void
     {
         foreach ($versions as $version) {
-            if (!preg_match('/^DoctrineMigrations\\\\\\\\(Version[A-Za-z0-9_]+)$/D', $version, $matches)) {
+            if (!preg_match('/^DoctrineMigrations\\\\(Version[A-Za-z0-9_]+)$/D', $version, $matches)) {
                 throw new \RuntimeException('Version Doctrine invalide : '.$version);
             }
             $path = $backend.'/migrations/'.$matches[1].'.php';

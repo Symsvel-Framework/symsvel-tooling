@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Installation\ComponentInstaller;
 use SymSvel\Tooling\Installation\WorkspaceInitializer;
+use SymSvel\Tooling\Update\ProjectChannel;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -88,6 +89,7 @@ final class SymSvelInstallCommand extends Command
                     static function (string $component) use ($io): void {
                         $io->text(sprintf('Installation de %s...', $component));
                     },
+                    ProjectChannel::read($this->projectDir),
                 );
             } else {
                 $io->text('Interfaces déjà présentes : installation npm et clonage ignorés.');

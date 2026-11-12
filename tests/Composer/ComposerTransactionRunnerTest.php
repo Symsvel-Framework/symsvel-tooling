@@ -48,6 +48,25 @@ final class ComposerTransactionRunnerTest extends TestCase
         @rmdir(dirname($this->backend));
     }
 
+
+    public function testCompiledMigrationCleanupAcceptsRegisteredDoctrineVersion(): void
+    {
+        $directory = $this->backend.'/migrations';
+        mkdir($directory);
+        $version = 'Version20261112092244';
+        $file = $directory.'/'.$version.'.php';
+        file_put_contents($file, '<?php // compiled fixture');
+
+        try {
+            $method = new \ReflectionMethod(ComposerTransactionRunner::class, 'removeCompiledMigrations');
+            $method->invoke(new ComposerTransactionRunner(), $this->backend, ['DoctrineMigrations\\'.$version]);
+            self::assertFileDoesNotExist($file);
+        } finally {
+            @unlink($file);
+            rmdir($directory);
+        }
+    }
+
     public function testStableChannelNeverRegistersDevelopmentModuleRepository(): void
     {
         \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'stable');
@@ -73,6 +92,56 @@ final class ComposerTransactionRunnerTest extends TestCase
         $runner->run($this->backend, ['require', 'acme/example:^2.0']);
         self::assertSame($original, file_get_contents($this->backend.'/composer.json'));
         self::assertSame([['composer', 'require', 'acme/example:^2.0']], $commands);
+    }
+
+    public function testDevModulePrefersLocalPathRepository(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        $module = dirname($this->backend).'/modules/demo';
+        mkdir($module, 0775, true);
+        file_put_contents($module.'/composer.json', '{"name":"symsvel-framework/module-demo"}');
+        $commands = [];
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use (&$commands): void {
+                $commands[] = $command;
+            });
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:dev-main']);
+            $expected = [
+                'type' => 'path',
+                'url' => '../modules/demo',
+                'options' => [
+                    'symlink' => true,
+                    'versions' => ['symsvel-framework/module-demo' => 'dev-main'],
+                ],
+            ];
+            self::assertContains(['composer', 'config', '--json', 'repositories.module-demo-dev', json_encode($expected, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)], $commands);
+            self::assertContains(['composer', 'require', 'symsvel-framework/module-demo:dev-main'], $commands);
+            self::assertSame(2, count($commands));
+        } finally {
+            unlink($module.'/composer.json');
+            rmdir($module);
+            rmdir(dirname($module));
+        }
+    }
+
+    public function testDevModuleRejectsLocalComposerNameMismatch(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        $module = dirname($this->backend).'/modules/demo';
+        mkdir($module, 0775, true);
+        file_put_contents($module.'/composer.json', '{"name":"acme/other"}');
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+                self::fail('Composer must not run for a mismatched local package.');
+            });
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Nom Composer du module local incompatible');
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:dev-main']);
+        } finally {
+            unlink($module.'/composer.json');
+            rmdir($module);
+            rmdir(dirname($module));
+        }
     }
 
     public function testDevModuleRepositoryAlreadyCompatibleIsNotReconfigured(): void

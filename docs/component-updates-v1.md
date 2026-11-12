@@ -2,6 +2,10 @@
 
 > **Lecture de ce journal (08/11/2026) :** les sections datées retracent les étapes successives du chantier #60. Les phrases « reste à réaliser » décrivent parfois un état **historique**, pas l'état du code courant. Le parcours actif de `WorkspaceUpdater::update()` appelle désormais `WorkspaceNativePreparation` avant Composer et `WorkspaceNativeApply` après Composer ; il ne fait plus de fusion Git dans les composants du projet. Les tests d'intégration, la CI et les crash-tests XT restent des validations distinctes.
 
+## Sélection des branches (11/11/2026)
+
+Le canal enregistré dans `backend/.symsvel/project.json` pilote les sources Svelte : `dev` clone la branche Git `dev` pour BO/App/Front, `stable` utilise `main` lors de l'installation initiale. La récupération native pour les mises à jour en canal `dev` pointe également sur `dev` ; le canal `stable` continue de sélectionner la dernière release publiée pour les mises à jour. Les modules natifs restent sur leur branche Git `main` et leur contrainte Composer `dev-main`. Le crash-test XT doit confirmer l'ensemble des parcours avant validation finale.
+
 ## Propriété des sources
 
 Une fois installés, les fichiers de `bo/`, `app/` et `front/` appartiennent au projet. Les dépôts Git du projet (par exemple Choralys) sont indépendants de ceux de SymSvel. La CLI ne doit ni modifier les remotes/branches ni effectuer de `git merge`, `git reset` ou `git checkout` dans les composants du projet.

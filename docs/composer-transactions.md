@@ -72,3 +72,31 @@ Les tests locaux Git substituent l'URL officielle par un dépôt temporaire uniq
 ### Fixture Git de réussite
 
 La fixture de résolution Composer réussie inclut un manifeste `module.json` conforme au contrat SymSvel v1 et les répertoires `back/` et `docs/dev/`. Un simple `composer.json` suffit à la résolution Composer mais pas à la synchronisation des modules SymSvel après installation. La CI de la PR #62 était verte au commit `998642fb` ; le test sur XT reste nécessaire.
+
+## Modules locaux en développement
+
+En canal `dev`, `symsvel require symsvel-framework/module-<slug>` privilégie le package présent dans `modules/<slug>/composer.json` lorsqu'il existe et que son champ `name` correspond exactement à la demande. Tooling configure alors, **dans la transaction Composer existante**, un repository `path` relatif à `backend/`, avec lien symbolique et version `dev-main` explicite pour les modules sans tag Git. Le module reste éditable directement dans le workspace. Si le répertoire local n'existe pas, la résolution VCS officielle précédente reste inchangée.
+
+Un dossier local avec un `composer.json` absent, symbolique ou dont le nom diffère provoque un refus explicite, sans basculement silencieux vers Satis. Un repository déjà déclaré sous la même clé doit être identique ; aucun écrasement implicite n'est autorisé. Le checkpoint transactionnel protège les modifications du manifeste Composer et les restaure en cas d'échec. Ce raccordement ne modifie pas à lui seul la découverte ORM de `symsvel module:migrate`, qui reste à crash-tester après installation.
+
+Tests unitaires : priorité du `path`, validation du nom, comportement VCS distant et conflit de repository. Validation finale requise : CI verte et crash-test dans XT.
+
+## Correctif du nettoyage des migrations compilées (12/11/2026)
+
+Lors de `symsvel remove symsvel-framework/module-<slug>`, le lanceur utilise le registre du workspace `.symsvel/migrations.json` pour retrouver les versions Doctrine du module, exécuter les migrations descendantes avant le retrait Composer, puis supprimer les fichiers correspondants de `backend/migrations/`. La table `doctrine_migration_versions` conserve le suivi d'exécution propre à Doctrine.
+
+Un défaut d'échappement dans l'expression régulière de `ComposerTransactionRunner::removeCompiledMigrations()` rejetait les identifiants valides de forme `DoctrineMigrations\\Version20261112092244`, provoquant l'annulation transactionnelle après l'étape Composer. L'expression a été alignée sur celle de `ModuleMigrationRemovalExecutor` et un test de non-régression vérifie la suppression effective du fichier compilé.
+
+**Validation restante :** CI du dépôt et crash-test complet `require → migrations → remove` sur XT ; contrôler ensemble les tables SQL, les versions Doctrine, le registre SymSvel et les fichiers compilés. Un message de restauration ne dispense pas de vérifier l'état final en cas d'échec.
+
+
+## Builds Svelte sélectifs après synchronisation Composer (12/11/2026)
+
+Le hook `assets/symsvel-module-sync.php` exécute toujours `symsvel:module:sync --source=composer`. Il compare ensuite les inventaires du registre existant `backend/.symsvel/svelte-files.json` avant et après la synchronisation, en utilisant les empreintes SHA-256 des fichiers gérés. Une création, modification ou suppression sous `bo/src/`, `app/src/` ou `front/src/` déclenche `npm run build` **uniquement pour le composant concerné**. Un composant sans modification gérée affiche `unchanged, skipping build`. Les vérifications de présence du composant et de `package.json`, ainsi que l'échec bloquant des builds réellement lancés, restent inchangés.
+
+Cette optimisation porte exclusivement sur les builds déclenchés par la synchronisation des **fichiers de modules Svelte gérés**. Elle ne remplace pas les builds explicites du setup, d'une mise à jour des dépendances npm ou d'une modification manuelle du code Svelte hors registre. Le registre absent avant une première synchronisation est traité comme vide ; les fichiers nouvellement publiés déclenchent leur build. Les tests unitaires couvrent les créations, modifications, suppressions, composants inchangés et frontières de chemins. CI et crash-test XT requis avant validation.
+
+
+## Canal dev et branches Git (12/11/2026)
+
+Le lanceur transactionnel, lorsqu'il reçoit `--dev` sur un `require` sans contrainte explicite, demande désormais `dev-dev` (branche Git `dev`) plutôt que `dev-main`. La CLI utilise également `dev-dev` lors du bootstrap des modules natifs. Les dépôts VCS officiels sont préparés dans la transaction existante ; les contraintes explicites restent prioritaires. Les références historiques à `dev-main` ci-dessus documentent les anciennes fixtures et ne décrivent pas le nouveau canal. Vérification finale : CI puis crash-test XT avec contrôle des versions résolues dans `composer.lock`.

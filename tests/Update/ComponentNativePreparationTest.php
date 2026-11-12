@@ -73,7 +73,7 @@ final class ComponentNativePreparationTest extends TestCase
         $source = $this->root.'/source';
         $remote = $this->root.'/remote.git';
         mkdir($source);
-        (new Process(['git', 'init', '-b', 'main'], $source))->mustRun();
+        (new Process(['git', 'init', '-b', 'dev'], $source))->mustRun();
         (new Process(['git', 'config', 'user.email', 'ci@example.test'], $source))->mustRun();
         (new Process(['git', 'config', 'user.name', 'CI'], $source))->mustRun();
         file_put_contents($source.'/README.md', $readme);

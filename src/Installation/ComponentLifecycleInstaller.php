@@ -7,6 +7,7 @@ namespace SymSvel\Tooling\Installation;
 use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 use SymSvel\Tooling\Module\SvelteModuleSynchronizer;
 use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
+use SymSvel\Tooling\Update\ProjectChannel;
 use Symfony\Component\Process\Process;
 
 /** Installs a new interface and its module files as a single operation. */
@@ -62,7 +63,7 @@ final class ComponentLifecycleInstaller
         }
         $databaseMigrationStarted = false;
         try {
-            $this->installer->install($workspace, [$component]);
+            $this->installer->install($workspace, [$component], null, ProjectChannel::read($backend));
             if ($component === 'app') {
                 $manifest = $backend.'/config/symsvel-native-modules.json';
                 if (!is_file($manifest) || is_link($manifest)) {
