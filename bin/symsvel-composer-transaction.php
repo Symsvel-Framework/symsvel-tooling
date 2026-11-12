@@ -27,7 +27,7 @@ foreach ($args as $index => $argument) {
 }
 $args = array_values($args);
 if ($dev && $operation === 'require' && isset($args[0]) && !str_contains($args[0], ':')) {
-    $args[0] .= ':dev-main';
+    $args[0] .= ':dev-dev';
 }
 $backend = getcwd();
 require_once $backend.'/vendor/autoload.php';
