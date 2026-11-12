@@ -117,3 +117,7 @@ Une comparaison peut désormais produire plusieurs fichiers sources immuables : 
 Les ajouts de colonnes, d'index simples et de clés étrangères sont pris en charge ; les suppressions, changements de types, changements de contraintes et formes de diff DBAL inconnues restent refusés. Une nouvelle colonne NOT NULL sans valeur par défaut est refusée. Le renderer crée les opérations inverses dans `down()`, sans prétendre restaurer les données éventuellement supprimées lors d'un rollback. Les sources sont toutes rendues avant la première écriture et les fichiers déjà écrits sont nettoyés si une écriture suivante échoue.
 
 **État : implémentation sur `dev`, non validée en CI ni sur XT.** Les créations de tables avec clés étrangères directes restent volontairement refusées par le renderer initial. Les références vers une table nouvellement créée doivent être traitées dans une migration ultérieure. Crash-tests PostgreSQL puis MySQL requis avant promotion vers `main`.
+
+### Fichiers de métadonnées macOS
+
+La découverte des migrations ignore explicitement `.DS_Store` (Finder) et `.gitkeep` dans les dossiers `Migration/`, tant pour les modules du workspace que pour les modules Composer. Les autres fichiers non conformes restent refusés : cette tolérance ne désactive pas la validation des sources PHP.
