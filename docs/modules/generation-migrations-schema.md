@@ -109,3 +109,11 @@ Le transport Doctrine Messenger peut ajouter automatiquement `messenger_messages
 ## Préservation des namespaces PostgreSQL dans le diff ciblé
 
 L'introspection DBAL peut conserver le namespace PostgreSQL `public` dans le schéma réel alors que le schéma ORM construit depuis un seul module ne le déclare pas. Après restriction des tables, `ModuleSchemaScope` recopie dans le schéma cible de comparaison les namespaces déjà présents dans le schéma réel. Cela évite qu'un diff de module propose artificiellement `DROP SCHEMA public`. Les objets de schéma originaux ne sont pas modifiés. Le garde-fou `ModuleSchemaDiffGuard` continue de refuser toute opération réelle de création/suppression de schéma ou de séquence. Un test couvre cette normalisation ; la validation sur PostgreSQL réel reste soumise au crash-test XT.
+
+## Génération additive multi-fichiers (12 novembre 2026, à valider)
+
+Une comparaison peut désormais produire plusieurs fichiers sources immuables : une migration par création de table, puis une migration par table existante modifiée. Les versions sont espacées d'une seconde pour conserver un ordre chronologique déterministe. Dans le crash-test TestCategory/TestRecord, le résultat attendu est une création de `symsvel_test_categories`, puis l'ajout de `category_id`, de son index et de sa clé étrangère sur `symsvel_test_records`. La commande interne affiche chaque fichier créé ; la CLI reste l'entrée publique.
+
+Les ajouts de colonnes, d'index simples et de clés étrangères sont pris en charge ; les suppressions, changements de types, changements de contraintes et formes de diff DBAL inconnues restent refusés. Une nouvelle colonne NOT NULL sans valeur par défaut est refusée. Le renderer crée les opérations inverses dans `down()`, sans prétendre restaurer les données éventuellement supprimées lors d'un rollback. Les sources sont toutes rendues avant la première écriture et les fichiers déjà écrits sont nettoyés si une écriture suivante échoue.
+
+**État : implémentation sur `dev`, non validée en CI ni sur XT.** Les créations de tables avec clés étrangères directes restent volontairement refusées par le renderer initial. Les références vers une table nouvellement créée doivent être traitées dans une migration ultérieure. Crash-tests PostgreSQL puis MySQL requis avant promotion vers `main`.
