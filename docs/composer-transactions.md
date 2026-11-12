@@ -72,3 +72,11 @@ Les tests locaux Git substituent l'URL officielle par un dépôt temporaire uniq
 ### Fixture Git de réussite
 
 La fixture de résolution Composer réussie inclut un manifeste `module.json` conforme au contrat SymSvel v1 et les répertoires `back/` et `docs/dev/`. Un simple `composer.json` suffit à la résolution Composer mais pas à la synchronisation des modules SymSvel après installation. La CI de la PR #62 était verte au commit `998642fb` ; le test sur XT reste nécessaire.
+
+## Modules locaux en développement
+
+En canal `dev`, `symsvel require symsvel-framework/module-<slug>` privilégie le package présent dans `modules/<slug>/composer.json` lorsqu'il existe et que son champ `name` correspond exactement à la demande. Tooling configure alors, **dans la transaction Composer existante**, un repository `path` relatif à `backend/`, avec lien symbolique et version `dev-main` explicite pour les modules sans tag Git. Le module reste éditable directement dans le workspace. Si le répertoire local n'existe pas, la résolution VCS officielle précédente reste inchangée.
+
+Un dossier local avec un `composer.json` absent, symbolique ou dont le nom diffère provoque un refus explicite, sans basculement silencieux vers Satis. Un repository déjà déclaré sous la même clé doit être identique ; aucun écrasement implicite n'est autorisé. Le checkpoint transactionnel protège les modifications du manifeste Composer et les restaure en cas d'échec. Ce raccordement ne modifie pas à lui seul la découverte ORM de `symsvel module:migrate`, qui reste à crash-tester après installation.
+
+Tests unitaires : priorité du `path`, validation du nom, comportement VCS distant et conflit de repository. Validation finale requise : CI verte et crash-test dans XT.
