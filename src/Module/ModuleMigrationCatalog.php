@@ -31,7 +31,7 @@ final class ModuleMigrationCatalog
             }
             $files = [];
             foreach (new \DirectoryIterator($directory) as $entry) {
-                if ($entry->isDot() || $entry->getFilename() === '.gitkeep') {
+                if ($entry->isDot() || in_array($entry->getFilename(), ['.gitkeep', '.DS_Store'], true)) {
                     continue;
                 }
                 if ($entry->isLink() || !$entry->isFile() || !preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]*\.php$/', $entry->getFilename())) {
