@@ -46,6 +46,17 @@ final class ModuleSchemaScope
             }
         }
         $after = clone $desiredSchema;
+        // PostgreSQL namespaces are infrastructure, not module-owned objects.
+        // Preserve existing namespaces in the scoped target so the comparator
+        // cannot interpret a module-only diff as DROP SCHEMA public.
+        if (method_exists($before, 'getNamespaces') && method_exists($after, 'getNamespaces')
+            && method_exists($after, 'hasNamespace') && method_exists($after, 'createNamespace')) {
+            foreach ($before->getNamespaces() as $namespace) {
+                if (!$after->hasNamespace($namespace)) {
+                    $after->createNamespace($namespace);
+                }
+            }
+        }
         $tables = array_keys($targetNames);
         sort($tables, SORT_STRING);
 
