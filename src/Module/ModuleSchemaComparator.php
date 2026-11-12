@@ -33,7 +33,7 @@ final class ModuleSchemaComparator
         // All validations precede the actual DBAL comparison.
         $this->ownership->assertExclusive($modules, $slug, $this->tableNames($desiredSchema));
         $this->foreignKeys->assertDeclaredTargets($desiredSchema, $modules, $slug);
-        $this->assertNoExternalIncomingForeignKeys($databaseSchema, $desiredSchema);
+        $this->assertNoExternalIncomingForeignKeys($databaseSchema, $modules[$slug]['manifest']['tables'] ?? []);
         $this->assertExistingExternalTargets($databaseSchema, $desiredSchema);
         $scoped = $this->scope->restrict($databaseSchema, $desiredSchema, $modules[$slug]);
 
@@ -51,9 +51,9 @@ final class ModuleSchemaComparator
      * Scoping away a referencing table could conceal a dependency on a module
      * table. Fail closed until incoming constraints can be preserved safely.
      */
-    private function assertNoExternalIncomingForeignKeys(object $database, object $desired): void
+    private function assertNoExternalIncomingForeignKeys(object $database, array $owned): void
     {
-        $targets = array_fill_keys($this->tableNames($desired), true);
+        $targets = array_fill_keys($owned, true);
         foreach ($database->getTables() as $table) {
             if (isset($targets[$table->getName()])) {
                 continue;
