@@ -48,6 +48,25 @@ final class ComposerTransactionRunnerTest extends TestCase
         @rmdir(dirname($this->backend));
     }
 
+
+    public function testCompiledMigrationCleanupAcceptsRegisteredDoctrineVersion(): void
+    {
+        $directory = $this->backend.'/migrations';
+        mkdir($directory);
+        $version = 'Version20261112092244';
+        $file = $directory.'/'.$version.'.php';
+        file_put_contents($file, '<?php // compiled fixture');
+
+        try {
+            $method = new \ReflectionMethod(ComposerTransactionRunner::class, 'removeCompiledMigrations');
+            $method->invoke(new ComposerTransactionRunner(), $this->backend, ['DoctrineMigrations\\'.$version]);
+            self::assertFileDoesNotExist($file);
+        } finally {
+            @unlink($file);
+            rmdir($directory);
+        }
+    }
+
     public function testStableChannelNeverRegistersDevelopmentModuleRepository(): void
     {
         \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'stable');
