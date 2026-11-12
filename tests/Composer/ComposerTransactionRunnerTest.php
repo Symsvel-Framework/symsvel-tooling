@@ -75,6 +75,56 @@ final class ComposerTransactionRunnerTest extends TestCase
         self::assertSame([['composer', 'require', 'acme/example:^2.0']], $commands);
     }
 
+    public function testDevModulePrefersLocalPathRepository(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        $module = dirname($this->backend).'/modules/demo';
+        mkdir($module, 0775, true);
+        file_put_contents($module.'/composer.json', '{"name":"symsvel-framework/module-demo"}');
+        $commands = [];
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use (&$commands): void {
+                $commands[] = $command;
+            });
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:dev-main']);
+            $expected = [
+                'type' => 'path',
+                'url' => '../modules/demo',
+                'options' => [
+                    'symlink' => true,
+                    'versions' => ['symsvel-framework/module-demo' => 'dev-main'],
+                ],
+            ];
+            self::assertContains(['composer', 'config', '--json', 'repositories.module-demo-dev', json_encode($expected, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)], $commands);
+            self::assertContains(['composer', 'require', 'symsvel-framework/module-demo:dev-main'], $commands);
+            self::assertSame(2, count($commands));
+        } finally {
+            unlink($module.'/composer.json');
+            rmdir($module);
+            rmdir(dirname($module));
+        }
+    }
+
+    public function testDevModuleRejectsLocalComposerNameMismatch(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
+        $module = dirname($this->backend).'/modules/demo';
+        mkdir($module, 0775, true);
+        file_put_contents($module.'/composer.json', '{"name":"acme/other"}');
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+                self::fail('Composer must not run for a mismatched local package.');
+            });
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('Nom Composer du module local incompatible');
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:dev-main']);
+        } finally {
+            unlink($module.'/composer.json');
+            rmdir($module);
+            rmdir(dirname($module));
+        }
+    }
+
     public function testDevModuleRepositoryAlreadyCompatibleIsNotReconfigured(): void
     {
         \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'dev');
