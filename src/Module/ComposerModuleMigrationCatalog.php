@@ -30,7 +30,7 @@ final class ComposerModuleMigrationCatalog
             }
             $files = [];
             foreach (new \DirectoryIterator($directory) as $entry) {
-                if ($entry->isDot() || $entry->getFilename() === '.gitkeep') {
+                if ($entry->isDot() || in_array($entry->getFilename(), ['.gitkeep', '.DS_Store'], true)) {
                     continue;
                 }
                 if ($entry->isLink() || !$entry->isFile()
