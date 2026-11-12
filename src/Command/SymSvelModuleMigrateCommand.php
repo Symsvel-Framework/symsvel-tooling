@@ -66,7 +66,9 @@ final class SymSvelModuleMigrateCommand extends Command
                 $io->success('Aucune nouvelle migration.');
                 return Command::SUCCESS;
             }
-            $io->success('Migration source créée : '.$result['path']);
+            foreach ($result['paths'] ?? [$result['path']] as $path) {
+                $io->success('Migration source créée : '.$path);
+            }
             return Command::SUCCESS;
         } catch (\Throwable $exception) {
             $io->error($exception->getMessage());
