@@ -40,6 +40,31 @@ final class ModuleSchemaMigrationRendererTest extends TestCase
         self::assertStringContainsString("'demo_legacy'", $php);
     }
 
+    public function testRendersColumnDropAndTypeChangeFromRealDbalDiff(): void
+    {
+        if (!class_exists(\Doctrine\DBAL\Schema\Comparator::class)) {
+            self::markTestSkipped('Doctrine DBAL fourni par le projet hôte.');
+        }
+        $before = new \Doctrine\DBAL\Schema\Schema();
+        $old = $before->createTable('demo_items');
+        $old->addColumn('id', 'integer');
+        $old->addColumn('legacy', 'string', ['length' => 40]);
+        $old->addColumn('description', 'string', ['length' => 100]);
+        $after = clone $before;
+        $new = $after->getTable('demo_items');
+        $new->dropColumn('legacy');
+        $new->modifyColumn('description', ['type' => \Doctrine\DBAL\Types\Type::getType('text'), 'length' => null]);
+        $platform = new \Doctrine\DBAL\Platforms\PostgreSQLPlatform();
+        $diff = (new \Doctrine\DBAL\Schema\Comparator($platform))->compareSchemas($before, $after);
+        $alterations = $diff->getAlteredTables();
+        self::assertCount(1, $alterations);
+        $php = (new ModuleSchemaMigrationRenderer())->renderAlteration($alterations[0], 'Version20261112143100');
+        self::assertStringContainsString('$table->dropColumn(', $php);
+        self::assertStringContainsString('$table->modifyColumn(', $php);
+        self::assertStringContainsString("'text'", $php);
+        self::assertStringContainsString("'string'", $php);
+    }
+
     public function testRendersSimpleIndexes(): void
     {
         if (!class_exists(\Doctrine\DBAL\Schema\Table::class)) {
