@@ -84,7 +84,7 @@ final class WorkspaceNativePreparationTest extends TestCase
         $remote = $this->root.'/remote.git';
         mkdir($source);
         foreach ([
-            ['git', 'init', '-b', 'main'],
+            ['git', 'init', '-b', 'dev'],
             ['git', 'config', 'user.email', 'ci@example.test'],
             ['git', 'config', 'user.name', 'CI'],
         ] as $command) {
