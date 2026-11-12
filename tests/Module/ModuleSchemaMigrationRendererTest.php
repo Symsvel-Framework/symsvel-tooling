@@ -61,6 +61,9 @@ final class ModuleSchemaMigrationRendererTest extends TestCase
         $php = (new ModuleSchemaMigrationRenderer())->renderAlteration(array_values($alterations)[0], 'Version20261112143100');
         self::assertStringContainsString('$table->dropColumn(', $php);
         self::assertStringContainsString('$table->modifyColumn(', $php);
+        self::assertMatchesRegularExpression('~modifyColumn\\([^,]+,\\s*array \\(~', $php);
+        self::assertStringContainsString("'type' => \\Doctrine\\DBAL\\Types\\Type::getType('text')", $php);
+        self::assertStringContainsString("'type' => \\Doctrine\\DBAL\\Types\\Type::getType('string')", $php);
         self::assertStringContainsString("'text'", $php);
         self::assertStringContainsString("'string'", $php);
     }
