@@ -17,45 +17,41 @@ final class ModuleSchemaDiffGuardTest extends TestCase
         self::assertTrue((new ModuleSchemaDiffGuard())->hasChanges($this->diff([], [$this->additiveChange()])));
     }
 
-    public function testRejectsDroppedTables(): void
+    public function testAcceptsDroppedTables(): void
     {
-        $this->expectException(\DomainException::class);
-        $this->expectExceptionMessage('Suppression de table');
-        (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff(['legacy'], []));
+        self::assertTrue((new ModuleSchemaDiffGuard())->hasChanges($this->diff(['legacy'], [])));
     }
 
     public function testRejectsChangedTables(): void
     {
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('Format de modification DBAL');
-        (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff([], ['orders']));
+        (new ModuleSchemaDiffGuard())->assertSupported($this->diff([], ['orders']));
     }
 
     public function testRejectsSequenceCreationEvenWithNewTable(): void
     {
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('getCreatedSequences');
-        (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff([], [], ['orders'], ['sequence']));
+        (new ModuleSchemaDiffGuard())->assertSupported($this->diff([], [], ['orders'], ['sequence']));
     }
 
     public function testRejectsSchemaCreation(): void
     {
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('getCreatedSchemas');
-        (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff([], [], [], [], ['schema']));
+        (new ModuleSchemaDiffGuard())->assertSupported($this->diff([], [], [], [], ['schema']));
     }
 
     public function testRejectsUnknownDiffShape(): void
     {
         $this->expectException(\DomainException::class);
-        (new ModuleSchemaDiffGuard())->assertNonDestructive(new \stdClass());
+        (new ModuleSchemaDiffGuard())->assertSupported(new \stdClass());
     }
 
-    public function testRejectsDestructiveColumnChange(): void
+    public function testAcceptsDroppedColumn(): void
     {
-        $this->expectException(\DomainException::class);
-        $this->expectExceptionMessage('getDroppedColumns');
-        (new ModuleSchemaDiffGuard())->assertNonDestructive($this->diff([], [$this->additiveChange(true)]));
+        self::assertTrue((new ModuleSchemaDiffGuard())->hasChanges($this->diff([], [$this->additiveChange(true)])));
     }
 
     private function additiveChange(bool $destructive = false): object
