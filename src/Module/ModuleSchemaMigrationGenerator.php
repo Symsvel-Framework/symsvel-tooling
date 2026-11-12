@@ -47,6 +47,9 @@ final class ModuleSchemaMigrationGenerator
             // tables require a separate, explicit FK operation.
             $operations[] = ['kind' => 'create', 'table' => $table];
         }
+        foreach ($diff->getDroppedTables() as $table) {
+            $operations[] = ['kind' => 'drop', 'table' => $table];
+        }
         foreach ($diff->getAlteredTables() as $alteration) {
             $operations[] = ['kind' => 'alter', 'table' => $alteration];
         }
@@ -68,6 +71,8 @@ final class ModuleSchemaMigrationGenerator
                     public function getAlteredSequences(): array { return []; }
                 };
                 $source = $this->renderer->render($singleDiff, $version);
+            } elseif ($operation['kind'] === 'drop') {
+                $source = $this->renderer->renderDropTable($operation['table'], $version);
             } else {
                 $source = $this->renderer->renderAlteration($operation['table'], $version);
             }
