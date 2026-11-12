@@ -386,7 +386,7 @@ final class ComposerTransactionRunner
     private function removeCompiledMigrations(string $backend, array $versions): void
     {
         foreach ($versions as $version) {
-            if (!preg_match('/^DoctrineMigrations\\\\\\\\(Version[A-Za-z0-9_]+)$/D', $version, $matches)) {
+            if (!preg_match('/^DoctrineMigrations\\\\(Version[A-Za-z0-9_]+)$/D', $version, $matches)) {
                 throw new \RuntimeException('Version Doctrine invalide : '.$version);
             }
             $path = $backend.'/migrations/'.$matches[1].'.php';
