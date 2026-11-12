@@ -76,15 +76,7 @@ final class SymSvelSetupDatabaseCommand extends Command
             if (!$sqlite) {
                 $commands[] = [PHP_BINARY, 'bin/console', 'doctrine:database:create', '--if-not-exists', '--no-interaction'];
             }
-            // Crash-test observation: generate the first native Doctrine diff before
-            // applying module migrations. Never execute the generated file here.
-            $nativeObservation = $workspace.'/.symsvel/native-migration-observation.json';
-            if (is_link($nativeObservation)) {
-                throw new \RuntimeException('Invalid native migration observation marker.');
-            }
-            if (!is_file($nativeObservation)) {
-                $commands[] = [PHP_BINARY, 'bin/console', 'make:migration', '--no-interaction'];
-            }
+            // Module-owned migrations must run before Doctrine computes the residual diff.
             $commands[] = [PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--no-interaction'];
             foreach ($commands as $arguments) {
                 $process = new Process($arguments, $this->projectDir);
@@ -93,16 +85,24 @@ final class SymSvelSetupDatabaseCommand extends Command
                 if (!$process->isSuccessful()) {
                     throw new \RuntimeException('Database preparation failed; inspect migrations and database access.');
                 }
-                if ($arguments[2] === 'make:migration') {
-                    $versions = glob($this->projectDir.'/migrations/Version??????????????.php');
-                    if ($versions === false || count($versions) !== 1 || is_link($versions[0])) {
-                        throw new \RuntimeException('Expected exactly one native migration for observation.');
-                    }
-                    $payload = json_encode(['schema' => 1, 'file' => basename($versions[0]), 'executed' => false], JSON_THROW_ON_ERROR);
-                    if (file_put_contents($nativeObservation, $payload."\n", LOCK_EX) === false) {
-                        throw new \RuntimeException('Cannot record native migration observation.');
-                    }
-                    $output->writeln('<info>Native migration for inspection: '.basename($versions[0]).' (not executed).</info>');
+            }
+
+            // The remaining ORM diff belongs to the host (e.g. Messenger), not modules.
+            // Refuse pre-existing native files: migrate must never execute an
+            // unrelated or stale migration left by a previous crash-test.
+            $versions = glob($this->projectDir.'/migrations/Version??????????????.php');
+            if ($versions === false || $versions !== []) {
+                throw new \RuntimeException('Native migrations already present; inspect them before setup.');
+            }
+            foreach ([
+                [PHP_BINARY, 'bin/console', 'make:migration', '--no-interaction'],
+                [PHP_BINARY, 'bin/console', 'doctrine:migrations:migrate', '--no-interaction'],
+            ] as $arguments) {
+                $process = new Process($arguments, $this->projectDir);
+                $process->setTimeout(null);
+                $process->run();
+                if (!$process->isSuccessful()) {
+                    throw new \RuntimeException('Native Doctrine migration failed: '.trim($process->getErrorOutput().' '.$process->getOutput()));
                 }
             }
             $this->state->transition($workspace, SetupState::RUNNING, SetupState::DATABASE_READY);
