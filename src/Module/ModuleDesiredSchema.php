@@ -29,11 +29,11 @@ final class ModuleDesiredSchema
         }
         $factory = $entityManager->getMetadataFactory();
         $metadata = $this->selector->select($module, $factory->getAllMetadata());
-        if ($metadata === []) {
-            throw new \DomainException('Aucune entité Doctrine trouvée dans ce module.');
-        }
-
-        $schema = (new \Doctrine\ORM\Tools\SchemaTool($entityManager))->getSchemaFromMetadata($metadata);
+        // An empty metadata set is valid: the developer may have removed the
+        // module's last entity, which must generate a DROP TABLE diff.
+        $schema = $metadata === []
+            ? new \Doctrine\DBAL\Schema\Schema()
+            : (new \Doctrine\ORM\Tools\SchemaTool($entityManager))->getSchemaFromMetadata($metadata);
         // Messenger's Doctrine transport injects this infrastructure table via
         // postGenerateSchema; it never belongs to a module migration.
         $this->excludeMessengerTransportTable($schema);
