@@ -52,14 +52,15 @@ final class ModuleSchemaScopeTest extends TestCase
         (new ModuleSchemaScope())->restrict(new FakeSchema([]), new FakeSchema([]), ['manifest' => []]);
     }
 
-    public function testMissingOrmTableDoesNotTriggerDrop(): void
+    public function testMissingOrmTableRemainsInScopeForDrop(): void
     {
         $result = (new ModuleSchemaScope())->restrict(
             new FakeSchema(['catalogue_items', 'catalogue_tags']),
             new FakeSchema(['catalogue_items']),
             ['manifest' => ['tables' => ['catalogue_items', 'catalogue_tags']]],
         );
-        self::assertSame(['catalogue_items'], $result['before']->names());
+        self::assertSame(['catalogue_items', 'catalogue_tags'], $result['before']->names());
+        self::assertSame(['catalogue_items'], $result['after']->names());
     }
 }
 
