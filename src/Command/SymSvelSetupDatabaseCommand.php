@@ -94,8 +94,8 @@ final class SymSvelSetupDatabaseCommand extends Command
             }
             if (!is_file($marker)) {
                 $before = glob($this->projectDir.'/migrations/Version??????????????.php');
-                if ($before === false || $before !== []) {
-                    throw new \RuntimeException('Native migrations already present; inspect them before setup.');
+                if ($before === false) {
+                    throw new \RuntimeException('Unable to list existing migrations.');
                 }
                 $make = new Process([PHP_BINARY, 'bin/console', 'make:migration', '--no-interaction'], $this->projectDir);
                 $make->setTimeout(null);
@@ -104,10 +104,14 @@ final class SymSvelSetupDatabaseCommand extends Command
                     throw new \RuntimeException('Native Doctrine migration generation failed: '.trim($make->getErrorOutput().' '.$make->getOutput()));
                 }
                 $after = glob($this->projectDir.'/migrations/Version??????????????.php');
-                if ($after === false || count($after) > 1 || ($after !== [] && is_link($after[0]))) {
+                if ($after === false) {
+                    throw new \RuntimeException('Unable to list migrations after generation.');
+                }
+                $created = array_values(array_diff($after, $before));
+                if (count($created) > 1 || ($created !== [] && is_link($created[0]))) {
                     throw new \RuntimeException('Unexpected native migration files after generation.');
                 }
-                $payload = json_encode(['schema' => 1, 'file' => $after === [] ? null : basename($after[0])], JSON_THROW_ON_ERROR);
+                $payload = json_encode(['schema' => 1, 'file' => $created === [] ? null : basename($created[0])], JSON_THROW_ON_ERROR);
                 if (file_put_contents($marker, $payload."\n", LOCK_EX) === false) {
                     throw new \RuntimeException('Unable to record native migration setup.');
                 }
@@ -116,7 +120,7 @@ final class SymSvelSetupDatabaseCommand extends Command
                 $versions = glob($this->projectDir.'/migrations/Version??????????????.php');
                 $expected = $payload['file'] ?? null;
                 if (($payload['schema'] ?? null) !== 1 || ($expected !== null && !preg_match('/^Version[0-9]{14}\\.php$/D', $expected))
-                    || $versions === false || array_map('basename', $versions) !== ($expected === null ? [] : [$expected])) {
+                    || $versions === false || ($expected !== null && !in_array($this->projectDir.'/migrations/'.$expected, $versions, true))) {
                     throw new \RuntimeException('Native migration setup marker does not match migration files.');
                 }
             }
