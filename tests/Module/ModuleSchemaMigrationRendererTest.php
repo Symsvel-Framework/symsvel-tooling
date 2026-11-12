@@ -27,6 +27,19 @@ final class ModuleSchemaMigrationRendererTest extends TestCase
         self::assertStringNotContainsString('addSql(', $php);
     }
 
+    public function testRendersDropTableAndRestoresItsStructureOnDown(): void
+    {
+        if (!class_exists(\Doctrine\DBAL\Schema\Table::class)) {
+            self::markTestSkipped('Doctrine DBAL fourni par le projet hôte.');
+        }
+        $table = new \Doctrine\DBAL\Schema\Table('demo_legacy');
+        $table->addColumn('id', 'integer');
+        $table->setPrimaryKey(['id']);
+        $php = (new ModuleSchemaMigrationRenderer())->renderDropTable($table, 'Version20261112143000');
+        self::assertMatchesRegularExpression('~function up.*?dropTable.*?function down.*?createTable~s', $php);
+        self::assertStringContainsString("'demo_legacy'", $php);
+    }
+
     public function testRendersSimpleIndexes(): void
     {
         if (!class_exists(\Doctrine\DBAL\Schema\Table::class)) {
