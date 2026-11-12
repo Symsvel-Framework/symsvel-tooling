@@ -47,11 +47,11 @@ final class ModuleSchemaMigrationGenerator
             // tables require a separate, explicit FK operation.
             $operations[] = ['kind' => 'create', 'table' => $table];
         }
-        foreach ($diff->getDroppedTables() as $table) {
-            $operations[] = ['kind' => 'drop', 'table' => $table];
-        }
         foreach ($diff->getAlteredTables() as $alteration) {
             $operations[] = ['kind' => 'alter', 'table' => $alteration];
+        }
+        foreach ($diff->getDroppedTables() as $table) {
+            $operations[] = ['kind' => 'drop', 'table' => $table];
         }
         // Validate all sources before writing any file.
         $sources = [];
