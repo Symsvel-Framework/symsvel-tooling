@@ -80,3 +80,12 @@ En canal `dev`, `symsvel require symsvel-framework/module-<slug>` privilégie le
 Un dossier local avec un `composer.json` absent, symbolique ou dont le nom diffère provoque un refus explicite, sans basculement silencieux vers Satis. Un repository déjà déclaré sous la même clé doit être identique ; aucun écrasement implicite n'est autorisé. Le checkpoint transactionnel protège les modifications du manifeste Composer et les restaure en cas d'échec. Ce raccordement ne modifie pas à lui seul la découverte ORM de `symsvel module:migrate`, qui reste à crash-tester après installation.
 
 Tests unitaires : priorité du `path`, validation du nom, comportement VCS distant et conflit de repository. Validation finale requise : CI verte et crash-test dans XT.
+
+## Correctif du nettoyage des migrations compilées (12/11/2026)
+
+Lors de `symsvel remove symsvel-framework/module-<slug>`, le lanceur utilise le registre du workspace `.symsvel/migrations.json` pour retrouver les versions Doctrine du module, exécuter les migrations descendantes avant le retrait Composer, puis supprimer les fichiers correspondants de `backend/migrations/`. La table `doctrine_migration_versions` conserve le suivi d'exécution propre à Doctrine.
+
+Un défaut d'échappement dans l'expression régulière de `ComposerTransactionRunner::removeCompiledMigrations()` rejetait les identifiants valides de forme `DoctrineMigrations\\Version20261112092244`, provoquant l'annulation transactionnelle après l'étape Composer. L'expression a été alignée sur celle de `ModuleMigrationRemovalExecutor` et un test de non-régression vérifie la suppression effective du fichier compilé.
+
+**Validation restante :** CI du dépôt et crash-test complet `require → migrations → remove` sur XT ; contrôler ensemble les tables SQL, les versions Doctrine, le registre SymSvel et les fichiers compilés. Un message de restauration ne dispense pas de vérifier l'état final en cas d'échec.
+
