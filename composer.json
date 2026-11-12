@@ -78,6 +78,7 @@
             "@php -l src/Module/ModuleWorkingDirectoryResolver.php",
             "@php -l src/Module/ModuleEntityMetadataSelector.php",
             "@php -l src/Module/ModuleDesiredSchema.php",
+            "@php -l tests/Module/ModuleDesiredSchemaTest.php",
             "@php -l tests/Module/ModuleWorkingDirectoryResolverTest.php",
             "@php -l tests/Module/ModuleEntityMetadataSelectorTest.php",
             "@php -l src/Module/ModuleSchemaScope.php",
