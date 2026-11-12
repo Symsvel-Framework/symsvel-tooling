@@ -60,6 +60,17 @@ final class ModuleSchemaComparatorTest extends TestCase
         }
     }
 
+    public function testRejectsIncomingForeignKeyEvenWhenTargetEntityWasRemoved(): void
+    {
+        $manager = new ComparatorFakeManager(new ComparatorFakeSchema(['orders', 'users'], ['users' => ['orders']]));
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Clé étrangère entrante');
+        (new ModuleSchemaComparator())->compare(new ComparatorFakeConnection($manager), new ComparatorFakeSchema([]), [
+            'orders' => ['manifest' => ['tables' => ['orders']]],
+            'users' => ['manifest' => ['tables' => ['users']]],
+        ], 'orders');
+    }
+
     public function testRejectsMissingExternalForeignKeyTarget(): void
     {
         $manager = new ComparatorFakeManager(new ComparatorFakeSchema(['orders']));
