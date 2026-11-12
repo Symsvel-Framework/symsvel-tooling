@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Module;
 
 /**
- * Conservative gate for DBAL SchemaDiff: until column-level changes can be
- * rendered and reversed safely, only new tables are eligible for generation.
+ * Conservative gate for DBAL SchemaDiff: only additive changes are allowed.
+ * All destructive or unrecognized table alterations fail closed.
  */
 final class ModuleSchemaDiffGuard
 {
@@ -29,18 +29,32 @@ final class ModuleSchemaDiffGuard
             throw new \DomainException('Suppression de table interdite dans une migration générée.');
         }
 
-        // A changed table may include a dropped column, a rename, a changed
-        // constraint or a data-losing type change. Fail closed for now.
-        if ($diff->getAlteredTables() !== []) {
-            throw new \DomainException('Modification de table existante à examiner manuellement.');
+        foreach ($diff->getAlteredTables() as $tableDiff) {
+            $allowed = ['getAddedColumns', 'getAddedIndexes', 'getAddedForeignKeys'];
+            $forbidden = ['getChangedColumns', 'getDroppedColumns', 'getModifiedIndexes', 'getDroppedIndexes', 'getRenamedIndexes', 'getModifiedForeignKeys', 'getDroppedForeignKeys'];
+            foreach ([...$allowed, ...$forbidden] as $method) {
+                if (!method_exists($tableDiff, $method)) {
+                    throw new \DomainException('Format de modification DBAL non reconnu : '.$method);
+                }
+            }
+            foreach ($forbidden as $method) {
+                if ($tableDiff->{$method}() !== []) {
+                    throw new \DomainException('Modification destructive ou ambiguë interdite : '.$method);
+                }
+            }
+            foreach ($tableDiff->getAddedColumns() as $column) {
+                if ($column->getNotnull() && $column->getDefault() === null) {
+                    throw new \DomainException('Nouvelle colonne NOT NULL sans valeur par défaut interdite : '.$column->getName());
+                }
+            }
         }
     }
 
-    /** Only the creation of new tables is currently eligible for rendering. */
+    /** Additive table changes and new tables are eligible for rendering. */
     public function hasChanges(object $diff): bool
     {
         $this->assertNonDestructive($diff);
 
-        return $diff->getCreatedTables() !== [];
+        return $diff->getCreatedTables() !== [] || $diff->getAlteredTables() !== [];
     }
 }
