@@ -87,23 +87,44 @@ final class SymSvelSetupDatabaseCommand extends Command
                 }
             }
 
-            // The remaining ORM diff belongs to the host (e.g. Messenger), not modules.
-            // Refuse pre-existing native files: migrate must never execute an
-            // unrelated or stale migration left by a previous crash-test.
-            $versions = glob($this->projectDir.'/migrations/Version??????????????.php');
-            if ($versions === false || $versions !== []) {
-                throw new \RuntimeException('Native migrations already present; inspect them before setup.');
+            // A retry must not regenerate an already-created native migration.
+            $marker = $workspace.'/.symsvel/native-migration-setup.json';
+            if (is_link($marker)) {
+                throw new \RuntimeException('Invalid native migration setup marker.');
             }
-            foreach ([
-                [PHP_BINARY, 'bin/console', 'make:migration', '--no-interaction'],
-                [PHP_BINARY, 'bin/console', 'doctrine:migrations:migrate', '--no-interaction'],
-            ] as $arguments) {
-                $process = new Process($arguments, $this->projectDir);
-                $process->setTimeout(null);
-                $process->run();
-                if (!$process->isSuccessful()) {
-                    throw new \RuntimeException('Native Doctrine migration failed: '.trim($process->getErrorOutput().' '.$process->getOutput()));
+            if (!is_file($marker)) {
+                $before = glob($this->projectDir.'/migrations/Version??????????????.php');
+                if ($before === false || $before !== []) {
+                    throw new \RuntimeException('Native migrations already present; inspect them before setup.');
                 }
+                $make = new Process([PHP_BINARY, 'bin/console', 'make:migration', '--no-interaction'], $this->projectDir);
+                $make->setTimeout(null);
+                $make->run();
+                if (!$make->isSuccessful()) {
+                    throw new \RuntimeException('Native Doctrine migration generation failed: '.trim($make->getErrorOutput().' '.$make->getOutput()));
+                }
+                $after = glob($this->projectDir.'/migrations/Version??????????????.php');
+                if ($after === false || count($after) > 1 || ($after !== [] && is_link($after[0]))) {
+                    throw new \RuntimeException('Unexpected native migration files after generation.');
+                }
+                $payload = json_encode(['schema' => 1, 'file' => $after === [] ? null : basename($after[0])], JSON_THROW_ON_ERROR);
+                if (file_put_contents($marker, $payload."\n", LOCK_EX) === false) {
+                    throw new \RuntimeException('Unable to record native migration setup.');
+                }
+            } else {
+                $payload = json_decode((string) file_get_contents($marker), true, 512, JSON_THROW_ON_ERROR);
+                $versions = glob($this->projectDir.'/migrations/Version??????????????.php');
+                $expected = $payload['file'] ?? null;
+                if (($payload['schema'] ?? null) !== 1 || ($expected !== null && !preg_match('/^Version[0-9]{14}\\.php$/D', $expected))
+                    || $versions === false || array_map('basename', $versions) !== ($expected === null ? [] : [$expected])) {
+                    throw new \RuntimeException('Native migration setup marker does not match migration files.');
+                }
+            }
+            $migrate = new Process([PHP_BINARY, 'bin/console', 'doctrine:migrations:migrate', '--no-interaction'], $this->projectDir);
+            $migrate->setTimeout(null);
+            $migrate->run();
+            if (!$migrate->isSuccessful()) {
+                throw new \RuntimeException('Native Doctrine migration failed: '.trim($migrate->getErrorOutput().' '.$migrate->getOutput()));
             }
             $this->state->transition($workspace, SetupState::RUNNING, SetupState::DATABASE_READY);
             $output->writeln('<info>Database and migrations ready.</info>');
