@@ -145,3 +145,7 @@ Les tests `ModuleSchemaDiffGuardTest` utilisent désormais `assertSupported()` e
 ### Signature DBAL 4 de modification de colonne (12 novembre 2026)
 
 La génération d'un changement de type produit `Table::modifyColumn($name, ['type' => Type::getType($type), ...$options])` et non la signature à trois arguments de `addColumn()`. Le type est un objet Doctrine Type ; la migration source est générée sans exécuter la modification. Une régression vérifie les instructions `up()` et `down()`.
+
+### Index introspectés avec `lengths: [null]` (12 novembre 2026)
+
+Un index associé à une relation ORM peut être introspecté par DBAL avec `getOptions() === ['lengths' => [null]]`. Lorsque `lengths` contient uniquement des valeurs nulles, non vide et de même cardinalité que les colonnes de l'index, le renderer traite cette option comme une absence de longueur de préfixe et peut générer l'ajout ou la suppression de l'index. Les flags et toute autre option restent refusés tant que leur restitution n'est pas prise en charge ; une longueur de préfixe réelle (ex. `12`) reste interdite. Ce comportement s'applique aux index de tables créées, ajoutés et supprimés, y compris leur restauration dans `down()`. Tests automatisés ajoutés ; validation CI et crash-test PostgreSQL/MySQL à confirmer.
