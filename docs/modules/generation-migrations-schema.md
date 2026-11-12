@@ -137,3 +137,7 @@ Le générateur ordonne les créations de tables, les modifications de tables ex
 ### Dernière entité supprimée
 
 `ModuleDesiredSchema` accepte désormais une sélection de métadonnées ORM vide et retourne un schéma Doctrine vide. Cette situation correspond notamment à la suppression de la dernière entité du module ; les tables possédées restent visibles du côté base grâce à `ModuleSchemaScope` et peuvent donc générer leurs migrations de suppression. Le comportement nécessite encore un test d'intégration réel.
+
+### Alignement des tests du garde-fou (12 novembre 2026)
+
+Les tests `ModuleSchemaDiffGuardTest` utilisent désormais `assertSupported()` et attendent l'acceptation des suppressions de tables et colonnes, conformément à la décision ORM faisant foi. Les refus de diff DBAL inconnu et d'opérations sur schémas/séquences restent testés. Ce correctif concerne les tests, sans réintroduire l'ancienne interdiction des opérations destructrices.
