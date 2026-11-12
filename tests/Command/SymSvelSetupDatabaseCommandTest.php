@@ -29,7 +29,6 @@ final class SymSvelSetupDatabaseCommandTest extends TestCase
             @unlink($this->root.'/'.$path);
         }
         @unlink($this->root.'/backend/migrations/Version20261112171400.php');
-        @unlink($this->root.'/.symsvel/native-migration-observation.json');
         @rmdir($this->root.'/backend/migrations');
         @rmdir($this->root.'/backend/var/data');
         @rmdir($this->root.'/backend/var');
@@ -61,11 +60,11 @@ exit('.$exitExpression.');
         $this->fakeConsole();
         self::assertSame(0, $this->command()->execute([]));
         self::assertSame(SetupState::DATABASE_READY, (new SetupState())->read($this->root));
-        self::assertSame('Version20261112171400.php', json_decode((string) file_get_contents($this->root.'/.symsvel/native-migration-observation.json'), true)['file']);
         self::assertSame([
             'doctrine:database:create --if-not-exists --no-interaction',
-            'make:migration --no-interaction',
             'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
+            'make:migration --no-interaction',
+            'doctrine:migrations:migrate --no-interaction',
         ], file($this->root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
     }
 
@@ -76,8 +75,9 @@ exit('.$exitExpression.');
         self::assertSame(0, $this->command()->execute([]));
         self::assertDirectoryExists($this->root.'/backend/var/data');
         self::assertSame([
-            'make:migration --no-interaction',
             'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
+            'make:migration --no-interaction',
+            'doctrine:migrations:migrate --no-interaction',
         ], file($this->root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
         self::assertSame(SetupState::DATABASE_READY, (new SetupState())->read($this->root));
     }
