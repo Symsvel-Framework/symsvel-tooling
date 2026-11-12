@@ -96,3 +96,7 @@ Le hook `assets/symsvel-module-sync.php` exécute toujours `symsvel:module:sync 
 
 Cette optimisation porte exclusivement sur les builds déclenchés par la synchronisation des **fichiers de modules Svelte gérés**. Elle ne remplace pas les builds explicites du setup, d'une mise à jour des dépendances npm ou d'une modification manuelle du code Svelte hors registre. Le registre absent avant une première synchronisation est traité comme vide ; les fichiers nouvellement publiés déclenchent leur build. Les tests unitaires couvrent les créations, modifications, suppressions, composants inchangés et frontières de chemins. CI et crash-test XT requis avant validation.
 
+
+## Canal dev et branches Git (12/11/2026)
+
+Le lanceur transactionnel, lorsqu'il reçoit `--dev` sur un `require` sans contrainte explicite, demande désormais `dev-dev` (branche Git `dev`) plutôt que `dev-main`. La CLI utilise également `dev-dev` lors du bootstrap des modules natifs. Les dépôts VCS officiels sont préparés dans la transaction existante ; les contraintes explicites restent prioritaires. Les références historiques à `dev-main` ci-dessus documentent les anciennes fixtures et ne décrivent pas le nouveau canal. Vérification finale : CI puis crash-test XT avec contrôle des versions résolues dans `composer.lock`.
