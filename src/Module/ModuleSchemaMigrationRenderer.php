@@ -115,7 +115,25 @@ final class ModuleSchemaMigrationRenderer
 
     private function changeColumnStatement(object $column): string
     {
-        return str_replace('$table->addColumn(', '$table->modifyColumn(', $this->columnStatement($column));
+        $type = \Doctrine\DBAL\Types\Type::getTypeRegistry()->lookupName($column->getType());
+        $options = [
+            'notnull' => $column->getNotnull(),
+            'default' => $column->getDefault(),
+            'autoincrement' => $column->getAutoincrement(),
+            'unsigned' => $column->getUnsigned(),
+            'fixed' => $column->getFixed(),
+        ];
+        foreach (['length' => 'getLength', 'precision' => 'getPrecision', 'scale' => 'getScale'] as $key => $method) {
+            if ($column->{$method}() !== null) {
+                $options[$key] = $column->{$method}();
+            }
+        }
+        if ($column->getDefault() !== null && !is_scalar($column->getDefault())) {
+            throw new \DomainException('Valeur par défaut non représentable.');
+        }
+        $optionsCode = var_export($options, true);
+        $optionsCode = preg_replace('/^array \(/', 'array ('."\n"."  'type' => \\Doctrine\\DBAL\\Types\\Type::getType(".var_export($type, true)."),", $optionsCode, 1);
+        return '        $table->modifyColumn('.var_export($column->getName(), true).', '.$optionsCode.');';
     }
 
     private function indexStatement(object $index): string
