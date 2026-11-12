@@ -132,7 +132,7 @@ final class ModuleSchemaMigrationRenderer
             throw new \DomainException('Valeur par défaut non représentable.');
         }
         $optionsCode = var_export($options, true);
-        $optionsCode = preg_replace('/^array \(/', 'array ('."\n"."  'type' => \\Doctrine\\DBAL\\Types\\Type::getType(".var_export($type, true)."),", $optionsCode, 1);
+        $optionsCode = 'array ('."\n".'  '.var_export('type', true).' => \\Doctrine\\DBAL\\Types\\Type::getType('.var_export($type, true).'),'."\n".substr($optionsCode, strlen('array ('));
         return '        $table->modifyColumn('.var_export($column->getName(), true).', '.$optionsCode.');';
     }
 
