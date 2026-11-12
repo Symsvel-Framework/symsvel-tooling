@@ -133,3 +133,7 @@ Le garde-fou accepte les suppressions de tables et les modifications de colonnes
 Le générateur ordonne les créations de tables, les modifications de tables existantes puis les suppressions de tables. Les contraintes entrantes depuis d'autres modules restent bloquantes. Les FK directes dans une table créée ou recréée sont encore refusées par le renderer : les cas complexes devront être traités et testés séparément. Les conversions de type dépendent de la plateforme DBAL ; les tests PostgreSQL/MySQL et le crash-test XT sont indispensables avant toute validation ou promotion vers `main`.
 
 **Statut : implémentation initiale sur `dev`, validation fonctionnelle et CI non encore établies.**
+
+### Dernière entité supprimée
+
+`ModuleDesiredSchema` accepte désormais une sélection de métadonnées ORM vide et retourne un schéma Doctrine vide. Cette situation correspond notamment à la suppression de la dernière entité du module ; les tables possédées restent visibles du côté base grâce à `ModuleSchemaScope` et peuvent donc générer leurs migrations de suppression. Le comportement nécessite encore un test d'intégration réel.
