@@ -34,6 +34,9 @@ final class ModuleDesiredSchema
         }
 
         $schema = (new \Doctrine\ORM\Tools\SchemaTool($entityManager))->getSchemaFromMetadata($metadata);
+        // Messenger's Doctrine transport injects this infrastructure table via
+        // postGenerateSchema; it never belongs to a module migration.
+        $this->excludeMessengerTransportTable($schema);
         $tables = [];
         foreach ($schema->getTables() as $table) {
             $tables[] = $table->getName();
@@ -41,5 +44,11 @@ final class ModuleDesiredSchema
         sort($tables, SORT_STRING);
 
         return ['schema' => $schema, 'tables' => $tables];
+    }
+    private function excludeMessengerTransportTable(object $schema): void
+    {
+        if ($schema->hasTable('messenger_messages')) {
+            $schema->dropTable('messenger_messages');
+        }
     }
 }
