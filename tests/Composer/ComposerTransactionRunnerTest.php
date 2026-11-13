@@ -63,11 +63,11 @@ final class ComposerTransactionRunnerTest extends TestCase
             try {
                 $runner->run($this->backend, ['update', 'symsvel-framework/module-settings']);
                 self::fail('Expected snapshot failure.');
-            } catch (\\RuntimeException $error) {
+            } catch (\RuntimeException $error) {
                 self::assertStringContainsString('Snapshot initial incomplet', $error->getMessage());
                 self::assertStringContainsString('Snapshot runtime refusé : lien symbolique', $error->getMessage());
                 self::assertStringContainsString('/vendor', $error->getMessage());
-                self::assertInstanceOf(\\RuntimeException::class, $error->getPrevious());
+                self::assertInstanceOf(\RuntimeException::class, $error->getPrevious());
                 self::assertCount(1, glob($this->backend.'/.symsvel/transactions/*'));
             }
         } finally {
