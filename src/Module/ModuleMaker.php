@@ -42,11 +42,12 @@ final class ModuleMaker
         if (in_array('app', $componentsSelected, true) || in_array('front', $componentsSelected, true)) {
             $docsSelected[] = 'user';
         }
-        $root = rtrim($workspace, '/').'/modules';
+        $frameworkWorkspace = is_dir($workspace.'/symsvel-cli') && is_dir($workspace.'/symsvel-tooling');
+        $root = $frameworkWorkspace ? rtrim($workspace, '/') : rtrim($workspace, '/').'/modules';
         if (!is_dir($workspace)) {
             throw new \RuntimeException('Workspace introuvable.');
         }
-        $destination = $root.'/'.$name;
+        $destination = $root.'/'.($frameworkWorkspace ? 'symsvel-module-'.$name : $name);
         if (file_exists($destination) || is_link($destination)) {
             throw new \RuntimeException('Le module existe déjà : '.$destination);
         }
@@ -162,7 +163,7 @@ final class ModuleMaker
         $files['back/config/.gitkeep'] = '';
         $files['Migration/.gitkeep'] = '';
         if (!is_dir($root) && !mkdir($root, 0775, true) && !is_dir($root)) {
-            throw new \RuntimeException('Impossible de créer modules/.');
+            throw new \RuntimeException('Impossible de créer le répertoire des modules.');
         }
         if (!mkdir($destination, 0775)) {
             throw new \RuntimeException('Impossible de créer le module.');
