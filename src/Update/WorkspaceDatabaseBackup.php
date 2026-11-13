@@ -33,6 +33,15 @@ final class WorkspaceDatabaseBackup
             } elseif ($driver === 'postgresql') {
                 [$connection, $env] = $this->postgresConnection($parts);
                 $this->run(['pg_dump', '--format=custom', '--no-owner', '--no-acl', '--file='.$path, ...$connection], $env);
+            } elseif ($driver === 'mysql' || $driver === 'mariadb') {
+                [$connection, $env, $database] = $this->mysqlConnection($parts);
+                $this->assertRestorableMysqlDatabase($database);
+                $this->run([
+                    'mysqldump', '--single-transaction', '--routines', '--events',
+                    '--triggers', '--hex-blob', '--no-tablespaces',
+                    '--add-drop-database', '--databases', $database,
+                    '--result-file='.$path, ...$connection,
+                ], $env);
             } else {
                 throw new \DomainException('Sauvegarde globale non prise en charge pour '.$driver.'.');
             }
@@ -98,6 +107,18 @@ final class WorkspaceDatabaseBackup
                 }
                 throw $failure;
             }
+        } elseif ($driver === 'mysql' || $driver === 'mariadb') {
+            [$connection, $env, $database] = $this->mysqlConnection($parts);
+            $this->assertRestorableMysqlDatabase($database);
+            // A full-database dump is required: object-level imports would leave
+            // tables created after the checkpoint behind.
+            $dump = file_get_contents($checkpoint['path'], false, null, 0, 65536);
+            if ($dump === false || !str_contains($dump, 'Current Database: `'.$database.'`')
+                || !str_contains($dump, 'DROP DATABASE IF EXISTS `'.$database.'`')
+                || !str_contains($dump, 'USE `'.$database.'`')) {
+                throw new \RuntimeException('Archive MySQL/MariaDB invalide ou base cible différente.');
+            }
+            $this->runWithInput(['mysql', ...$connection], $env, $checkpoint['path']);
         } else {
             throw new \DomainException('Restauration globale non prise en charge pour '.$driver.'.');
         }
@@ -130,6 +151,8 @@ final class WorkspaceDatabaseBackup
         return match (strtolower((string) $parts['scheme'])) {
             'postgres', 'pgsql', 'postgresql' => 'postgresql',
             'sqlite' => 'sqlite',
+            'mysql' => 'mysql',
+            'mariadb' => 'mariadb',
             default => throw new \DomainException('Moteur BDD non pris en charge : '.$parts['scheme']),
         };
     }
@@ -163,6 +186,61 @@ final class WorkspaceDatabaseBackup
         $arguments[] = '--dbname='.$database;
         $env = isset($parts['pass']) ? ['PGPASSWORD' => rawurldecode((string) $parts['pass'])] : [];
         return [$arguments, $env];
+    }
+
+    /**
+     * @param array<string, mixed> $parts
+     * @return array{list<string>, array<string, string>, string}
+     */
+    private function mysqlConnection(array $parts): array
+    {
+        $arguments = [];
+        foreach (['host' => '--host=', 'port' => '--port=', 'user' => '--user='] as $key => $flag) {
+            if (isset($parts[$key])) {
+                $arguments[] = $flag.rawurldecode((string) $parts[$key]);
+            }
+        }
+        $database = ltrim(rawurldecode((string) ($parts['path'] ?? '')), '/');
+        if ($database === '' || !preg_match('/^[A-Za-z0-9_-]+$/D', $database)) {
+            throw new \InvalidArgumentException('Nom de base MySQL/MariaDB invalide.');
+        }
+        $env = isset($parts['pass']) ? ['MYSQL_PWD' => rawurldecode((string) $parts['pass'])] : [];
+
+        return [$arguments, $env, $database];
+    }
+
+    private function assertRestorableMysqlDatabase(string $database): void
+    {
+        if (in_array(strtolower($database), ['mysql', 'information_schema', 'performance_schema', 'sys'], true)) {
+            throw new \DomainException('Restauration destructive de la base système interdite.');
+        }
+    }
+
+    /** @param list<string> $command
+     *  @param array<string, string> $env
+     */
+    private function runWithInput(array $command, array $env, string $path): void
+    {
+        $stream = fopen($path, 'rb');
+        if ($stream === false) {
+            throw new \RuntimeException('Lecture du checkpoint BDD impossible.');
+        }
+        try {
+            $process = new Process($command, null, $env);
+            $process->setInput($stream);
+            $process->setTimeout(900);
+            $process->run();
+            if (!$process->isSuccessful()) {
+                $diagnostic = trim($process->getErrorOutput());
+                $diagnostic = preg_replace('/(?i)(password|passphrase)\\s*[:=]\\s*\\S+/', '$1=[REDACTED]', $diagnostic);
+                throw new \RuntimeException(
+                    'Restauration MySQL/MariaDB échouée (code '.$process->getExitCode().')'.
+                    ($diagnostic !== '' ? ' : '.substr($diagnostic, 0, 1200) : '.'),
+                );
+            }
+        } finally {
+            fclose($stream);
+        }
     }
 
     /** @param list<string> $command
