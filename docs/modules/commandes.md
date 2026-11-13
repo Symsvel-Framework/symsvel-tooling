@@ -44,3 +44,7 @@ Chaque fichier source doit être nommé `VersionYYYYMMDDHHMMSS.php`. Le compilat
 ## Génération depuis le workspace Framework
 
 Depuis une racine contenant les dépôts frères `symsvel-cli/` et `symsvel-tooling/`, `symsvel make:module mail --scopes=back,bo` crée `symsvel-module-mail/` directement à la racine. Le nom Composer reste `symsvel-framework/module-mail`. Le Maker accepte également `symsvel-module-mail` comme nom d'entrée. Depuis un projet utilisateur classique, le parcours historique de génération dans `modules/mail/` est conservé.
+
+## Synchronisation des paramètres de modules (en cours)
+
+Après les migrations d'une transaction Composer disposant d'une base configurée et du module Settings, `ComposerTransactionRunner` rafraîchit l'inventaire Composer via `symsvel:module:sync --source=composer`, puis appelle la commande interne `symsvel:settings:sync`. Cette dernière est fournie par Settings et gère les lignes de `symsvel_settings` et `backend/.symsvel/modules-params.json`. Ce branchement ne couvre pas encore la finalisation du Setup initial sans `DATABASE_URL` lors du bootstrap, ni tous les scénarios de récupération. La commande Symfony interne n'est pas une nouvelle interface utilisateur publique. Validation CI et CT XT requise.
