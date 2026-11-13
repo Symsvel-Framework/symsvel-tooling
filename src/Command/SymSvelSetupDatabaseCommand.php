@@ -130,6 +130,16 @@ final class SymSvelSetupDatabaseCommand extends Command
             if (!$migrate->isSuccessful()) {
                 throw new \RuntimeException('Native Doctrine migration failed: '.trim($migrate->getErrorOutput().' '.$migrate->getOutput()));
             }
+            // Settings rows are provisioned only after all module and native migrations.
+            // The Settings module owns this command; Tooling only orchestrates it.
+            if (is_file($this->projectDir.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
+                $sync = new Process([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $this->projectDir);
+                $sync->setTimeout(null);
+                $sync->run();
+                if (!$sync->isSuccessful()) {
+                    throw new \RuntimeException('Initial settings synchronization failed: '.trim($sync->getErrorOutput().' '.$sync->getOutput()));
+                }
+            }
             $this->state->transition($workspace, SetupState::RUNNING, SetupState::DATABASE_READY);
             $output->writeln('<info>Database and migrations ready.</info>');
             return Command::SUCCESS;
