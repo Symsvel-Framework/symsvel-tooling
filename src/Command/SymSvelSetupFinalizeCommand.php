@@ -85,6 +85,15 @@ final class SymSvelSetupFinalizeCommand extends Command
             if (!$process->isSuccessful()) {
                 throw new \RuntimeException('Migrations non finalisées : '.trim($process->getErrorOutput().' '.$process->getOutput()));
             }
+            // Legacy one-phase setup must provision Settings after module migrations too.
+            if (is_file($this->projectDir.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
+                $settings = new Process([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $this->projectDir);
+                $settings->setTimeout(null);
+                $settings->run();
+                if (!$settings->isSuccessful()) {
+                    throw new \RuntimeException('Settings synchronization failed: '.trim($settings->getErrorOutput().' '.$settings->getOutput()));
+                }
+            }
             $bootstrap = new Process([
                 PHP_BINARY, 'bin/console', 'symsvel:admins:bootstrap', '--no-interaction',
             ], $this->projectDir);
