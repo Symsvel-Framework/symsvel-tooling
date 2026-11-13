@@ -127,7 +127,7 @@ final class ComposerTransactionRunner
             // No Composer command has started. Keep the snapshot for diagnosis;
             // do not report a successful transaction or attempt a partial restore.
             throw new \RuntimeException(
-                'BACK / Snapshot initial incomplet : opération Composer annulée avant exécution ; snapshot conservé : '.$transaction,
+                'BACK / Snapshot initial incomplet : '.$failure->getMessage().'; opération Composer annulée avant exécution ; snapshot conservé : '.$transaction,
                 0,
                 $failure,
             );
