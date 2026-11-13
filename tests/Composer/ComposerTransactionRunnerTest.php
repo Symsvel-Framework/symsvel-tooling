@@ -49,6 +49,35 @@ final class ComposerTransactionRunnerTest extends TestCase
     }
 
 
+    public function testIncompleteInitialSnapshotReportsUnderlyingFailureBeforeComposer(): void
+    {
+        // A symbolic vendor directory is rejected by RuntimeArtifactSnapshot.
+        // No Composer command may execute and the incomplete checkpoint remains.
+        $this->deleteDirectory($this->backend.'/vendor');
+        symlink(sys_get_temp_dir(), $this->backend.'/vendor');
+
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+                self::fail('Composer must not run when the initial snapshot fails.');
+            });
+            try {
+                $runner->run($this->backend, ['update', 'symsvel-framework/module-settings']);
+                self::fail('Expected snapshot failure.');
+            } catch (\\RuntimeException $error) {
+                self::assertStringContainsString('Snapshot initial incomplet', $error->getMessage());
+                self::assertStringContainsString('Snapshot runtime refusé : lien symbolique', $error->getMessage());
+                self::assertStringContainsString('/vendor', $error->getMessage());
+                self::assertInstanceOf(\\RuntimeException::class, $error->getPrevious());
+                self::assertCount(1, glob($this->backend.'/.symsvel/transactions/*'));
+            }
+        } finally {
+            unlink($this->backend.'/vendor');
+            foreach (glob($this->backend.'/.symsvel/transactions/*') ?: [] as $directory) {
+                $this->deleteDirectory($directory);
+            }
+        }
+    }
+
     public function testCompiledMigrationCleanupAcceptsRegisteredDoctrineVersion(): void
     {
         $directory = $this->backend.'/migrations';
