@@ -100,3 +100,9 @@ Cette optimisation porte exclusivement sur les builds déclenchés par la synchr
 ## Canal dev et branches Git (12/11/2026)
 
 Le lanceur transactionnel, lorsqu'il reçoit `--dev` sur un `require` sans contrainte explicite, demande désormais `dev-dev` (branche Git `dev`) plutôt que `dev-main`. La CLI utilise également `dev-dev` lors du bootstrap des modules natifs. Les dépôts VCS officiels sont préparés dans la transaction existante ; les contraintes explicites restent prioritaires. Les références historiques à `dev-main` ci-dessus documentent les anciennes fixtures et ne décrivent pas le nouveau canal. Vérification finale : CI puis crash-test XT avec contrôle des versions résolues dans `composer.lock`.
+
+## Diagnostic d'un snapshot initial incomplet (13/11/2026)
+
+Si la préparation du checkpoint échoue **avant toute commande Composer**, le lanceur conserve la transaction incomplète et affiche désormais la cause technique de l'exception initiale dans le message `BACK / Snapshot initial incomplet` (en conservant l'exception précédente). La transaction n'est ni exécutée ni restaurée partiellement. Le chemin du checkpoint reste indiqué pour diagnostic ; ne pas supprimer celui-ci avant analyse.
+
+Un test de non-régression injecte un `vendor/` symbolique refusé par `RuntimeArtifactSnapshot`, vérifie que Composer n'est jamais lancé, que la cause est visible et que le checkpoint est conservé. **Validation restante :** CI verte puis nouvelle tentative contrôlée de `symsvel update symsvel-framework/module-settings` sur XT pour obtenir la cause réelle du défaut rencontré.
