@@ -40,3 +40,7 @@ Voir [le contrat des modules](contrat.md) et [les transactions Composer](../comp
 ### Contrat des versions de migration (chantier en cours)
 
 Chaque fichier source doit être nommé `VersionYYYYMMDDHHMMSS.php`. Le compilateur conserve cet identifiant dans `backend/migrations/` et refuse une version déjà présente au lieu de la renommer. Les fichiers historiques `001_*.php` des modules natifs doivent être normalisés avant utilisation de cette branche. Le compilateur génère une migration Doctrine qui compare le schéma réel de la connexion DBAL avec une copie modifiée par les opérations `Schema` du module, puis transmet les instructions SQL adaptées à la plateforme à `addSql()`. Les migrations de données conservent leurs appels `addSql()`. **Ce mécanisme doit encore être validé en intégration sur PostgreSQL et MySQL avant tout merge.** Les fichiers historiques `001_*.php` restent incompatibles tant que les modules natifs ne sont pas normalisés.
+
+## Génération depuis le workspace Framework
+
+Depuis une racine contenant les dépôts frères `symsvel-cli/` et `symsvel-tooling/`, `symsvel make:module mail --scopes=back,bo` crée `symsvel-module-mail/` directement à la racine. Le nom Composer reste `symsvel-framework/module-mail`. Le Maker accepte également `symsvel-module-mail` comme nom d'entrée. Depuis un projet utilisateur classique, le parcours historique de génération dans `modules/mail/` est conservé.
