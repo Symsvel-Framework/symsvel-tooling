@@ -140,6 +140,10 @@ final class ComposerTransactionRunner
             $this->prepareDevelopmentModuleRepositories($backend, $arguments, $progress);
             $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
             $this->applyComposerMigrations($backend, $databaseUrl, $progress, $bootstrap);
+            if ($databaseUrl !== null && is_file($backend.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
+                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backend, $progress);
+                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $backend, $progress);
+            }
             $this->removeCompiledMigrations($backend, $removedVersions);
         } catch (\Throwable $failure) {
             $recoveryErrors = [];
