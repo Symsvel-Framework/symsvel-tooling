@@ -133,6 +133,32 @@ final class ModuleMakerTest extends TestCase
         }
     }
 
+    public function testFrameworkWorkspaceUsesSiblingRepositoryName(): void
+    {
+        $workspace = sys_get_temp_dir().'/symsvel-framework-maker-'.bin2hex(random_bytes(6));
+        mkdir($workspace);
+        mkdir($workspace.'/symsvel-cli');
+        mkdir($workspace.'/symsvel-tooling');
+        try {
+            $path = (new ModuleMaker())->create($workspace, 'symsvel-module-mail', 'symsvel-framework', 'bo');
+            self::assertSame($workspace.'/symsvel-module-mail', $path);
+            self::assertDirectoryDoesNotExist($workspace.'/modules');
+            self::assertFileExists($path.'/back/src/MailBundle.php');
+            self::assertFileExists($path.'/bo/tsconfig.json');
+            $composer = json_decode((string) file_get_contents($path.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame('symsvel-framework/module-mail', $composer['name']);
+        } finally {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($workspace, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($iterator as $item) {
+                $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+            }
+            rmdir($workspace);
+        }
+    }
+
     public function testRejectsUnknownProfile(): void
     {
         $this->expectException(\InvalidArgumentException::class);
