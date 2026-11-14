@@ -138,7 +138,17 @@ final class ComposerTransactionRunner
                 $removedVersions = $this->removeModuleMigrations($backend, $arguments, $databaseUrl, $progress);
             }
             $this->prepareDevelopmentModuleRepositories($backend, $arguments, $progress);
-            $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
+            // Composer's post-update scripts run cache:clear before the application's
+            // legacy module-sync hook. Defer them until ownership is refreshed.
+            $deferScripts = is_file($backend.'/bin/console');
+            $composerArguments = array_merge(['composer'], $arguments, $deferScripts ? ['--no-scripts'] : []);
+            $this->execute($composerArguments, $backend, $progress);
+            if ($deferScripts) {
+                // Pure PHP metadata writers: never boot Symfony with stale module paths.
+                (new \\SymSvel\\Tooling\\Module\\ComposerModuleBundleMapWriter())->write($backend);
+                (new \\SymSvel\\Tooling\\Module\\ComposerModuleInventoryWriter())->write($backend);
+                $this->execute(['composer', 'run-script', 'post-update-cmd'], $backend, $progress);
+            }
             // Ownership compilation consumes the refreshed Composer module inventory.
             // Publish it before booting the container for migrations or settings.
             if (is_file($backend.'/bin/console')) {
