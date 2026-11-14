@@ -116,3 +116,9 @@ Un test de non-régression injecte un `vendor/` symbolique refusé par `RuntimeA
 **Attention à la cohérence :** l'export `--single-transaction` garantit une vue cohérente pour les tables transactionnelles (notamment InnoDB), pas pour les tables non transactionnelles ni pour des modifications DDL concurrentes. Un crash-test dédié doit couvrir les moteurs de stockage réellement employés par le projet avant de considérer la garantie de rollback acquise.
 
 **Tests :** les scénarios de refus des bases système et des archives incohérentes sont exécutables sans serveur SQL. Les tests d'intégration destructifs, uniquement sur une base nommée `symsvel_rollback_ci`, sont activés séparément par `SYMSVEL_TEST_MYSQL_URL` et `SYMSVEL_TEST_MARIADB_URL` ; ils vérifient la restauration des données et la suppression d'une table créée après capture. CI verte et crash-tests XT restent requis.
+
+## Scripts Composer et compilation du conteneur (14/11/2026)
+
+Pour les projets disposant de `bin/console`, Tooling exécute `composer require/update/remove` avec `--no-scripts`, republie directement l'inventaire Composer vérifié (`backend/.symsvel/modules.json`) et la carte des Bundles (`bundles.php`) sans démarrer Symfony, puis rejoue `composer run-script post-update-cmd`. Ce séquencement empêche `cache:clear` de charger des chemins de modules déjà supprimés lors d'un `remove` ; il fonctionne également sur les projets existants dont le `composer.json` racine ne contient pas encore le nouveau hook de précache de Back. Les scripts Symfony habituels restent exécutés et le rollback de la transaction couvre leur échec.
+
+Un test de non-régression contrôle l'ordre et la publication avant exécution des scripts. La CI et le crash-test de suppression Mails sur XT restent à confirmer.
