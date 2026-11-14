@@ -96,6 +96,21 @@ final class ComposerTransactionRunnerTest extends TestCase
         }
     }
 
+
+    public function testComposerInventoryRefreshRunsAfterComposerAndBeforeSettings(): void
+    {
+        $commands = [];
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use (&$commands): void {
+            $commands[] = $command;
+        });
+        $runner->run($this->backend, ['update', 'acme/example']);
+        self::assertSame(['composer', 'update', 'acme/example'], $commands[0]);
+        self::assertSame(
+            [PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'],
+            $commands[1],
+        );
+    }
+
     public function testStableChannelNeverRegistersDevelopmentModuleRepository(): void
     {
         \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'stable');
