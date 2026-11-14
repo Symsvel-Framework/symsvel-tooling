@@ -107,7 +107,7 @@ final class ComposerTransactionRunnerTest extends TestCase
         $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:^1.0']);
         self::assertSame($original, file_get_contents($this->backend.'/composer.json'));
         self::assertContains(['composer', 'require', 'symsvel-framework/module-demo:^1.0'], $commands);
-        self::assertCount(1, $commands);
+        self::assertContains([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $commands);
     }
 
     public function testDevelopmentChannelLeavesThirdPartyComposerRepositoriesUntouched(): void
@@ -120,7 +120,7 @@ final class ComposerTransactionRunnerTest extends TestCase
         });
         $runner->run($this->backend, ['require', 'acme/example:^2.0']);
         self::assertSame($original, file_get_contents($this->backend.'/composer.json'));
-        self::assertSame([['composer', 'require', 'acme/example:^2.0']], $commands);
+        self::assertSame([['composer', 'require', 'acme/example:^2.0'], [PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction']], $commands);
     }
 
     public function testDevModulePrefersLocalPathRepository(): void
@@ -145,7 +145,7 @@ final class ComposerTransactionRunnerTest extends TestCase
             ];
             self::assertContains(['composer', 'config', '--json', 'repositories.module-demo-dev', json_encode($expected, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)], $commands);
             self::assertContains(['composer', 'require', 'symsvel-framework/module-demo:dev-main'], $commands);
-            self::assertSame(2, count($commands));
+            self::assertSame(3, count($commands));
         } finally {
             unlink($module.'/composer.json');
             rmdir($module);
