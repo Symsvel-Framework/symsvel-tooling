@@ -141,7 +141,9 @@ final class ComposerTransactionRunner
             $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
             // Ownership compilation consumes the refreshed Composer module inventory.
             // Publish it before booting the container for migrations or settings.
-            $this->execute([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backend, $progress);
+            if (is_file($backend.'/bin/console')) {
+                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backend, $progress);
+            }
             $this->applyComposerMigrations($backend, $databaseUrl, $progress, $bootstrap);
             if ($databaseUrl !== null && is_file($backend.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
                 $this->execute([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $backend, $progress);
