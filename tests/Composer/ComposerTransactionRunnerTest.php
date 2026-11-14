@@ -97,6 +97,32 @@ final class ComposerTransactionRunnerTest extends TestCase
     }
 
 
+    public function testComposerScriptsAreDeferredUntilModuleInventoryIsPublished(): void
+    {
+        mkdir($this->backend.'/bin');
+        file_put_contents($this->backend.'/bin/console', '<?php // fixture');
+        $commands = [];
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend) use (&$commands): void {
+                $commands[] = $command;
+                if ($command === ['composer', 'run-script', 'post-update-cmd']) {
+                    self::assertFileExists($backend.'/.symsvel/modules.json');
+                    self::assertFileExists($backend.'/.symsvel/bundles.php');
+                    $inventory = json_decode((string) file_get_contents($backend.'/.symsvel/modules.json'), true, 512, JSON_THROW_ON_ERROR);
+                    self::assertSame(['schema' => 1, 'modules' => []], $inventory);
+                }
+            });
+            $runner->run($this->backend, ['update']);
+            self::assertSame(['composer', 'update', '--no-scripts'], $commands[0]);
+            self::assertSame(['composer', 'run-script', 'post-update-cmd'], $commands[1]);
+        } finally {
+            @unlink($this->backend.'/bin/console');
+            @rmdir($this->backend.'/bin');
+            @unlink($this->backend.'/.symsvel/modules.json');
+            @unlink($this->backend.'/.symsvel/bundles.php');
+        }
+    }
+
     public function testStableChannelNeverRegistersDevelopmentModuleRepository(): void
     {
         \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'stable');
