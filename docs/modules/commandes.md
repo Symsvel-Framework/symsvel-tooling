@@ -52,3 +52,7 @@ Après les migrations d'une transaction Composer disposant d'une base configuré
 La préparation initiale de la base (`symsvel:setup:database`) synchronise les paramètres après les migrations Doctrine natives, avant `DATABASE_READY`. La finalisation historique (`symsvel:setup:finalize`) les synchronise après les migrations. Pour Composer, l'inventaire des modules est rafraîchi avant le chargement du conteneur Symfony, puis les paramètres après les migrations. La synchronisation reste conditionnelle à Settings et à une BDD configurée. Les CI et les crash-tests XT restent requis avant validation.
 
 Les tests de transaction Composer vérifient maintenant l'appel explicite de rafraîchissement de l'inventaire après Composer, y compris lorsque la transaction ne comporte pas de migration. Les attentes historiques qui ne comptaient que l'appel Composer ont été ajustées. La commande de synchronisation des paramètres reste conditionnelle à la présence du module Settings et à une connexion BDD configurée.
+
+### Visibilité des tests ignorés en CI
+
+La CI du Tooling lance PHPUnit avec `--display-skipped` en plus de `--display-warnings --fail-on-warning`. Les motifs des tests ignorés apparaissent dans les logs du job PHPUnit pour distinguer les prérequis absents des exclusions à corriger. Ce réglage ne change ni l'exécution ni le statut des tests ignorés.
