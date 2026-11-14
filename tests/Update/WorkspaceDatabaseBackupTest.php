@@ -63,7 +63,7 @@ final class WorkspaceDatabaseBackupTest extends TestCase
                 || ($parts['scheme'] ?? '') !== $driver) {
                 self::fail('Destructive MySQL/MariaDB tests require a dedicated symsvel_rollback_ci database.');
             }
-            $args = ['mysql'];
+            $args = ['mysql', '--batch', '--skip-column-names'];
             foreach (['host' => '--host=', 'port' => '--port=', 'user' => '--user='] as $key => $prefix) {
                 if (isset($parts[$key])) {
                     $args[] = $prefix.rawurldecode((string) $parts[$key]);
