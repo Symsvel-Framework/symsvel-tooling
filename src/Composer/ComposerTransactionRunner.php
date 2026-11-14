@@ -145,8 +145,8 @@ final class ComposerTransactionRunner
             $this->execute($composerArguments, $backend, $progress);
             if ($deferScripts) {
                 // Pure PHP metadata writers: never boot Symfony with stale module paths.
-                (new \\SymSvel\\Tooling\\Module\\ComposerModuleBundleMapWriter())->write($backend);
-                (new \\SymSvel\\Tooling\\Module\\ComposerModuleInventoryWriter())->write($backend);
+                (new \SymSvel\Tooling\Module\ComposerModuleBundleMapWriter())->write($backend);
+                (new \SymSvel\Tooling\Module\ComposerModuleInventoryWriter())->write($backend);
                 $this->execute(['composer', 'run-script', 'post-update-cmd'], $backend, $progress);
             }
             // Ownership compilation consumes the refreshed Composer module inventory.
