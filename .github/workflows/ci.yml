@@ -42,4 +42,4 @@ jobs:
           SYMSVEL_CI_POSTGRES_PASSWORD: ${{ secrets.SYMSVEL_CI_POSTGRES_PASSWORD }}
         run: |
           export SYMSVEL_TEST_POSTGRES_URL="$(php -r 'echo "postgresql://symsvel_ci:".rawurlencode(getenv("SYMSVEL_CI_POSTGRES_PASSWORD"))."@postgres:5432/symsvel_rollback_ci";')"
-          vendor/bin/phpunit --display-warnings --fail-on-warning
+          vendor/bin/phpunit --display-warnings --display-skipped --fail-on-warning
