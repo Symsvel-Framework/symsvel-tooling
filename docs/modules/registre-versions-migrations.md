@@ -12,7 +12,8 @@ Ce registre est un aide-mémoire maintenu avec les migrations des modules SymSve
 | `Version20200101000230` | Users | `symsvel-module-users/Migration/Version20200101000230.php` |
 | `Version20200101000300` | Roles | `symsvel-module-roles/Migration/Version20200101000300.php` |
 | `Version20200101000400` | Settings | `symsvel-module-settings/Migration/Version20200101000400.php` |
-| `Version20200101000500` | Auth | `symsvel-module-auth/Migration/Version20200101000500.php` |
+| `Version20200101000500` | Auth (access tokens) | `symsvel-module-auth/Migration/Version20200101000500.php` |
+| `Version20200101000501` | Auth (refresh tokens) | `symsvel-module-auth/Migration/Version20200101000501.php` |
 
 ## Règle d'attribution
 
