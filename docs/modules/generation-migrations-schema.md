@@ -169,3 +169,7 @@ Pour éviter de rejouer ou d'exécuter une migration native étrangère, la prem
 ### Correctif CT : migrations compilées déjà présentes
 
 Les migrations Schema des modules sont compilées dans `backend/migrations/Version*.php` avant `make:migration`. Le refus initial de tout fichier préexistant bloquait donc systématiquement le setup. Le contrôle prend désormais un instantané des fichiers avant la génération et identifie le **nouveau fichier uniquement** par différence ; les migrations compilées restent présentes. En reprise, le marqueur natif vérifie l'existence du fichier généré sans exiger que ce soit le seul fichier du répertoire. Le test simule une migration compilée et une migration Doctrine complémentaire. Validation CI et nouveau CT requis.
+
+## Setup : migrations techniques du squelette
+
+Le setup exécute les migrations des modules puis `doctrine:migrations:migrate`, qui applique aussi les migrations versionnées du squelette Symfony. Il ne lance plus `make:migration` : le diff ORM global pouvait générer des `DROP TABLE` pour les tables de modules non mappées comme entités ORM. La table du transport Doctrine Messenger est créée par `symsvel-back/migrations/Version20000000000000.php`. Aucun marqueur `native-migration-setup.json` n'est nécessaire.
