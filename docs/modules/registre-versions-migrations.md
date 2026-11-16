@@ -2,7 +2,7 @@
 
 Ce registre est un aide-mémoire maintenu avec les migrations des modules SymSvel. **Les fichiers `Migration/VersionYYYYMMDDHHMMSS.php` des dépôts modules sont la source de vérité** : vérifier leurs noms avant toute attribution, car ce document peut être en retard.
 
-## Versions relevées sur les branches `dev` le 15/11/2026
+## Versions relevées sur les branches `dev` au 16/11/2026
 
 | Version | Module | Source |
 | --- | --- | --- |
@@ -14,6 +14,7 @@ Ce registre est un aide-mémoire maintenu avec les migrations des modules SymSve
 | `Version20200101000400` | Settings | `symsvel-module-settings/Migration/Version20200101000400.php` |
 | `Version20200101000500` | Auth (access tokens) | `symsvel-module-auth/Migration/Version20200101000500.php` |
 | `Version20200101000501` | Auth (refresh tokens) | `symsvel-module-auth/Migration/Version20200101000501.php` |
+| `Version20261116000201` | ACLs (surcharges des libellés) | `symsvel-module-acls/Migration/Version20261116000201.php` |
 
 ## Règle d'attribution
 
@@ -23,3 +24,14 @@ Ce registre est un aide-mémoire maintenu avec les migrations des modules SymSve
 4. Vérifier l'absence de doublons avant compilation ; le compilateur refuse déjà une collision de versions Doctrine. Ne jamais renommer une migration déjà livrée/appliquée sans procédure de migration explicite.
 
 Ce registre ne réserve pas automatiquement les numéros et ne remplace pas le contrôle du compilateur. Les versions des modules tiers ou futurs ne sont pas couvertes par cette liste ; elles doivent être vérifiées à l'installation.
+
+
+## Surcharges de libellés ACLs (16/11/2026)
+
+La nouvelle migration de `symsvel-module-acls` est **additive** et crée
+`symsvel_acl_labels`, avec clé primaire composite (`resource`, `action`).
+Elle ne modifie pas la migration initiale des règles d'autorisation. Les
+versions des autres modules restent à vérifier à partir de leurs sources,
+particulièrement sur les projets XT ayant des migrations déjà enregistrées.
+Les validations requises sont CI puis compilation/exécution et CT sur les
+SGBD du projet.
