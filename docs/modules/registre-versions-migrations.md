@@ -50,3 +50,18 @@ ne chevauchent aucune de ces sources. La première utilise
 les insertions DML du référentiel natif, exécutées **après** la
 création de la table. L'exécution multibase via le compilateur
 SymSvel reste à confirmer au crash-test XT.
+
+
+## Blocage de désinstallation des modules natifs (16/11/2026)
+
+La transaction Composer refuse **avant toute prise de snapshot ou appel
+Composer** la suppression d'un paquet déclaré obligatoire par
+`backend/config/symsvel-native-modules.json`. Cette protection comprend
+`symsvel-framework/module-languages` et les autres modules natifs
+obligatoires, ainsi que les modules natifs de composants effectivement
+installés (ex. Users si App est présent). Elle ne maintient aucune
+liste dupliquée dans le Tooling : le manifeste Back est source de vérité.
+Les tests vérifient un refus sans déclencher Composer ni créer de
+checkpoint. Les projets de test isolés dépourvus de manifeste conservent
+leur fonctionnement historique. Le CT final vérifiera le refus depuis
+la CLI sur un projet réellement installé.

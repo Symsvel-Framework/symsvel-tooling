@@ -49,6 +49,9 @@ final class ComposerTransactionRunner
             }
         }
         $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
+        if ($arguments[0] === 'remove') {
+            $this->preventNativeModuleRemoval($backend, $arguments);
+        }
         if ($bootstrap) {
             if (!$this->isUnconfiguredWorkspace($backend)) {
                 throw new \RuntimeException('Bootstrap interdit hors setup initial en attente.');
@@ -356,6 +359,50 @@ final class ComposerTransactionRunner
                 $this->execute(['composer', 'config', 'repositories.'.$key, 'vcs', $url], $backend, $progress);
             }
             $repositories[$key] = $repository;
+        }
+    }
+
+    /**
+     * Keep mandatory native modules installed. Use the same persisted manifest
+     * already consumed by bootstrap, not a hardcoded Tooling package list.
+     *
+     * @param list<string> $arguments
+     */
+    private function preventNativeModuleRemoval(string $backend, array $arguments): void
+    {
+        $manifest = $backend.'/config/symsvel-native-modules.json';
+        if (!file_exists($manifest) && !is_link($manifest)) {
+            return; // Compatibility with isolated composer test fixtures.
+        }
+        if (is_link($manifest) || !is_file($manifest) || !is_readable($manifest)) {
+            throw new \RuntimeException('Manifeste des modules natifs absent ou non fiable.');
+        }
+        $config = json_decode((string) file_get_contents($manifest), true, 32, JSON_THROW_ON_ERROR);
+        if (!is_array($config) || ($config['schema'] ?? null) !== 1
+            || !is_array($config['modules'] ?? null) || !array_is_list($config['modules'])) {
+            throw new \RuntimeException('Manifeste des modules natifs invalide.');
+        }
+        $required = $config['modules'];
+        $components = $config['components'] ?? [];
+        if (!is_array($components)) {
+            throw new \RuntimeException('Modules natifs de composants invalides.');
+        }
+        foreach ($components as $component => $packages) {
+            if (!in_array($component, ['bo', 'app', 'front'], true)
+                || !is_array($packages) || !array_is_list($packages)) {
+                throw new \RuntimeException('Modules natifs de composants invalides.');
+            }
+            if (is_dir(dirname($backend).'/'.$component)) {
+                array_push($required, ...$packages);
+            }
+        }
+        foreach ($arguments as $argument) {
+            if (!is_string($argument) || !str_starts_with($argument, 'symsvel-framework/module-')) {
+                continue;
+            }
+            if (in_array($argument, $required, true)) {
+                throw new \DomainException('Module natif obligatoire non désinstallable : '.$argument);
+            }
         }
     }
 

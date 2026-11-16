@@ -920,6 +920,55 @@ final class ComposerTransactionRunnerTest extends TestCase
         self::assertDirectoryDoesNotExist($this->backend.'/.symsvel/transactions');
     }
 
+    public function testNativeModuleCannotBeRemovedEvenBeforeSnapshot(): void
+    {
+        mkdir($this->backend.'/config');
+        file_put_contents($this->backend.'/config/symsvel-native-modules.json',
+            json_encode(['schema' => 1, 'modules' => [
+                'symsvel-framework/module-languages',
+                'symsvel-framework/module-auth',
+            ], 'components' => ['app' => ['symsvel-framework/module-users']]], JSON_THROW_ON_ERROR));
+        $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+            self::fail('Composer must never be called to remove a native module.');
+        });
+        try {
+            foreach (['symsvel-framework/module-languages','symsvel-framework/module-auth'] as $package) {
+                try {
+                    $runner->run($this->backend, ['remove', $package]);
+                    self::fail('Native module was removed.');
+                } catch (\DomainException $e) {
+                    self::assertStringContainsString('natif obligatoire', $e->getMessage());
+                }
+            }
+            self::assertDirectoryDoesNotExist($this->backend.'/.symsvel/transactions');
+        } finally {
+            unlink($this->backend.'/config/symsvel-native-modules.json');
+            rmdir($this->backend.'/config');
+        }
+    }
+
+    public function testNativeComponentModuleIsProtectedOnlyWhenComponentExists(): void
+    {
+        mkdir($this->backend.'/config');
+        file_put_contents($this->backend.'/config/symsvel-native-modules.json',
+            json_encode(['schema' => 1, 'modules' => [],
+                'components' => ['app' => ['symsvel-framework/module-users']]], JSON_THROW_ON_ERROR));
+        $app = dirname($this->backend).'/app';
+        mkdir($app);
+        $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+            self::fail('Composer must not remove Users while App exists.');
+        });
+        try {
+            $this->expectException(\DomainException::class);
+            $this->expectExceptionMessage('symsvel-framework/module-users');
+            $runner->run($this->backend, ['remove', 'symsvel-framework/module-users']);
+        } finally {
+            rmdir($app);
+            unlink($this->backend.'/config/symsvel-native-modules.json');
+            rmdir($this->backend.'/config');
+        }
+    }
+
     public function testRejectsScriptBypassBeforeSnapshot(): void
     {
         $runner = new ComposerTransactionRunner();
