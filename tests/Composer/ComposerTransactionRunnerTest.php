@@ -78,6 +78,37 @@ final class ComposerTransactionRunnerTest extends TestCase
         }
     }
 
+    public function testComposerUpdateKeepsNodeDependenciesAvailableAndRestoresGeneratedBuild(): void
+    {
+        $bo = dirname($this->backend).'/bo';
+        mkdir($bo.'/node_modules/pkg', 0775, true);
+        mkdir($bo.'/build', 0775, true);
+        file_put_contents($bo.'/node_modules/pkg/index.js', 'installed dependency');
+        file_put_contents($bo.'/build/index.html', 'previous build');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use ($bo): void {
+            if (($command[0] ?? null) !== 'composer' || ($command[1] ?? null) !== 'update') {
+                self::fail('Unexpected command executed before the injected failure.');
+            }
+            // The Composer post-update hook requires these dependencies to build BO.
+            self::assertSame('installed dependency', file_get_contents($bo.'/node_modules/pkg/index.js'));
+            file_put_contents($bo.'/build/index.html', 'broken build');
+            throw new \RuntimeException('Composer failure after build change');
+        });
+
+        try {
+            try {
+                $runner->run($this->backend, ['update']);
+                self::fail('Injected Composer failure should trigger rollback.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+            }
+            self::assertSame('previous build', file_get_contents($bo.'/build/index.html'));
+            self::assertSame('installed dependency', file_get_contents($bo.'/node_modules/pkg/index.js'));
+        } finally {
+            $this->deleteDirectory($bo);
+        }
+    }
+
     public function testCompiledMigrationCleanupAcceptsRegisteredDoctrineVersion(): void
     {
         $directory = $this->backend.'/migrations';

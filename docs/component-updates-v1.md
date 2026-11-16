@@ -292,3 +292,31 @@ rollback, comme auparavant.
 Tests de régression : restauration avec lien symbolique et inode conservé,
 capture partielle, snapshot altéré et refus d'un artefact racine symbolique.
 L'incident XT ne sera clôturé qu'après CI verte et crash-test réel sur XT.
+
+
+## Snapshot runtime de la maintenance Composer (16/11/2026)
+
+Le lanceur transactionnel de `symsvel update` (sans cible ou avec un package)
+ne réalise pas `npm ci` : il met à jour Composer, synchronise les sources
+Svelte des modules et peut reconstruire leurs artefacts avec les dépendances
+Node **déjà installées**. À la différence du parcours natif
+`symsvel update bo|app|front`, le runtime initial `node_modules` ne doit
+donc pas être déplacé, remplacé ni recopié pour cette transaction.
+
+`ComposerTransactionRunner` ne sauvegarde désormais que les artefacts
+Svelte susceptibles de changer : `build`, `dist` et `.svelte-kit`.
+`node_modules` demeure en place et utilisable pendant l'exécution des hooks.
+Un échec Composer restaure les sources, le vendor PHP, les artefacts Svelte
+et la BDD selon les contrôles habituels, sans manipuler les dépendances Node
+restées inchangées.
+
+Ce changement est spécifique au lanceur transactionnel Composer.
+`WorkspaceUpdater` conserve ses snapshots incluant `node_modules` parce
+que son parcours exécute réellement `npm ci`. Ne pas généraliser cette
+exclusion au moteur global ni aux mises à jour natives. Si un futur hook
+Composer installe ou modifie des dépendances npm, le contrat devra être
+révisé avant cette évolution.
+
+Régression : test d'échec injecté après modification de `build`, exigeant
+la disponibilité continue de `node_modules` puis la restauration exacte
+du build précédent. La validation XT sur `symsvel update` reste nécessaire.

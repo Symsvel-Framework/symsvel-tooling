@@ -119,7 +119,13 @@ final class ComposerTransactionRunner
                 if (!is_dir($directory)) {
                     continue;
                 }
-                $runtime = new RuntimeArtifactSnapshot($directory, $transaction.'/'.$component);
+                // Composer updates synchronize and build Svelte sources but never run npm ci.
+                // Keep installed Node dependencies available; only generated outputs can change.
+                $runtime = new RuntimeArtifactSnapshot(
+                    $directory,
+                    $transaction.'/'.$component,
+                    ['build', 'dist', '.svelte-kit'],
+                );
                 $runtime->capture();
                 $runtimeSnapshots[$component] = $runtime;
             }
