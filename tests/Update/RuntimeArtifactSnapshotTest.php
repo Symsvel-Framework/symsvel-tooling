@@ -236,6 +236,7 @@ final class RuntimeArtifactSnapshotTest extends TestCase
         symlink('index.js', $component.'/node_modules/pkg/alias.js');
         file_put_contents($component.'/build/index.html', 'old build');
         $inode = fileinode($component.'/node_modules/pkg/index.js');
+        mkdir($transaction, 0700, true);
         $snapshot = new RuntimeArtifactSnapshot($component, $transaction, moveOnCapture: true);
 
         try {
@@ -297,6 +298,7 @@ final class RuntimeArtifactSnapshotTest extends TestCase
         $transaction = $root.'/transaction';
         mkdir($component.'/node_modules', 0775, true);
         file_put_contents($component.'/node_modules/original.js', 'original');
+        mkdir($transaction, 0700, true);
         $snapshot = new RuntimeArtifactSnapshot($component, $transaction, moveOnCapture: true);
 
         try {
