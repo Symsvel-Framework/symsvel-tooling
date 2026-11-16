@@ -296,27 +296,32 @@ L'incident XT ne sera clôturé qu'après CI verte et crash-test réel sur XT.
 
 ## Snapshot runtime de la maintenance Composer (16/11/2026)
 
-Le lanceur transactionnel de `symsvel update` (sans cible ou avec un package)
-ne réalise pas `npm ci` : il met à jour Composer, synchronise les sources
-Svelte des modules et peut reconstruire leurs artefacts avec les dépendances
-Node **déjà installées**. À la différence du parcours natif
-`symsvel update bo|app|front`, le runtime initial `node_modules` ne doit
-donc pas être déplacé, remplacé ni recopié pour cette transaction.
+Le lanceur transactionnel de `symsvel update` (sans cible ou avec un
+package) réutilise les dépendances npm pour les builds déclenchés par ses
+hooks. Même si le parcours actuel n'exécute pas `npm ci`, les tests
+de rollback garantissent le rétablissement exact du runtime **y compris
+`node_modules`**, si un hook ou une commande l'a modifié.
 
-`ComposerTransactionRunner` ne sauvegarde désormais que les artefacts
-Svelte susceptibles de changer : `build`, `dist` et `.svelte-kit`.
-`node_modules` demeure en place et utilisable pendant l'exécution des hooks.
-Un échec Composer restaure les sources, le vendor PHP, les artefacts Svelte
-et la BDD selon les contrôles habituels, sans manipuler les dépendances Node
-restées inchangées.
+Pour éviter de copier et contrôler un arbre npm **mutable** pendant sa
+capture, `ComposerTransactionRunner` utilise le même déplacement sur
+le volume que la mise à jour native, mais avec `keepWorkingCopy: true` :
 
-Ce changement est spécifique au lanceur transactionnel Composer.
-`WorkspaceUpdater` conserve ses snapshots incluant `node_modules` parce
-que son parcours exécute réellement `npm ci`. Ne pas généraliser cette
-exclusion au moteur global ni aux mises à jour natives. Si un futur hook
-Composer installe ou modifie des dépendances npm, le contrat devra être
-révisé avant cette évolution.
+1. Déplacer les originaux `node_modules`, `build`, `dist` et
+   `.svelte-kit` dans le checkpoint sur la **même partition**.
+2. Créer une copie de travail à partir du checkpoint désormais stable,
+   et vérifier les empreintes avant Composer.
+3. Garder les copies de travail disponibles pendant les hooks et builds.
+4. Si la transaction échoue, vérifier les originaux sauvegardés **avant**
+   de remplacer les copies modifiées par les dossiers déplacés.
+5. Si elle réussit, conserver le runtime actif et nettoyer les originaux
+   sauvegardés avec le checkpoint.
 
-Régression : test d'échec injecté après modification de `build`, exigeant
-la disponibilité continue de `node_modules` puis la restauration exacte
-du build précédent. La validation XT sur `symsvel update` reste nécessaire.
+Une capture partielle tente de replacer les dossiers déjà déplacés ; une
+restauration incomplète conserve le checkpoint pour récupération. Les
+snapshots de `vendor` et du `WorkspaceUpdater` restent en mode copie ;
+ce dernier réalise lui-même `npm ci` et reste un parcours distinct.
+
+Régression : vérification des copies de travail accessibles aux hooks,
+d'un original déplacé intact et du rollback des builds **et**
+des modifications simulées dans `node_modules` pour BO/App/Front.
+La clôture nécessite la CI verte et un crash-test XT.

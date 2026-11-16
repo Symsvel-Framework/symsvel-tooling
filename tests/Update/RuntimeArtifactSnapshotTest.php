@@ -262,6 +262,41 @@ final class RuntimeArtifactSnapshotTest extends TestCase
         }
     }
 
+    public function testMoveCaptureKeepsStableWorkingCopyForComposerAndRestoresOriginal(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-runtime-working-'.bin2hex(random_bytes(8));
+        $component = $root.'/bo';
+        $transaction = $root.'/transaction';
+        mkdir($component.'/node_modules/pkg', 0775, true);
+        mkdir($component.'/build', 0775, true);
+        mkdir($transaction, 0700, true);
+        file_put_contents($component.'/node_modules/pkg/index.js', 'original');
+        file_put_contents($component.'/build/index.html', 'original build');
+        $inode = fileinode($component.'/node_modules/pkg/index.js');
+        $snapshot = new RuntimeArtifactSnapshot(
+            $component,
+            $transaction,
+            moveOnCapture: true,
+            keepWorkingCopy: true,
+        );
+        try {
+            $snapshot->capture();
+            self::assertSame('original', file_get_contents($component.'/node_modules/pkg/index.js'));
+            self::assertSame('original', file_get_contents($transaction.'/runtime/node_modules/pkg/index.js'));
+            self::assertSame($inode, fileinode($transaction.'/runtime/node_modules/pkg/index.js'));
+            file_put_contents($component.'/node_modules/pkg/index.js', 'modified by hook');
+            file_put_contents($component.'/build/index.html', 'new build');
+            $snapshot->restore();
+            self::assertSame('original', file_get_contents($component.'/node_modules/pkg/index.js'));
+            self::assertSame('original build', file_get_contents($component.'/build/index.html'));
+            self::assertSame($inode, fileinode($component.'/node_modules/pkg/index.js'));
+            self::assertFalse($snapshot->hasPendingMoves());
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
     public function testMoveCaptureFailureRestoresAlreadyMovedDirectories(): void
     {
         $root = sys_get_temp_dir().'/symsvel-runtime-move-fail-'.bin2hex(random_bytes(8));

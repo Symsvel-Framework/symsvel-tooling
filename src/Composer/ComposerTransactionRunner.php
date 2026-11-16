@@ -119,19 +119,27 @@ final class ComposerTransactionRunner
                 if (!is_dir($directory)) {
                     continue;
                 }
-                // Composer updates synchronize and build Svelte sources but never run npm ci.
-                // Keep installed Node dependencies available; only generated outputs can change.
+                // Composer scripts need node_modules, while rollback must restore
+                // any runtime mutation. Move originals into the checkpoint, then
+                // recreate the active trees from that stable snapshot.
+                $componentCheckpoint = $transaction.'/'.$component;
+                if (!is_dir($componentCheckpoint) && !mkdir($componentCheckpoint, 0700, true)
+                    && !is_dir($componentCheckpoint)) {
+                    throw new \RuntimeException('Checkpoint runtime impossible : '.$component);
+                }
                 $runtime = new RuntimeArtifactSnapshot(
                     $directory,
-                    $transaction.'/'.$component,
-                    ['build', 'dist', '.svelte-kit'],
+                    $componentCheckpoint,
+                    moveOnCapture: true,
+                    keepWorkingCopy: true,
                 );
                 $runtime->capture();
                 $runtimeSnapshots[$component] = $runtime;
             }
         } catch (\Throwable $failure) {
-            // No Composer command has started. Keep the snapshot for diagnosis;
-            // do not report a successful transaction or attempt a partial restore.
+            // A capture that failed to move an original back must retain the
+            // entire checkpoint. A successful local return is already handled
+            // inside RuntimeArtifactSnapshot::capture().
             throw new \RuntimeException(
                 'BACK / Snapshot initial incomplet : '.$failure->getMessage().'; opération Composer annulée avant exécution ; snapshot conservé : '.$transaction,
                 0,

@@ -19,11 +19,15 @@ final class RuntimeArtifactSnapshot
     /** @var array<string, true> Runtime directories moved into the checkpoint. */
     private array $moved = [];
 
+    /** @var array<string, true> Active worktrees recreated from stable moved originals. */
+    private array $workingCopies = [];
+
     public function __construct(
         private readonly string $component,
         private readonly string $transaction,
         private readonly array $artifacts = ['node_modules', 'build', 'dist', '.svelte-kit'],
         private readonly bool $moveOnCapture = false,
+        private readonly bool $keepWorkingCopy = false,
     ) {
     }
 
@@ -69,6 +73,15 @@ final class RuntimeArtifactSnapshot
                     $this->moved[$name] = true;
                     // Hash the *moved original*, not an enormous mutable copy.
                     $this->fingerprints[$name] = $this->fingerprint($destination);
+                    if ($this->keepWorkingCopy) {
+                        // Composer's build hooks still require the original npm tree.
+                        // Copy from the checkpoint, which stays stable during capture.
+                        $this->workingCopies[$name] = true;
+                        $this->copyTree($destination, $source);
+                        if ($this->fingerprint($source) !== $this->fingerprints[$name]) {
+                            throw new \RuntimeException('Snapshot runtime : copie de travail incohérente : '.$name);
+                        }
+                    }
                 } else {
                     $this->copyTree($source, $destination);
                     $this->fingerprints[$name] = $this->fingerprint($source);
@@ -83,6 +96,15 @@ final class RuntimeArtifactSnapshot
                 foreach (array_reverse(array_keys($this->moved)) as $name) {
                     $source = $this->component.'/'.$name;
                     $destination = $this->transaction.'/runtime/'.$name;
+                    if (isset($this->workingCopies[$name])) {
+                        try {
+                            $this->removeTree($source);
+                            unset($this->workingCopies[$name]);
+                        } catch (\Throwable) {
+                            $errors[] = $name;
+                            continue;
+                        }
+                    }
                     if (file_exists($source) || is_link($source) || !is_dir($destination) || !@rename($destination, $source)) {
                         $errors[] = $name;
                     } else {
