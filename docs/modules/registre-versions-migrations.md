@@ -15,6 +15,8 @@ Ce registre est un aide-mémoire maintenu avec les migrations des modules SymSve
 | `Version20200101000500` | Auth (access tokens) | `symsvel-module-auth/Migration/Version20200101000500.php` |
 | `Version20200101000501` | Auth (refresh tokens) | `symsvel-module-auth/Migration/Version20200101000501.php` |
 | `Version20261116000201` | ACLs (surcharges des libellés) | `symsvel-module-acls/Migration/Version20261116000201.php` |
+| `Version20261116192000` | Languages (référentiel) | `symsvel-module-languages/Migration/Version20261116192000.php` |
+| `Version20261116192100` | Languages (initialisation des 117 langues) | `symsvel-module-languages/Migration/Version20261116192100.php` |
 
 ## Règle d'attribution
 
@@ -35,3 +37,16 @@ versions des autres modules restent à vérifier à partir de leurs sources,
 particulièrement sur les projets XT ayant des migrations déjà enregistrées.
 Les validations requises sont CI puis compilation/exécution et CT sur les
 SGBD du projet.
+
+
+## Versions Languages vérifiées (16/11/2026)
+
+Les deux migrations du module **natif** Languages ont été ajoutées
+après vérification des chemins de migrations `Version*.php` sur les
+branches `dev` des modules Admins, Roles, ACLs, Users, Settings, Auth,
+Mails et Languages. Les versions `20261116192000` et `20261116192100`
+ne chevauchent aucune de ces sources. La première utilise
+`Doctrine\DBAL\Schema\Schema`, la seconde contient exclusivement
+les insertions DML du référentiel natif, exécutées **après** la
+création de la table. L'exécution multibase via le compilateur
+SymSvel reste à confirmer au crash-test XT.
