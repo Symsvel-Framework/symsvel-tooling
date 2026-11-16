@@ -258,3 +258,37 @@ Les CI d'intégration des modules assemblent un checkout BO `dev` neuf ;
 elles ne remplacent pas le crash-test des mises à jour ordonnées sur un
 workspace existant. L'incident ne permet pas, à lui seul, de conclure à un
 défaut des chemins d'import ni à un bug du planificateur trois voies.
+
+
+## Correctif XT : snapshot runtime sur le même volume (16/11/2026)
+
+Le CT `symsvel update bo` a rencontré
+`Snapshot runtime incohérent : node_modules` **avant** l'application des
+nouveaux fichiers BO. L'ancien `RuntimeArtifactSnapshot` copiait la totalité
+des dépendances npm et comparait ensuite la copie à l'original. Ce contrôle
+prouvait une divergence, sans en identifier la cause (fichier mutable,
+métadonnées ou autre). Il serait dangereux de supprimer la vérification.
+
+Pour les mises à jour **unitaires** `bo/app/front` via `ComponentUpdater`,
+la capture utilise désormais `moveOnCapture: true` : les anciens répertoires
+`node_modules`, `build`, `dist` et `.svelte-kit` sont **déplacés** dans
+le checkpoint de la même partition avant `npm ci` et le build. Le déplacement
+conserve les fichiers, permissions et liens symboliques sans copie d'un arbre
+npm potentiellement mutable. Un volume différent est refusé avant toute
+mutation. Le contenu déplacé reçoit une empreinte contrôlée avant tout
+rollback, comme auparavant.
+
+- En cas de réussite, l'ancien runtime est nettoyé avec le checkpoint.
+- En cas d'échec de l'installation/build, le nouveau runtime est retiré et
+  les anciens dossiers sont remis en place par déplacement, après contrôle
+  d'intégrité de **tous** les dossiers sauvegardés.
+- Si la capture échoue après un premier déplacement, elle tente de remettre
+  immédiatement tous les dossiers déplacés. Si cette restauration échoue,
+  `ComponentUpdater` **conserve le checkpoint** et signale son emplacement.
+- Les snapshots des transactions Composer et du `WorkspaceUpdater`, y compris
+  `vendor`, gardent leur fonctionnement par **copie**. Ils ne doivent pas
+  perdre l'accès aux fichiers au moment de leur propre capture.
+
+Tests de régression : restauration avec lien symbolique et inode conservé,
+capture partielle, snapshot altéré et refus d'un artefact racine symbolique.
+L'incident XT ne sera clôturé qu'après CI verte et crash-test réel sur XT.

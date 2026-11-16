@@ -225,6 +225,125 @@ final class RuntimeArtifactSnapshotTest extends TestCase
         }
     }
 
+    public function testMoveCapturePreservesNpmFilesAndRestoresPreviousRuntime(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-runtime-move-'.bin2hex(random_bytes(8));
+        $component = $root.'/bo';
+        $transaction = $root.'/transaction';
+        mkdir($component.'/node_modules/pkg', 0775, true);
+        mkdir($component.'/build', 0775, true);
+        file_put_contents($component.'/node_modules/pkg/index.js', 'old dependency');
+        symlink('index.js', $component.'/node_modules/pkg/alias.js');
+        file_put_contents($component.'/build/index.html', 'old build');
+        $inode = fileinode($component.'/node_modules/pkg/index.js');
+        $snapshot = new RuntimeArtifactSnapshot($component, $transaction, moveOnCapture: true);
+
+        try {
+            $snapshot->capture();
+            self::assertDirectoryDoesNotExist($component.'/node_modules');
+            self::assertDirectoryDoesNotExist($component.'/build');
+            self::assertSame($inode, fileinode($transaction.'/runtime/node_modules/pkg/index.js'));
+            mkdir($component.'/node_modules', 0775, true);
+            file_put_contents($component.'/node_modules/new.js', 'new dependency');
+            mkdir($component.'/build');
+            file_put_contents($component.'/build/index.html', 'new build');
+            $snapshot->restore();
+            self::assertSame('old dependency', file_get_contents($component.'/node_modules/pkg/index.js'));
+            self::assertTrue(is_link($component.'/node_modules/pkg/alias.js'));
+            self::assertSame('index.js', readlink($component.'/node_modules/pkg/alias.js'));
+            self::assertSame($inode, fileinode($component.'/node_modules/pkg/index.js'));
+            self::assertSame('old build', file_get_contents($component.'/build/index.html'));
+            self::assertFileDoesNotExist($component.'/node_modules/new.js');
+            self::assertFalse($snapshot->hasPendingMoves());
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
+    public function testMoveCaptureFailureRestoresAlreadyMovedDirectories(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-runtime-move-fail-'.bin2hex(random_bytes(8));
+        $component = $root.'/bo';
+        $transaction = $root.'/transaction';
+        mkdir($component.'/node_modules', 0775, true);
+        mkdir($component.'/build');
+        file_put_contents($component.'/node_modules/keep.js', 'keep');
+        file_put_contents($component.'/build/index.html', 'keep build');
+        // Force the second rename to fail after node_modules was moved.
+        mkdir($transaction.'/runtime/build', 0700, true);
+        $snapshot = new RuntimeArtifactSnapshot($component, $transaction, moveOnCapture: true);
+
+        try {
+            try {
+                $snapshot->capture();
+                self::fail('Existing checkpoint path must be refused.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('Déplacement snapshot runtime impossible : build', $error->getMessage());
+            }
+            self::assertSame('keep', file_get_contents($component.'/node_modules/keep.js'));
+            self::assertSame('keep build', file_get_contents($component.'/build/index.html'));
+            self::assertFalse($snapshot->hasPendingMoves());
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
+    public function testMovedCheckpointIsVerifiedBeforeReplacingCurrentRuntime(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-runtime-move-tamper-'.bin2hex(random_bytes(8));
+        $component = $root.'/bo';
+        $transaction = $root.'/transaction';
+        mkdir($component.'/node_modules', 0775, true);
+        file_put_contents($component.'/node_modules/original.js', 'original');
+        $snapshot = new RuntimeArtifactSnapshot($component, $transaction, moveOnCapture: true);
+
+        try {
+            $snapshot->capture();
+            mkdir($component.'/node_modules');
+            file_put_contents($component.'/node_modules/current.js', 'current');
+            file_put_contents($transaction.'/runtime/node_modules/original.js', 'tampered');
+            try {
+                $snapshot->restore();
+                self::fail('A tampered moved checkpoint must block rollback.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('sauvegarde altérée', $error->getMessage());
+                self::assertSame('current', file_get_contents($component.'/node_modules/current.js'));
+            }
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
+    public function testMoveCaptureRejectsSymbolicRootBeforeMovingDependencies(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-runtime-move-symlink-'.bin2hex(random_bytes(8));
+        $component = $root.'/bo';
+        $transaction = $root.'/transaction';
+        mkdir($component.'/node_modules', 0775, true);
+        mkdir($root.'/external');
+        file_put_contents($component.'/node_modules/keep.js', 'keep');
+        symlink($root.'/external', $component.'/build');
+        mkdir($transaction, 0700, true);
+        $snapshot = new RuntimeArtifactSnapshot($component, $transaction, moveOnCapture: true);
+
+        try {
+            try {
+                $snapshot->capture();
+                self::fail('A later symbolic artifact must be checked before moving anything.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('Snapshot runtime refusé', $error->getMessage());
+            }
+            self::assertSame('keep', file_get_contents($component.'/node_modules/keep.js'));
+            self::assertFalse($snapshot->hasPendingMoves());
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
     private function deleteTree(string $path): void
     {
         if (!is_dir($path) || is_link($path)) {
