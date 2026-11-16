@@ -21,3 +21,9 @@ Le test destructif `WorkspaceDatabaseBackupTest::testMysqlAndMariaDbRestoreOrigi
 Les deux runners partagent ces bases. La concurrence du workflow Tooling utilise donc le groupe global `symsvel-tooling-shared-rollback-databases` avec `cancel-in-progress: false` pour empêcher les exécutions destructives simultanées, y compris entre `dev`, `main` et PR. Les autres dépôts restent parallélisables. Si un runner n’a pas été reconstruit avec le client MySQL ou si les conteneurs de bases ne sont pas sains, la CI échoue explicitement ; le test ne doit plus être silencieusement ignoré.
 
 Le client `mysql` des assertions d'intégration est appelé avec `--batch --skip-column-names` afin de comparer les valeurs SQL sans l'en-tête de colonne. Cela ne modifie pas le format des archives produites par `mysqldump` ni la restauration.
+
+## CD des releases sur runners locaux (16/11/2026)
+
+Les tags `vX.Y.Z` conservent leur workflow `.github/workflows/release.yml` avec les mêmes validations et la création d'une GitHub Release, mais utilisent maintenant les runners `[self-hosted, linux, ARM64, symsvel]` au lieu des runners GitHub facturés. PHP 8.4 et Composer sont vérifiés directement sur l'image du runner, déjà utilisée par la CI ; l'action Ubuntu de configuration PHP a été supprimée. La publication de la release passe par `actions/github-script@v7` et l'API GitHub (vérification du tag et création de la release), sans dépendre d'un exécutable `gh` non garanti sur le conteneur.
+
+Le workflow reste déclenché **uniquement par push d'un tag**, avec l'autorisation `contents: write` déjà nécessaire à la publication. Aucun tag ni release n'est créé par cette migration. Les runners doivent être en ligne ; les secrets et accès requis aux dépôts privés restent inchangés. Une release de validation et son journal sont nécessaires pour déclarer cette partie CD complètement validée. Le changement ne concerne pas la CI de branches ni le runtime SymSvel.
