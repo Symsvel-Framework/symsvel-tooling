@@ -225,3 +225,36 @@ La revue pré-merge a confirmé que `onlyManagedGeneratedFiles()`, `latestReleas
 ### Revue globale pré-merge : suppression des protections Git historiques (08/11/2026)
 
 `GitComponentCheckpoint` et son test ont été retirés : ils restauraient un composant par `git checkout -f` et `git reset --hard`, incompatibles avec la mise à jour native et sans appel dans les parcours actifs examinés. `GeneratedSvelteStatusGuard` et son test ont également été retirés : ils imposaient l'ancien contrôle de `git status` avant une mise à jour. La sécurité des mises à jour natives relève désormais de `ComponentUpdatePreflight`, `ComponentFilePlanner`, `ComponentRouteCollisionGuard`, `ComponentNativeFileApplier` et des snapshots de sources, avec leurs tests dédiés. `LegacyComponentBaseline` reste volontairement présent : il lit l'historique Git d'un ancien composant pour établir une provenance initiale vérifiable, sans modifier HEAD, branche ni fichiers. Les tests de rollback natif et de conservation des modifications locales restent la référence ; la validation des derniers commits nécessite une CI verte et les CT XT après fusion.
+
+
+## Incident d'assemblage BO XT du 16/11/2026 : dépendance UI entre dépôts
+
+Les pages BO des modules Admins, Users et Settings utilisent désormais
+`Button`, `Alert` et `DataTable` appartenant au dépôt `symsvel-bo`.
+Leurs imports relatifs depuis
+`src/lib/modules/<module>/routes/<module>/+page.svelte` montent bien
+de quatre niveaux jusqu'à `src/lib/components/`.
+
+Les composants génériques sont présents dans la branche `dev` du BO,
+pas dans la branche `main` historique. En cas d'assemblage Vite échouant sur
+`UNRESOLVED_IMPORT .../components/Button.svelte`, examiner l'état des fichiers
+natifs réellement installés dans le projet, avant de modifier les imports :
+un `symsvel update` Composer ne réalise **pas** de mise à jour native du BO.
+La séquence de maintenance du canal `dev` est :
+
+```bash
+symsvel update bo
+symsvel update
+```
+
+`symsvel update bo` sélectionne la branche correspondant au canal de
+`backend/.symsvel/project.json`, applique les fichiers natifs avec sauvegarde,
+synchronise les modules et effectue un build avant validation du manifeste.
+En cas d'échec, son rollback peut laisser dans XT l'ancien BO sans les
+composants nouveaux. Ne pas changer le canal à la main, injecter les
+composants dans `vendor/`, ni contourner les contrôles de provenance.
+
+Les CI d'intégration des modules assemblent un checkout BO `dev` neuf ;
+elles ne remplacent pas le crash-test des mises à jour ordonnées sur un
+workspace existant. L'incident ne permet pas, à lui seul, de conclure à un
+défaut des chemins d'import ni à un bug du planificateur trois voies.
