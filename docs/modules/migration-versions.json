@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "description": "Versions Doctrine réservées dans les sources SymSvel dev, inventaire global des dépôts Back et modules natifs.",
+  "entries": [
+    {
+      "version": "Version20000000000000",
+      "repository": "symsvel-back",
+      "path": "migrations/Version20000000000000.php"
+    },
+    {
+      "version": "Version20200101000000",
+      "repository": "symsvel-module-admins",
+      "path": "Migration/Version20200101000000.php"
+    },
+    {
+      "version": "Version20200101000100",
+      "repository": "symsvel-module-roles",
+      "path": "Migration/Version20200101000100.php"
+    },
+    {
+      "version": "Version20200101000200",
+      "repository": "symsvel-module-acls",
+      "path": "Migration/Version20200101000200.php"
+    },
+    {
+      "version": "Version20200101000230",
+      "repository": "symsvel-module-users",
+      "path": "Migration/Version20200101000230.php"
+    },
+    {
+      "version": "Version20200101000300",
+      "repository": "symsvel-module-roles",
+      "path": "Migration/Version20200101000300.php"
+    },
+    {
+      "version": "Version20200101000400",
+      "repository": "symsvel-module-settings",
+      "path": "Migration/Version20200101000400.php"
+    },
+    {
+      "version": "Version20200101000500",
+      "repository": "symsvel-module-auth",
+      "path": "Migration/Version20200101000500.php"
+    },
+    {
+      "version": "Version20200101000501",
+      "repository": "symsvel-module-auth",
+      "path": "Migration/Version20200101000501.php"
+    },
+    {
+      "version": "Version20200101000502",
+      "repository": "symsvel-module-auth",
+      "path": "Migration/Version20200101000502.php"
+    },
+    {
+      "version": "Version20200101000503",
+      "repository": "symsvel-module-auth",
+      "path": "Migration/Version20200101000503.php"
+    },
+    {
+      "version": "Version20261115000001",
+      "repository": "symsvel-module-admins",
+      "path": "Migration/Version20261115000001.php"
+    },
+    {
+      "version": "Version20261115000002",
+      "repository": "symsvel-module-users",
+      "path": "Migration/Version20261115000002.php"
+    },
+    {
+      "version": "Version20261115000504",
+      "repository": "symsvel-module-auth",
+      "path": "Migration/Version20261115000504.php"
+    },
+    {
+      "version": "Version20261116000002",
+      "repository": "symsvel-module-admins",
+      "path": "Migration/Version20261116000002.php"
+    },
+    {
+      "version": "Version20261116000201",
+      "repository": "symsvel-module-acls",
+      "path": "Migration/Version20261116000201.php"
+    },
+    {
+      "version": "Version20261116000505",
+      "repository": "symsvel-module-auth",
+      "path": "Migration/Version20261116000505.php"
+    },
+    {
+      "version": "Version20261116000506",
+      "repository": "symsvel-module-auth",
+      "path": "Migration/Version20261116000506.php"
+    },
+    {
+      "version": "Version20261116192000",
+      "repository": "symsvel-module-languages",
+      "path": "Migration/Version20261116192000.php"
+    },
+    {
+      "version": "Version20261116192100",
+      "repository": "symsvel-module-languages",
+      "path": "Migration/Version20261116192100.php"
+    },
+    {
+      "version": "Version20261117000001",
+      "repository": "symsvel-module-admins",
+      "path": "Migration/Version20261117000001.php"
+    },
+    {
+      "version": "Version20261117000002",
+      "repository": "symsvel-module-users",
+      "path": "Migration/Version20261117000002.php"
+    }
+  ]
+}
