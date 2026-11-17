@@ -34,6 +34,10 @@ final class ComposerModuleBundleMapWriter
         $classes = array_column($bundles, 'class');
         $contents = "<?php\n\ndeclare(strict_types=1);\n\nreturn ".var_export($classes, true).";\n";
         if (is_file($target) && file_get_contents($target) === $contents) {
+            // The CLI may run under a different account from the local web server.
+            if (!chmod($target, 0644)) {
+                throw new \RuntimeException('Permissions de publication invalides : '.$target);
+            }
             return $target;
         }
         $temporary = tempnam($directory, '.bundles-');
@@ -41,7 +45,8 @@ final class ComposerModuleBundleMapWriter
             throw new \RuntimeException('Fichier temporaire indisponible.');
         }
         try {
-            if (file_put_contents($temporary, $contents) === false || !rename($temporary, $target)) {
+            if (file_put_contents($temporary, $contents) === false || !chmod($temporary, 0644)
+                || !rename($temporary, $target)) {
                 throw new \RuntimeException('Échec de publication.');
             }
         } finally {
