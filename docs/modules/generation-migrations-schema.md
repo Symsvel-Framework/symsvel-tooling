@@ -173,3 +173,11 @@ Les migrations Schema des modules sont compilées dans `backend/migrations/Versi
 ## Setup : migrations techniques du squelette
 
 Le setup exécute les migrations des modules puis `doctrine:migrations:migrate`, qui applique aussi les migrations versionnées du squelette Symfony. Il ne lance plus `make:migration` : le diff ORM global pouvait générer des `DROP TABLE` pour les tables de modules non mappées comme entités ORM. La table du transport Doctrine Messenger est créée par `symsvel-back/migrations/Version20000000000000.php`. Aucun marqueur `native-migration-setup.json` n'est nécessaire.
+
+## Diagnostic des échecs de compilation au Setup (CT du 17 novembre 2026)
+
+`symsvel:setup:database` lance `symsvel:module:migrations:compile --source=composer --execute` dans un processus enfant. Lors d'un CT MySQL 8.4.5, la création de la base `xt12345` avait réussi, mais la compilation renvoyait le code 1 ; l'ancienne erreur générique de Setup masquait la sortie d'erreur et la sortie standard du compilateur. Les entrées `console.DEBUG` du `dev.log` ne conservent que les codes de sortie, pas le diagnostic original.
+
+Tooling inclut désormais la commande enfant, son code de sortie et ses messages dans l'échec de `symsvel:setup:database`. Le contrôleur du Setup local dans Back est déjà chargé de masquer les URL de connexion et mots de passe avant de présenter cette sortie au navigateur. Le test `SymSvelSetupDatabaseCommandTest::testFailedCompilerErrorIsVisibleForSetupDiagnostics` vérifie cette propagation. **La cause SQL/Doctrine de l'échec du CT n'est pas établie par les logs reçus** ; ne pas déduire qu'elle est résolue par ce seul correctif de diagnostic.
+
+Avant reprise du Setup, vérifier la présence d'un journal `.symsvel/migration-recovery.json` : lorsqu'il existe, le mécanisme de récupération doit être utilisé et aucune relance brute de la compilation ne doit contourner cette sécurité. La CI, puis un nouveau CT utilisateur sont nécessaires.
