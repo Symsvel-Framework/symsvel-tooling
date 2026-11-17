@@ -72,6 +72,24 @@ final class SvelteModuleSynchronizerTest extends TestCase
         self::assertDirectoryExists($this->workspace.'/bo/src/routes');
     }
 
+    public function testBoOnlyProjectSkipsOptionalAppAndFrontScopes(): void
+    {
+        // The module supports BO + App + Front, but the installation only
+        // contains BO. Installing such a module must never force App/Front.
+        foreach (['app', 'front'] as $scope) {
+            rmdir($this->workspace.'/'.$scope.'/src/lib');
+            rmdir($this->workspace.'/'.$scope.'/src/routes');
+            rmdir($this->workspace.'/'.$scope.'/src');
+            rmdir($this->workspace.'/'.$scope);
+        }
+        $sync = new SvelteModuleSynchronizer();
+        self::assertSame(['written' => 2, 'removed' => 0], $sync->sync($this->backend));
+        self::assertFileExists($this->workspace.'/bo/src/lib/modules/catalog/index.ts');
+        self::assertDirectoryDoesNotExist($this->workspace.'/app');
+        self::assertDirectoryDoesNotExist($this->workspace.'/front');
+        self::assertSame(['written' => 0, 'removed' => 0], $sync->sync($this->backend));
+    }
+
     public function testRefusesToOverwriteUserRoute(): void
     {
         mkdir($this->module.'/bo/src/routes/catalog', 0775, true);
