@@ -23,6 +23,9 @@ jobs:
           bash -n load-tests/run.sh load-tests/test-runner.sh
           bash load-tests/test-runner.sh
       - name: Validate report generator
-        run: python3 -m unittest discover -s load-tests -p 'test_*.py' -v
+        run: |
+          php -l load-tests/compare.php
+          php -l load-tests/test-compare.php
+          php load-tests/test-compare.php
       - name: Check k6 JavaScript syntax without running k6
         run: node --input-type=module --check < load-tests/scenarios.js
