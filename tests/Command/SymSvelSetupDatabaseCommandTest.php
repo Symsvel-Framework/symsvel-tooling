@@ -119,6 +119,25 @@ exit('.$exitExpression.');
         self::assertStringNotContainsString('symsvel:admins:bootstrap', file_get_contents($this->root.'/backend/commands.log'));
     }
 
+    public function testFailedCompilerErrorIsVisibleForSetupDiagnostics(): void
+    {
+        $this->fakeConsole("(\$argv[1] === 'symsvel:module:migrations:compile' ? 1 : 0)");
+        $console = $this->root.'/backend/bin/console';
+        $contents = (string) file_get_contents($console);
+        $contents = str_replace(
+            'exit(',
+            'if (($argv[1] ?? "") === "symsvel:module:migrations:compile") { fwrite(STDERR, "Invalid module migration source\\n"); }'."\n".'exit(',
+            $contents,
+        );
+        file_put_contents($console, $contents);
+
+        $tester = $this->command();
+        self::assertSame(1, $tester->execute([]));
+        self::assertStringContainsString('symsvel:module:migrations:compile', $tester->getDisplay());
+        self::assertStringContainsString('Invalid module migration source', $tester->getDisplay());
+        self::assertSame(SetupState::RUNNING, (new SetupState())->read($this->root));
+    }
+
     public function testRecoveryJournalBlocksExecution(): void
     {
         $this->fakeConsole();
