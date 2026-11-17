@@ -65,7 +65,7 @@ if [[ "$url" =~ :([0-9]{1,5})/?$ ]]; then
     exit 2
   fi
 fi
-if [[ ! "$paths" =~ ^/[A-Za-z0-9/_.,-]+$ ]] || [[ "$paths" == *'..'* ]] || [[ "$paths" == *//* ]]; then
+if [[ ! "$paths" =~ ^/[A-Za-z0-9/_.,-]*$ ]] || [[ "$paths" == *'..'* ]] || [[ "$paths" == *//* ]]; then
   echo 'Paths must be comma-separated literal absolute paths without queries, credentials or traversal.' >&2
   exit 2
 fi
