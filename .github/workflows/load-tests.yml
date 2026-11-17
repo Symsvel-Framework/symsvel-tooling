@@ -1,0 +1,28 @@
+name: Load-testing toolkit checks
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - 'load-tests/**'
+      - '.github/workflows/load-tests.yml'
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - 'load-tests/**'
+      - '.github/workflows/load-tests.yml'
+
+jobs:
+  checks-only:
+    # No benchmark is run by CI. No HTTP target is contacted.
+    runs-on: [self-hosted, linux, ARM64, symsvel]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify runner syntax and argument protections
+        run: |
+          bash -n load-tests/run.sh load-tests/test-runner.sh
+          bash load-tests/test-runner.sh
+      - name: Validate report generator
+        run: python3 -m unittest discover -s load-tests -p 'test_*.py' -v
+      - name: Check k6 JavaScript syntax without running k6
+        run: node --input-type=module --check < load-tests/scenarios.js
