@@ -2,21 +2,13 @@
 
 Ce registre est un aide-mémoire maintenu avec les migrations des modules SymSvel. **Les fichiers `Migration/VersionYYYYMMDDHHMMSS.php` des dépôts modules sont la source de vérité** : vérifier leurs noms avant toute attribution, car ce document peut être en retard.
 
-## Versions relevées sur les branches `dev` au 16/11/2026
+## Inventaire global, source unique (17/11/2026)
 
-| Version | Module | Source |
-| --- | --- | --- |
-| `Version20200101000000` | Admins | `symsvel-module-admins/Migration/Version20200101000000.php` |
-| `Version20200101000100` | Roles | `symsvel-module-roles/Migration/Version20200101000100.php` |
-| `Version20200101000200` | ACLs | `symsvel-module-acls/Migration/Version20200101000200.php` |
-| `Version20200101000230` | Users | `symsvel-module-users/Migration/Version20200101000230.php` |
-| `Version20200101000300` | Roles | `symsvel-module-roles/Migration/Version20200101000300.php` |
-| `Version20200101000400` | Settings | `symsvel-module-settings/Migration/Version20200101000400.php` |
-| `Version20200101000500` | Auth (access tokens) | `symsvel-module-auth/Migration/Version20200101000500.php` |
-| `Version20200101000501` | Auth (refresh tokens) | `symsvel-module-auth/Migration/Version20200101000501.php` |
-| `Version20261116000201` | ACLs (surcharges des libellés) | `symsvel-module-acls/Migration/Version20261116000201.php` |
-| `Version20261116192000` | Languages (référentiel) | `symsvel-module-languages/Migration/Version20261116192000.php` |
-| `Version20261116192100` | Languages (initialisation des 117 langues) | `symsvel-module-languages/Migration/Version20261116192100.php` |
+L'inventaire exhaustif versionné est désormais **[`migration-versions.json`](migration-versions.json)**, avec une entrée `version/repository/path` par migration source de Back ou des modules natifs. Au 17/11/2026, il recense **23 migrations**, en vérifiant les chemins Git sur `dev` ; il ne contient aucun doublon.
+
+Ce document conserve les décisions et les historiques, mais **ne duplique plus la table de versions**. L'ancien relevé partiel du 16/11 ne doit plus être utilisé pour attribuer un numéro. Les sources `Migration/Version*.php` restent la vérité technique et doivent être comparées au JSON lors d'une création ou d'une revue.
+
+La nouvelle migration `Version20261117000003` appartient à `symsvel-module-languages/Migration/Version20261117000003.php` et crée `symsvel_translations` par Schema DBAL sans modifier les migrations du catalogue de langues.
 
 ## Règle d'attribution
 
