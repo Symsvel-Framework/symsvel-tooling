@@ -30,9 +30,14 @@ final class SvelteModuleSynchronizer
                 throw new \RuntimeException('Application Svelte symbolique interdite : '.$scope);
             }
             if (!is_dir($app)) {
-                foreach ($plan as $module) {
-                    if (isset($module['components'][$scope])) {
-                        throw new \RuntimeException('Application Svelte requise mais absente : '.$scope);
+                // BO is mandatory. App and Front are optional project
+                // components: a reusable module may support them without
+                // forcing their installation on a BO-only project.
+                if ($scope === 'bo') {
+                    foreach ($plan as $module) {
+                        if (isset($module['components'][$scope])) {
+                            throw new \RuntimeException('Application Svelte requise mais absente : '.$scope);
+                        }
                     }
                 }
                 continue;
