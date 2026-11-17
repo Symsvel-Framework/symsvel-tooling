@@ -54,10 +54,10 @@ Les seuils initiaux, **provisoires et non contractuels**, sont : échecs HTTP so
 Le lanceur affiche le résumé k6 et écrit un JSON horodaté sous `load-tests/results/` (ignoré par Git). Il n'enregistre **pas** de corps de réponse, de secrets ni de captures du BO.
 
 ```bash
-python3 load-tests/compare.py load-tests/results/*-summary.json
+php load-tests/compare.php load-tests/results/*-summary.json
 ```
 
-Le comparateur (Python 3, bibliothèque standard) donne : nombre total de requêtes, requêtes/s, p95/p99, échecs HTTP, taux d'erreurs serveur/connexion et HTTP 429. Pour une comparaison sérieuse entre DEV et PROD locale, conserver la configuration du serveur, le nombre de processus PHP-FPM, le SGBD, le jeu de données, les routes testées et la puissance du générateur de charge. Noter CPU/RAM, saturation du serveur web et de PostgreSQL/MySQL, connexions, limites PHP-FPM, et température/throttling du Mac. Si générateur et serveur tournent sur le même Mac, **la capacité mesurée peut être limitée par le générateur lui-même**.
+Le comparateur (PHP 8.4, sans dépendance tierce) donne : nombre total de requêtes, requêtes/s, p95/p99, échecs HTTP, taux d'erreurs serveur/connexion et HTTP 429. Pour une comparaison sérieuse entre DEV et PROD locale, conserver la configuration du serveur, le nombre de processus PHP-FPM, le SGBD, le jeu de données, les routes testées et la puissance du générateur de charge. Noter CPU/RAM, saturation du serveur web et de PostgreSQL/MySQL, connexions, limites PHP-FPM, et température/throttling du Mac. Si générateur et serveur tournent sur le même Mac, **la capacité mesurée peut être limitée par le générateur lui-même**.
 
 Procédure recommandée : `smoke` puis `load`, `stress`, `spike`, `soak` uniquement lorsque les essais précédents sont stables. Interrompre si la machine devient instable, si les erreurs persistantes sont anormales ou si les ressources système dépassent les limites choisies. Ne jamais exécuter ces tests en CI : les workflows ne vérifient que la syntaxe, les arguments et le comparateur avec un exécutable k6 simulé.
 
