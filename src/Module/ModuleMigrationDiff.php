@@ -19,8 +19,19 @@ final class ModuleMigrationDiff
     {
         $pending = [];
         $seen = [];
+        $versions = [];
         foreach ($sources as $source) {
             $key = $source['module'].'/'.$source['name'];
+            // All modules compile into one Doctrine namespace and one migrations directory.
+            // Reject conflicting version names before writing any compiled file.
+            if (preg_match('/^Version[0-9]{14}\\.php$/D', $source['name']) === 1) {
+                $name = $source['name'];
+                if (isset($versions[$name]) && $versions[$name] !== $key) {
+                    throw new \DomainException('Version de migration utilisée par plusieurs modules : '
+                        .$name.' ('.$versions[$name].' et '.$key.').');
+                }
+                $versions[$name] = $key;
+            }
             if (isset($seen[$key])) {
                 throw new \InvalidArgumentException('Migration dupliquée : '.$key);
             }
