@@ -55,7 +55,7 @@ function renderLoadTestComparison(array $files): string
     if ($files === []) {
         throw new InvalidArgumentException('Provide at least one k6 summary JSON file.');
     }
-    $head = ['Test', 'HTTP req.', 'Req./s', 'p95 (ms)', 'p99 (ms)', 'Échecs %', '5xx %', 'HTTP 429'];
+    $head = ['Test', 'HTTP req.', 'Req./s', 'p95 (ms)', 'p99 (ms)', 'Échecs %', 'Srv/conn %', 'HTTP 429'];
     $lines = [
         '| '.implode(' | ', $head).' |',
         '|'.implode('|', array_fill(0, count($head), '---')).'|',
