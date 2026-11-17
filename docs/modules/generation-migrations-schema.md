@@ -184,7 +184,7 @@ Avant reprise du Setup, vérifier la présence d'un journal `.symsvel/migration-
 
 ## Réservation unique des versions Doctrine (CT du 17 novembre 2026)
 
-**Source de référence mainteneur :** `docs/modules/migration-versions.json` dans `symsvel-tooling/dev`. Le fichier recense les **22 fichiers de migration présents** dans `symsvel-back` et les modules natifs à cette date, en associant chaque `VersionYYYYMMDDHHMMSS` à son dépôt et à son chemin. Il ne remplace ni les reçus d'exécution `.symsvel/migrations.json` de chaque projet ni `doctrine_migration_versions`.
+**Source de référence mainteneur :** `docs/modules/migration-versions.json` dans `symsvel-tooling/dev`. Le fichier recense les **23 fichiers de migration présents** dans `symsvel-back` et les modules natifs à cette date, en associant chaque `VersionYYYYMMDDHHMMSS` à son dépôt et à son chemin. Il ne remplace ni les reçus d'exécution `.symsvel/migrations.json` de chaque projet ni `doctrine_migration_versions`.
 
 **Procédure obligatoire avant toute nouvelle migration :** vérifier l'inventaire global, réserver un numéro unique, créer la source dans le module propriétaire et ajouter dans le même chantier l'entrée `version/repository/path` au registre versionné. Lors d'une évolution, comparer le registre à la liste effective des fichiers source sur les branches `dev` des dépôts concernés, car une vérification interne du JSON seul ne garantit pas leur synchronisation. Ne jamais changer une version déjà enregistrée dans un projet sans procédure explicite de compatibilité.
 
