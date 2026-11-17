@@ -51,6 +51,8 @@ final class ModuleMigrationVersionCollisionTest extends TestCase
             self::assertArrayNotHasKey($entry['version'], $seen, 'Duplicate reserved migration version: '.$entry['version']);
             $seen[$entry['version']] = $entry['repository'];
         }
-        self::assertCount(22, $seen);
+        self::assertArrayHasKey('Version20261117000001', $seen);
+        self::assertSame('symsvel-module-admins', $seen['Version20261117000001']);
+        self::assertSame('symsvel-module-users', $seen['Version20261117000002'] ?? null);
     }
 }
