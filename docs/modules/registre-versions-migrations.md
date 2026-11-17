@@ -14,7 +14,7 @@ La nouvelle migration `Version20261117000003` appartient à `symsvel-module-lang
 
 1. Examiner les migrations `Migration/Version*.php` **de tous les modules concernés**, pas seulement du module modifié.
 2. Choisir une version libre, unique à l'échelle de l'installation, en tenant compte de l'ordre des dépendances et des opérations intra-module.
-3. Mettre à jour ce registre **dans le même chantier** que la nouvelle migration, ainsi que la documentation du module.
+3. Mettre à jour `migration-versions.json` **dans le même chantier** que la nouvelle migration, ainsi que la documentation du module. Ce document décrit les règles, sans doublonner la liste.
 4. Vérifier l'absence de doublons avant compilation ; le compilateur refuse déjà une collision de versions Doctrine. Ne jamais renommer une migration déjà livrée/appliquée sans procédure de migration explicite.
 
 Ce registre ne réserve pas automatiquement les numéros et ne remplace pas le contrôle du compilateur. Les versions des modules tiers ou futurs ne sont pas couvertes par cette liste ; elles doivent être vérifiées à l'installation.
