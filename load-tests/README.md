@@ -6,7 +6,7 @@ Ce répertoire est **hors runtime** : aucun contrôleur, bundle, module, route, 
 
 Installer `k6` par le moyen de son choix (sur macOS, par exemple `brew install k6`). Cette commande est **manuelle** : SymSvel ne vérifie pas les services installés et n'installe aucun programme externe. Le script contrôle seulement que la commande `k6` est disponible lors du lancement.
 
-Deux projets locaux séparés sont utiles pour comparer les environnements : un `dev` et un `prod`. Fixer autant que possible la même base de données, le même jeu de données et le même matériel/serveur pour la comparaison, sans faire porter au scénario un accès destructif à la BDD. Lorsque les deux projets sont testés sur le même Mac, ne charger **qu'un projet à la fois** pour éviter de fausser les mesures.
+Deux projets locaux séparés sont utiles pour comparer les environnements : un `dev` et un `prod`. Utiliser des bases **distinctes** mais comparables (même moteur SGBD, même schéma et volume de données), et conserver des paramètres matériels/serveur équivalents pour la comparaison, sans accès destructif aux BDD. Lorsque les deux projets sont testés sur le même Mac, ne charger **qu'un projet à la fois** pour éviter de fausser les mesures.
 
 Avant un test, démarrer le serveur HTTP local, le SGBD prévu pour ce projet et effectuer manuellement une requête de contrôle sur **chaque** chemin demandé. Vérifier que ces URLs rendent un HTTP 200 sans session ni token. Les routes de Modules peuvent manquer selon les composants installés. Exemple de route métier facultative : `/apiopen/languages`.
 
