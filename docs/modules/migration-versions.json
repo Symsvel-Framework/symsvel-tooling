@@ -116,6 +116,11 @@
       "version": "Version20261117000003",
       "repository": "symsvel-module-languages",
       "path": "Migration/Version20261117000003.php"
+    },
+    {
+      "version": "Version20261117000004",
+      "repository": "symsvel-module-languages",
+      "path": "Migration/Version20261117000004.php"
     }
   ]
 }
