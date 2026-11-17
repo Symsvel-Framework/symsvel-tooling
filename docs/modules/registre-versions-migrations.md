@@ -4,7 +4,7 @@ Ce registre est un aide-mémoire maintenu avec les migrations des modules SymSve
 
 ## Inventaire global, source unique (17/11/2026)
 
-L'inventaire exhaustif versionné est désormais **[`migration-versions.json`](migration-versions.json)**, avec une entrée `version/repository/path` par migration source de Back ou des modules natifs. Au 17/11/2026, il recense **23 migrations**, en vérifiant les chemins Git sur `dev` ; il ne contient aucun doublon.
+L'inventaire exhaustif versionné est désormais **[`migration-versions.json`](migration-versions.json)**, avec une entrée `version/repository/path` par migration source de Back ou des modules natifs. Au 17/11/2026, il recense **24 migrations**, en vérifiant les chemins Git sur `dev` ; il ne contient aucun doublon.
 
 Ce document conserve les décisions et les historiques, mais **ne duplique plus la table de versions**. L'ancien relevé partiel du 16/11 ne doit plus être utilisé pour attribuer un numéro. Les sources `Migration/Version*.php` restent la vérité technique et doivent être comparées au JSON lors d'une création ou d'une revue.
 
