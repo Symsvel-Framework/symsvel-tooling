@@ -83,7 +83,12 @@ final class SymSvelSetupDatabaseCommand extends Command
                 $process->setTimeout(null);
                 $process->run();
                 if (!$process->isSuccessful()) {
-                    throw new \RuntimeException('Database preparation failed; inspect migrations and database access.');
+                    // Preserve the failing child command's diagnostic for the local-only Setup.
+                    // Back sanitizes connection details before presenting this output in the Wizard.
+                    $details = trim($process->getErrorOutput()."\n".$process->getOutput());
+                    throw new \RuntimeException('Database preparation failed during '.($arguments[2] ?? 'console command')
+                        .' (exit '.($process->getExitCode() ?? 'unknown').'). '
+                        .($details !== '' ? $details : 'The command provided no diagnostic.'));
                 }
             }
 
