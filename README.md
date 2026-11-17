@@ -127,3 +127,7 @@ L'exécution exige que le Mac, Docker et le service PostgreSQL soient disponible
 ### Correctif SQLite au Setup (11/11/2026)
 
 Le Setup détecte une `DATABASE_URL` SQLite de la forme `sqlite:///%kernel.project_dir%/chemin/relatif.db`, crée son répertoire parent si nécessaire et **n'exécute pas** `doctrine:database:create --if-not-exists` : DBAL ne prend pas en charge `listDatabases()` sur SQLite. La première connexion aux migrations ouvre/crée le fichier SQLite. PostgreSQL, MySQL et MariaDB conservent la commande Doctrine existante. Un test automatisé vérifie la sélection du parcours SQLite et la préparation du dossier (fixture `.env.local` avec guillemets et retour à la ligne réels, corrigée après un échec CI) ; le CT XT SQLite reste à confirmer avant release. Ne jamais considérer la CI seule comme validation du CT.
+
+## Banc de montée en charge local (k6)
+
+Les profils de performance sont dans [`load-tests/README.md`](load-tests/README.md). Ils testent des routes HTTP publiques (GET uniquement) depuis le poste développeur, avec montée progressive, stress, pic et endurance. Le lanceur refuse par défaut toute cible autre que loopback et ne lance jamais de test automatiquement : **aucune modification du runtime Back/Core ni aucune charge en CI**. Les résultats de k6 sont sauvegardés localement (ignorés par Git) et peuvent être comparés entre les deux projets de CT. Les seuils sont indicatifs, non contractuels ; la validation terrain reste à faire.
