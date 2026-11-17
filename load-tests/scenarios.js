@@ -2,6 +2,9 @@ import http from 'k6/http';
 import { check, fail, sleep } from 'k6';
 import { Counter, Rate } from 'k6/metrics';
 
+// Treat every response outside HTTP 2xx as failed, including redirects and 429.
+http.setResponseCallback(http.expectedStatuses({ min: 200, max: 299 }));
+
 const profiles = {
   smoke: [{ duration: '10s', target: 2 }, { duration: '20s', target: 2 }, { duration: '5s', target: 0 }],
   load: [{ duration: '1m', target: 10 }, { duration: '2m', target: 30 }, { duration: '1m', target: 50 }, { duration: '30s', target: 0 }],
