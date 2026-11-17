@@ -56,3 +56,11 @@ Les tests de transaction Composer vérifient maintenant l'appel explicite de raf
 ### Visibilité des tests ignorés en CI
 
 La CI du Tooling lance PHPUnit avec `--display-skipped` en plus de `--display-warnings --fail-on-warning`. Les motifs des tests ignorés apparaissent dans les logs du job PHPUnit pour distinguer les prérequis absents des exclusions à corriger. Ce réglage ne change ni l'exécution ni le statut des tests ignorés.
+
+## Publication des métadonnées Composer et droits locaux (CT App du 17/11/2026)
+
+La transaction Composer de Tooling publie `backend/.symsvel/modules.json` (inventaire) et `backend/.symsvel/bundles.php` (classes de bundles) via un fichier temporaire et renommage atomique. `tempnam()` crée ce fichier avec des permissions restrictives `0600` : après installation depuis le compte CLI, un processus PHP local exécuté sous un autre utilisateur ne pouvait pas lire le registre et générait `file_get_contents(.../backend/.symsvel/modules.json): Permission denied` lors du CT d'inscription App.
+
+Les deux écrivains Composer publient maintenant les **seules métadonnées techniques non secrètes** en mode `0644`, avant le renommage atomique. Lors d'une publication identique, ils restaurent également ces permissions pour corriger un fichier antérieurement généré en `0600`. Les répertoires `.symsvel` doivent rester traversables par l'utilisateur PHP. Cela ne modifie pas les permissions des secrets (`.env.local`), des sauvegardes et des journaux de récupération, qui doivent rester protégés. La logique d'inscription Users/App n'est pas modifiée.
+
+`ComposerModulePlannerTest::testComposerMetadataIsReadableAfterAtomicPublicationAndReuse` couvre la publication et le cas du fichier ancien en `0600`. L'origine exacte de l'appel HTTP au registre d'outillage reste à tracer indépendamment : l'interface publique ne doit pas exécuter une opération de maintenance pour gérer une inscription. CI et CT multi-utilisateurs requis avant clôture ; éviter un `chmod -R` du workspace.
