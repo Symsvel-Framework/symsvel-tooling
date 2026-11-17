@@ -67,7 +67,7 @@ Procédure recommandée : `smoke` puis `load`, `stress`, `spike`, `soak` uniquem
 
 - `bash -n load-tests/run.sh load-tests/test-runner.sh` : syntaxe du lanceur.
 - `bash load-tests/test-runner.sh` : contrôles de sécurité des arguments, **sans aucune requête HTTP**.
-- `python3 -m unittest discover -s load-tests -p 'test_*.py'` : génération des tableaux sur résumés fictifs.
+- `php load-tests/test-compare.php` : génération des tableaux sur résumés fictifs.
 - `node --input-type=module --check < load-tests/scenarios.js` : syntaxe du script k6, sans exécution.
 - Lancement réel des profils et interprétation des résultats : **crash-tests locaux à effectuer par l'utilisateur**.
 
