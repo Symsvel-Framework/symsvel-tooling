@@ -63,3 +63,7 @@ Les indices numériques sont acceptés en segment interne, par exemple `strength
 ### Contrat testé sur plusieurs modules
 
 Un test de synchronisation installe simultanément deux modules possédant chacun un fichier `bo/src/lib/translations/fr.ts`. Les fichiers de destination sont isolés par l'identifiant de module, la resynchronisation est idempotente, une mise à jour affecte seulement le module concerné, et son retrait supprime ses fichiers sans toucher aux traductions de l'autre module.
+
+### Validation stricte des objets TypeScript
+
+Le lecteur décode le JSON en objets (`stdClass`), pas en tableaux PHP, afin de distinguer sans ambiguïté `{"0":"Aucune saisie"}` d'une liste JSON. Les indices numériques restent des segments de clés légitimes. Les tableaux JSON, les expressions TypeScript, les feuilles non textuelles et les clés aplaties en doublon (`a.b` et `a → b`) sont refusés **avant** toute publication de l'inventaire ou copie Svelte. La suite de tests inclut ces régressions.

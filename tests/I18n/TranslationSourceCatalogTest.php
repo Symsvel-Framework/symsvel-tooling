@@ -42,4 +42,37 @@ final class TranslationSourceCatalogTest extends TestCase
             rmdir($root);
         }
     }
+
+    public function testRejectsAmbiguousFlattenedKeysAndJsonArrays(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-source-invalid-'.bin2hex(random_bytes(6));
+        mkdir($root.'/backend', 0775, true);
+        mkdir($root.'/bo/src/lib/translations/system', 0775, true);
+        try {
+            $path = $root.'/bo/src/lib/translations/system/fr.ts';
+            $catalog = new TranslationSourceCatalog();
+            foreach ([
+                'export default {"label":["one","two"]} as const;',
+                'export default {"a.b":"one","a":{"b":"two"}} as const;',
+            ] as $invalid) {
+                file_put_contents($path, $invalid);
+                try {
+                    $catalog->collect($root.'/backend', []);
+                    self::fail('Invalid source must never produce an inventory.');
+                } catch (\InvalidArgumentException) {
+                    // Validation must happen before an inventory can be published.
+                }
+            }
+        } finally {
+            $iter = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($iter as $entry) {
+                $entry->isFile() || $entry->isLink()
+                    ? unlink($entry->getPathname()) : rmdir($entry->getPathname());
+            }
+            rmdir($root);
+        }
+    }
 }

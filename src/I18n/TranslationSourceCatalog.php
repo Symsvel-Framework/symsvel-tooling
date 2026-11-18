@@ -35,6 +35,15 @@ final class TranslationSourceCatalog
                 $this->readFiles($module['path'].'/'.$scope.'/src/lib/translations', $scope, $slug, $entries);
             }
         }
+        // Reject ambiguous aliases such as {"a.b":"x","a":{"b":"y"}}.
+        $seen = [];
+        foreach ($entries as $entry) {
+            $identity = implode("\0", [$entry['scope'], $entry['module'], $entry['key'], $entry['language']]);
+            if (isset($seen[$identity])) {
+                throw new \InvalidArgumentException('Duplicate translation source key: '.$entry['scope'].'.'.$entry['module'].'.'.$entry['key']);
+            }
+            $seen[$identity] = true;
+        }
         usort($entries, static fn (array $a, array $b): int => strcmp(
             implode("\0", [$a['scope'], $a['module'], $a['key'], $a['language']]),
             implode("\0", [$b['scope'], $b['module'], $b['key'], $b['language']]),
@@ -106,31 +115,32 @@ final class TranslationSourceCatalog
                 throw new \InvalidArgumentException('Translation must be a JSON-compatible TypeScript default export: '.$path);
             }
             try {
-                $data = json_decode($matchContent[1], true, 32, JSON_THROW_ON_ERROR);
+                $data = json_decode($matchContent[1], false, 32, JSON_THROW_ON_ERROR);
             } catch (\JsonException $error) {
                 throw new \InvalidArgumentException('Invalid dictionary JSON: '.$path, 0, $error);
             }
-            if (!is_array($data) || ($data !== [] && array_is_list($data))) {
+            if (!$data instanceof \stdClass) {
                 throw new \InvalidArgumentException('Translation dictionary must be an object: '.$path);
             }
             $this->flatten($data, '', $scope, $module, $match[1], $entries);
         }
     }
 
-    /** @param array<string,mixed> $data
+    /** @param \stdClass $data
      *  @param list<array{scope:string,module:string,key:string,language:string,value:string}> $entries
      */
-    private function flatten(array $data, string $prefix, string $scope, string $module, string $language, array &$entries): void
+    private function flatten(\stdClass $data, string $prefix, string $scope, string $module, string $language, array &$entries): void
     {
         foreach ($data as $segment => $value) {
-            if (!is_string($segment) || !preg_match('/^(?:[A-Za-z][A-Za-z0-9_.-]*|[0-9]+)$/D', $segment)) {
+            $segment = (string) $segment;
+            if (!preg_match('/^(?:[A-Za-z][A-Za-z0-9_.-]*|[0-9]+)$/D', $segment)) {
                 throw new \InvalidArgumentException('Invalid translation key segment.');
             }
             $key = $prefix === '' ? $segment : $prefix.'.'.$segment;
             if (!preg_match('/^[A-Za-z][A-Za-z0-9_.-]{0,189}$/D', $module.'.'.$key)) {
                 throw new \InvalidArgumentException('Translation key too long.');
             }
-            if (is_array($value) && $value !== [] && !array_is_list($value)) {
+            if ($value instanceof \stdClass) {
                 $this->flatten($value, $key, $scope, $module, $language, $entries);
             } elseif (is_string($value) && strlen($value) <= 8192 && !str_contains($value, "\0")) {
                 $entries[] = compact('scope', 'module', 'key', 'language', 'value');
