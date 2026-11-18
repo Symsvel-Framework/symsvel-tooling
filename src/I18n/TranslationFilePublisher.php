@@ -34,8 +34,8 @@ final class TranslationFilePublisher
             throw new \RuntimeException('Svelte component is not installed: '.$scope);
         }
         $base = $app.'/src/lib';
-        $directory = $base.'/i18n/generated';
-        foreach ([$base.'/i18n', $directory] as $dir) {
+        $directory = $base.'/translations/generated';
+        foreach ([$base.'/translations', $directory] as $dir) {
             if (is_link($dir) || (file_exists($dir) && !is_dir($dir))) {
                 throw new \RuntimeException('Invalid translation output directory.');
             }
