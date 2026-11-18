@@ -75,4 +75,33 @@ final class TranslationSourceCatalogTest extends TestCase
             rmdir($root);
         }
     }
+
+    public function testReservesSystemAndGeneratedModuleNamespaces(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-source-reserved-'.bin2hex(random_bytes(6));
+        mkdir($root.'/backend', 0775, true);
+        mkdir($root.'/bo/src/lib', 0775, true);
+        try {
+            foreach (['system', 'generated'] as $owner) {
+                try {
+                    (new TranslationSourceCatalog())->collect($root.'/backend', [[
+                        'module' => $owner, 'path' => $root.'/absent',
+                        'components' => ['bo' => 'bo'],
+                    ]]);
+                    self::fail('A reserved module name cannot own translation sources.');
+                } catch (\InvalidArgumentException) {
+                }
+            }
+        } finally {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($iterator as $item) {
+                $item->isFile() || $item->isLink()
+                    ? unlink($item->getPathname()) : rmdir($item->getPathname());
+            }
+            rmdir($root);
+        }
+    }
 }

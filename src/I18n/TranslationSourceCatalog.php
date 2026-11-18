@@ -29,7 +29,7 @@ final class TranslationSourceCatalog
                 }
                 $slug = $module['module'];
                 if (!is_string($slug) || !preg_match('/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/D', $slug)
-                    || $slug === 'system') {
+                    || in_array($slug, ['system', 'generated'], true)) {
                     throw new \InvalidArgumentException('Invalid translation module identifier.');
                 }
                 $this->readFiles($module['path'].'/'.$scope.'/src/lib/translations', $scope, $slug, $entries);

@@ -57,6 +57,9 @@ final class SvelteModuleSynchronizer
                 $files = $this->files($source);
                 foreach ($files as $relative => $content) {
                     if (str_starts_with($relative, 'lib/translations/')) {
+                        if (in_array($slug, ['system', 'generated'], true)) {
+                            throw new \RuntimeException('Reserved translation owner: '.$slug);
+                        }
                         // Source dictionaries use lib/translations/<language>.ts.
                         // Namespace them by owning Composer module in the host to avoid
                         // fr.ts collisions and preserve <scope>.<module>.<key> ownership.
