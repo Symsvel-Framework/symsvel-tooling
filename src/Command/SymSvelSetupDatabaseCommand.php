@@ -110,6 +110,15 @@ final class SymSvelSetupDatabaseCommand extends Command
                     throw new \RuntimeException('Initial settings synchronization failed: '.trim($sync->getErrorOutput().' '.$sync->getOutput()));
                 }
             }
+            // Persist source dictionaries only after Languages migrations and Settings sync.
+            if (is_file($this->projectDir.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
+                $translations = new Process([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $this->projectDir);
+                $translations->setTimeout(null);
+                $translations->run();
+                if (!$translations->isSuccessful()) {
+                    throw new \RuntimeException('Translation source synchronization failed: '.trim($translations->getErrorOutput().' '.$translations->getOutput()));
+                }
+            }
             $this->state->transition($workspace, SetupState::RUNNING, SetupState::DATABASE_READY);
             $output->writeln('<info>Database and migrations ready.</info>');
             return Command::SUCCESS;

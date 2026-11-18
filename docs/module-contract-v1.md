@@ -51,3 +51,7 @@ Convention publique : `<scope>.<module|system>.<key>`. Les dictionnaires source 
 ### Contrat des fichiers source
 
 Les fichiers par langue sont des exports TypeScript contenant exclusivement un objet JSON valide suivi de `as const;`. Exemple : `export default {"pagination":{"first":"Première page"}} as const;`. Aucun import, fonction, variable ou tableau exécutable. Tooling valide les sources, déplie les clés et publie atomiquement `backend/.symsvel/translation-sources.json` (schéma 1), avec scope, module|system, clé relative, langue et valeur. Cet inventaire local est préparé avant toute persistance, qui doit intervenir après migrations ; il ne constitue ni une API HTTP ni une autorité sur les personnalisations.
+
+### Orchestration BDD
+
+Après l'exécution des migrations Doctrine de Languages, Tooling invoque `symsvel:languages:translations:sync` lors du Setup initial (parcours en une ou deux phases) et des transactions Composer de modules. Le module vérifie l'inventaire `backend/.symsvel/translation-sources.json`, puis persiste ses clés et textes dans ses tables. L'opération est idempotente et protégée par les snapshots/transactions existants ; une erreur bloque le cycle plutôt que de signaler une installation fictive. La migration Languages `Version20261118000001` est enregistrée dans le registre global.

@@ -175,6 +175,11 @@ final class ComposerTransactionRunner
             if ($databaseUrl !== null && is_file($backend.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
                 $this->execute([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $backend, $progress);
             }
+            // The bundle owns its tables and import logic. Tooling only invokes
+            // the post-migration operation while the Composer rollback is active.
+            if ($databaseUrl !== null && is_file($backend.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
+                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backend, $progress);
+            }
             $this->removeCompiledMigrations($backend, $removedVersions);
         } catch (\Throwable $failure) {
             $recoveryErrors = [];

@@ -94,6 +94,14 @@ final class SymSvelSetupFinalizeCommand extends Command
                     throw new \RuntimeException('Settings synchronization failed: '.trim($settings->getErrorOutput().' '.$settings->getOutput()));
                 }
             }
+            if (is_file($this->projectDir.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
+                $translations = new Process([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $this->projectDir);
+                $translations->setTimeout(null);
+                $translations->run();
+                if (!$translations->isSuccessful()) {
+                    throw new \RuntimeException('Translation source synchronization failed: '.trim($translations->getErrorOutput().' '.$translations->getOutput()));
+                }
+            }
             $bootstrap = new Process([
                 PHP_BINARY, 'bin/console', 'symsvel:admins:bootstrap', '--no-interaction',
             ], $this->projectDir);
