@@ -77,3 +77,7 @@ La CI de la branche a détecté une erreur d'échappement dans l'exception levé
 ### Mise à jour globale des hôtes (`symsvel update`)
 
 Le cycle existant `WorkspaceUpdater` applique les sources natives BO/App/Front, puis lance `symsvel:module:sync --source=composer` pour reconstruire l'inventaire des modules et des dictionnaires. Si la BDD locale est configurée et Languages installé, il lance ensuite `symsvel:languages:translations:sync`, avant `npm ci` et les builds Svelte. Les snapshots sources/runtime/BDD du même cycle couvrent ces étapes : un échec annule la mise à jour plutôt que de laisser un inventaire incohérent. Les tests vérifient l'ordre de ces commandes ; les CT XT devront couvrir les échecs et restaurations sur projet réel.
+
+### Contrôle de CI sur branche de travail
+
+La CI a été exécutée sur la branche de traduction avec les runners locaux ; le déclencheur temporaire de cette branche a ensuite été retiré, et les règles de publication/restauration du workflow (`dev`, `main` et PR selon le dépôt) ont été conservées. Les CT XT restent requis avant merge.
