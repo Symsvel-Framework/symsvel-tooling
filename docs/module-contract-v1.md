@@ -59,3 +59,7 @@ Après l'exécution des migrations Doctrine de Languages, Tooling invoque `symsv
 Les dictionnaires publiés après personnalisation depuis Languages sont écrits dans `src/lib/translations/generated/<lang>.ts`. Les anciens fichiers `src/lib/i18n/generated/` restent lisibles par les helpers Svelte pendant la transition, mais ne sont plus la cible des nouvelles publications. L'écrivain conserve les vérifications de signature, de répertoire géré, d'absence de symlink et de renommage atomique.
 
 Les indices numériques sont acceptés en segment interne, par exemple `strengthLevels.0`, pour les listes de libellés fixes. Le dictionnaire source reste un objet JSON et non un tableau ; le consommateur peut reconstruire sa liste à partir de ces clés.
+
+### Contrat testé sur plusieurs modules
+
+Un test de synchronisation installe simultanément deux modules possédant chacun un fichier `bo/src/lib/translations/fr.ts`. Les fichiers de destination sont isolés par l'identifiant de module, la resynchronisation est idempotente, une mise à jour affecte seulement le module concerné, et son retrait supprime ses fichiers sans toucher aux traductions de l'autre module.

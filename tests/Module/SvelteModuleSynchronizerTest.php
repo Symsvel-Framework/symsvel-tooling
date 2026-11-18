@@ -72,6 +72,42 @@ final class SvelteModuleSynchronizerTest extends TestCase
         self::assertDirectoryExists($this->workspace.'/bo/src/routes');
     }
 
+    public function testIndependentModuleDictionariesCanShareLanguageNamesAndUninstallSeparately(): void
+    {
+        $other = (new ModuleMaker())->create($this->workspace, 'reports', 'symsvel-framework', 'bo');
+        symlink($other, $this->backend.'/vendor/symsvel-framework/module-reports');
+        file_put_contents($this->module.'/bo/src/lib/translations/fr.ts',
+            'export default {"title":"Catalogue"} as const;');
+        file_put_contents($other.'/bo/src/lib/translations/fr.ts',
+            'export default {"title":"Rapports"} as const;');
+        file_put_contents($this->backend.'/vendor/composer/installed.json', json_encode(['packages' => [
+            ['name' => 'symsvel-framework/module-catalog', 'install-path' => '../symsvel-framework/module-catalog'],
+            ['name' => 'symsvel-framework/module-reports', 'install-path' => '../symsvel-framework/module-reports'],
+        ]], JSON_THROW_ON_ERROR));
+
+        $catalog = $this->workspace.'/bo/src/lib/translations/catalog/fr.ts';
+        $reports = $this->workspace.'/bo/src/lib/translations/reports/fr.ts';
+        $sync = new SvelteModuleSynchronizer();
+        $sync->sync($this->backend);
+        self::assertSame('export default {"title":"Catalogue"} as const;', file_get_contents($catalog));
+        self::assertSame('export default {"title":"Rapports"} as const;', file_get_contents($reports));
+        self::assertFileDoesNotExist($this->workspace.'/bo/src/lib/translations/fr.ts');
+        self::assertSame(['written' => 0, 'removed' => 0], $sync->sync($this->backend));
+
+        file_put_contents($this->module.'/bo/src/lib/translations/fr.ts',
+            'export default {"title":"Nouveau catalogue"} as const;');
+        self::assertSame(['written' => 1, 'removed' => 0], $sync->sync($this->backend));
+        self::assertStringContainsString('Nouveau catalogue', (string) file_get_contents($catalog));
+        self::assertStringContainsString('Rapports', (string) file_get_contents($reports));
+
+        file_put_contents($this->backend.'/vendor/composer/installed.json', json_encode(['packages' => [
+            ['name' => 'symsvel-framework/module-catalog', 'install-path' => '../symsvel-framework/module-catalog'],
+        ]], JSON_THROW_ON_ERROR));
+        $sync->sync($this->backend);
+        self::assertFileDoesNotExist($reports);
+        self::assertFileExists($catalog);
+    }
+
     public function testBoOnlyProjectSkipsOptionalAppAndFrontScopes(): void
     {
         // The module supports BO + App + Front, but the installation only
