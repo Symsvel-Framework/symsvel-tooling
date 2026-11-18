@@ -17,13 +17,14 @@ final class TranslationSourceCatalogTest extends TestCase
         mkdir($root.'/module/bo/src/lib/translations', 0775, true);
         try {
             file_put_contents($root.'/bo/src/lib/translations/system/fr.ts', 'export default {"pagination":{"first":"Première page"}} as const;');
-            file_put_contents($root.'/module/bo/src/lib/translations/fr.ts', 'export default {"title":"Administrateurs"} as const;');
+            file_put_contents($root.'/module/bo/src/lib/translations/fr.ts', 'export default {"title":"Administrateurs","strength":{"0":"Aucune saisie"}} as const;');
             file_put_contents($root.'/module/bo/src/lib/translations/en.ts', 'export default {"title":"Administrators"} as const;');
             $catalog = new TranslationSourceCatalog();
             $modules = [['module' => 'admins', 'path' => $root.'/module', 'components' => ['bo' => 'bo']]];
             $result = $catalog->collect($root.'/backend', $modules);
             self::assertSame(1, $result['schema']);
-            self::assertCount(3, $result['entries']);
+            self::assertCount(4, $result['entries']);
+            self::assertContains(['scope' => 'bo', 'module' => 'admins', 'key' => 'strength.0', 'language' => 'fr', 'value' => 'Aucune saisie'], $result['entries']);
             self::assertContains(['scope' => 'bo', 'module' => 'system', 'key' => 'pagination.first', 'language' => 'fr', 'value' => 'Première page'], $result['entries']);
             self::assertContains(['scope' => 'bo', 'module' => 'admins', 'key' => 'title', 'language' => 'en', 'value' => 'Administrators'], $result['entries']);
             $manifest = $catalog->publish($root.'/backend', $result);

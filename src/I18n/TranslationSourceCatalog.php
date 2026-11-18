@@ -123,7 +123,7 @@ final class TranslationSourceCatalog
     private function flatten(array $data, string $prefix, string $scope, string $module, string $language, array &$entries): void
     {
         foreach ($data as $segment => $value) {
-            if (!is_string($segment) || !preg_match('/^[A-Za-z][A-Za-z0-9_.-]*$/D', $segment)) {
+            if (!is_string($segment) || !preg_match('/^(?:[A-Za-z][A-Za-z0-9_.-]*|[0-9]+)$/D', $segment)) {
                 throw new \InvalidArgumentException('Invalid translation key segment.');
             }
             $key = $prefix === '' ? $segment : $prefix.'.'.$segment;
