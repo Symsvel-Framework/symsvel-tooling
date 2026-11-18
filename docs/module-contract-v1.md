@@ -85,3 +85,5 @@ La CI a été exécutée sur la branche de traduction avec les runners locaux ; 
 ### Documentation générée par `make:module`
 
 Le Maker renseigne désormais `docs/dev/index.md` du nouveau module avec le chemin des dictionnaires de chaque scope, la convention publique `<scope>.<module>.<key>`, l'exigence d'un export JSON strict `as const` et la synchronisation post-migrations. Le squelette reste volontairement dépourvu de libellés fictifs ; un test vérifie que ces indications sont présentes dans la documentation générée.
+
+Le modèle de guide Maker encode les guillemets JSON dans sa chaîne PHP via `\\x22`, afin que le fichier généré contienne réellement l'exemple `export default {"title":"Texte"} as const;`. Les tests vérifient la convention générique `<scope>.<module>.<key>` plutôt que de supposer un scope unique dans la documentation commune d'un module multi-scope.
