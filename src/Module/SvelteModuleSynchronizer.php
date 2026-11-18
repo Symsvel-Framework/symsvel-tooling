@@ -64,7 +64,7 @@ final class SvelteModuleSynchronizer
                         // Namespace them by owning Composer module in the host to avoid
                         // fr.ts collisions and preserve <scope>.<module>.<key> ownership.
                         if (!preg_match('~^lib/translations/([a-z]{2,4})\\.ts$~D', $relative, $matches)) {
-                            throw new \\RuntimeException('Dictionnaire Svelte invalide : '.$slug.'/'.$relative);
+                            throw new \RuntimeException('Dictionnaire Svelte invalide : '.$slug.'/'.$relative);
                         }
                         $destination = $app.'/src/lib/translations/'.$slug.'/'.$matches[1].'.ts';
                     } elseif (str_starts_with($relative, 'lib/')) {
