@@ -88,6 +88,9 @@ final class ModuleMakerTest extends TestCase
                     self::assertFileExists($path.'/'.$scope.'/tsconfig.json');
                     self::assertFileExists($path.'/'.$scope.'/src/lib/modules/test-profile/index.ts');
                     self::assertFileExists($path.'/'.$scope.'/src/lib/translations/.gitkeep');
+                    $guide = (string) file_get_contents($path.'/docs/dev/index.md');
+                    self::assertStringContainsString('lib/translations/<lang>.ts', $guide);
+                    self::assertStringContainsString($scope.'.test-profile.<key>', $guide);
                     self::assertFileExists($path.'/'.$scope.'/tests/test-profile.test.ts');
                     $tsconfig = json_decode((string) file_get_contents($path.'/'.$scope.'/tsconfig.json'), true, 512, JSON_THROW_ON_ERROR);
                     self::assertTrue($tsconfig['compilerOptions']['strict']);

@@ -90,7 +90,7 @@ final class ModuleMaker
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n",
             'back/src/'.$class.'Bundle.php' => "<?php\n\ndeclare(strict_types=1);\n\nnamespace ".$namespace.";\n\nuse Symfony\\Component\\HttpKernel\\Bundle\\AbstractBundle;\n\nfinal class ".$class."Bundle extends AbstractBundle\n{\n}\n",
             'README.md' => '# '.$class."\n\nModule SymSvel (manifest schema 1).\n",
-            'docs/dev/index.md' => '# '.$class."\n\nDocumentation développeur.\n",
+            'docs/dev/index.md' => '# '.$class."\n\nDocumentation développeur.\n\n## Traductions Svelte\n\nPour chaque scope Svelte du module (bo, app, front), placer les dictionnaires dans `<scope>/src/lib/translations/<lang>.ts` uniquement si des libellés sont nécessaires. Format obligatoire : `export default {\\\"title\\\":\\\"Texte\\\"} as const;` (objet JSON strict, pas de code TypeScript exécuté par Tooling). Clé publique : `<scope>.".$name.".<key>`. Tooling déploie les fichiers sous `<scope>/src/lib/translations/".$name."/<lang>.ts`, puis Languages persiste les clés après migrations. Le dossier initial est vide ; ne pas inventer de clés.\n",
             '.gitignore' => "/vendor/\n/node_modules/\n/.phpunit.result.cache\n",
             // Template to publish in symsvel-recipes when the module is released.
             // Flex does not discover recipes inside Composer packages automatically.
