@@ -73,3 +73,7 @@ Les noms `system` et `generated` sont réservés dans les hôtes Svelte : `syste
 ### Validation du parseur PHP (18/11/2026)
 
 La CI de la branche a détecté une erreur d'échappement dans l'exception levée pour un dictionnaire Svelte invalide. Correction du namespace PHP dans `SvelteModuleSynchronizer` ; le lint `php -l` de tous les fichiers reste un prérequis avant toute validation du chantier.
+
+### Mise à jour globale des hôtes (`symsvel update`)
+
+Le cycle existant `WorkspaceUpdater` applique les sources natives BO/App/Front, puis lance `symsvel:module:sync --source=composer` pour reconstruire l'inventaire des modules et des dictionnaires. Si la BDD locale est configurée et Languages installé, il lance ensuite `symsvel:languages:translations:sync`, avant `npm ci` et les builds Svelte. Les snapshots sources/runtime/BDD du même cycle couvrent ces étapes : un échec annule la mise à jour plutôt que de laisser un inventaire incohérent. Les tests vérifient l'ordre de ces commandes ; les CT XT devront couvrir les échecs et restaurations sur projet réel.
