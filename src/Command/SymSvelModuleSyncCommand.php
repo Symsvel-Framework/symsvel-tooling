@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Module\ModuleInventoryWriter;
+use SymSvel\Tooling\I18n\TranslationSourceCatalog;
 use SymSvel\Tooling\Module\SvelteModuleSynchronizer;
 use SymSvel\Tooling\Module\ComposerModuleSynchronizer;
 use SymSvel\Tooling\Module\ComposerModuleInventoryWriter;
@@ -31,6 +32,7 @@ final class SymSvelModuleSyncCommand extends Command
         private readonly ComposerModuleBundleMapWriter $composerBundleWriter = new ComposerModuleBundleMapWriter(),
         private readonly SvelteModuleSynchronizer $svelteSynchronizer = new SvelteModuleSynchronizer(),
         private readonly LocalBoDomainPublisher $domainPublisher = new LocalBoDomainPublisher(),
+        private readonly TranslationSourceCatalog $translationSources = new TranslationSourceCatalog(),
     ) {
         parent::__construct();
     }
@@ -56,7 +58,10 @@ final class SymSvelModuleSyncCommand extends Command
                 (new \SymSvel\Tooling\Module\ModuleBundleResolver())->resolve(
                     (new \SymSvel\Tooling\Module\ComposerModuleRegistry())->discover($this->projectDir),
                 );
+                // Validate sources before copying files, then stage the BDD inventory.
+                $sources = $this->translationSources->collect($this->projectDir, $this->composerSynchronizer->prepare($this->projectDir));
                 $svelte = $this->svelteSynchronizer->sync($this->projectDir);
+                $this->translationSources->publish($this->projectDir, $sources);
                 $this->composerBundleWriter->write($this->projectDir);
                 $path = $this->composerWriter->write($this->projectDir);
                 // Runs as the CLI owner, not as the PHP-FPM runtime user.

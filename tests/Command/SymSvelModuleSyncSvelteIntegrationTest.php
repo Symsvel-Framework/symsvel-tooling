@@ -35,6 +35,8 @@ final class SymSvelModuleSyncSvelteIntegrationTest extends TestCase
             self::assertFileExists($translation);
             self::assertStringContainsString('Catalogue', (string) file_get_contents($translation));
             self::assertFileExists($backend.'/.symsvel/modules.json');
+            $sourceIndex = json_decode((string) file_get_contents($backend.'/.symsvel/translation-sources.json'), true, 32, JSON_THROW_ON_ERROR);
+            self::assertContains(['scope' => 'bo', 'module' => 'catalog', 'key' => 'title', 'language' => 'fr', 'value' => 'Catalogue'], $sourceIndex['entries']);
             self::assertSame(Command::SUCCESS, $tester->execute(['--source' => 'composer']));
             file_put_contents($installed, json_encode(['packages' => []], JSON_THROW_ON_ERROR));
             self::assertSame(Command::SUCCESS, $tester->execute(['--source' => 'composer']));
