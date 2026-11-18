@@ -146,6 +146,9 @@ final class ModuleMaker
                     ],
                     'include' => ['src/**/*.ts', 'src/**/*.js', 'src/**/*.svelte', 'tests/**/*.ts'],
                 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
+                // A module may ship scope-specific dictionaries in lib/translations/<lang>.ts.
+                // The empty directory is versioned without inventing translatable keys.
+                $files[$scope.'/src/lib/translations/.gitkeep'] = '';
                 $files[$scope.'/src/lib/modules/'.$name.'/index.ts'] = "export const moduleId = '".$name."';\n";
                 $files[$scope.'/src/lib/modules/'.$name.'/README.md'] = '# '.$class." (".$scope.")\n\nPoint d'intégration SvelteKit du module. Importer les composants et services ici ; aucune route applicative n'est imposée.\n";
                 $files[$scope.'/tests/'.$name.'.test.ts'] = "import { describe, expect, it } from 'vitest';\nimport { moduleId } from '../src/lib/modules/".$name."';\n\ndescribe('".$name." module', () => {\n  it('exports its identifier', () => {\n    expect(moduleId).toBe('".$name."');\n  });\n});\n";

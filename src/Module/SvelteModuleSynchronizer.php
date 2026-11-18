@@ -56,7 +56,15 @@ final class SvelteModuleSynchronizer
                 }
                 $files = $this->files($source);
                 foreach ($files as $relative => $content) {
-                    if (str_starts_with($relative, 'lib/')) {
+                    if (str_starts_with($relative, 'lib/translations/')) {
+                        // Source dictionaries use lib/translations/<language>.ts.
+                        // Namespace them by owning Composer module in the host to avoid
+                        // fr.ts collisions and preserve <scope>.<module>.<key> ownership.
+                        if (!preg_match('~^lib/translations/([a-z]{2,4})\\.ts$~D', $relative, $matches)) {
+                            throw new \\RuntimeException('Dictionnaire Svelte invalide : '.$slug.'/'.$relative);
+                        }
+                        $destination = $app.'/src/lib/translations/'.$slug.'/'.$matches[1].'.ts';
+                    } elseif (str_starts_with($relative, 'lib/')) {
                         $destination = $app.'/src/'. $relative;
                     } elseif (str_starts_with($relative, 'routes/')) {
                         $destination = $app.'/src/lib/modules/'.$slug.'/'.$relative;

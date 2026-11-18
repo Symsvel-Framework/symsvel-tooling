@@ -39,3 +39,11 @@ Le Maker génère un bundle Symfony sous `back/src/`, des répertoires de migrat
 Le modèle `recipe/recipe.json` contient une référence de commit à remplacer et **n'est pas automatiquement publié** dans le catalogue Flex. L'installation, les routes, la synchronisation Svelte et les migrations sont assurées par les mécanismes Tooling/Composer/Flex appropriés, pas par la simple génération du dossier du module.
 
 Voir [les commandes](modules/commandes.md), [l'intégration des modules](modules/contrat.md) et [les transactions Composer](composer-transactions.md). Les crash-tests XT restent nécessaires pour valider le parcours complet sur les dépôts officiels.
+
+## Dictionnaires de traduction des modules (18/11/2026)
+
+Chaque scope Svelte d'un module peut fournir `<scope>/src/lib/translations/<lang>.ts` (par exemple `bo/src/lib/translations/fr.ts`). Le Maker crée le dossier avec `.gitkeep` mais n'invente pas de libellés. Un module sans textes n'a pas besoin de fichier `.ts`.
+
+Tooling synchronise les fichiers via le mécanisme existant `SvelteModuleSynchronizer`, dans l'hôte installé à `<scope>/src/lib/translations/<module>/<lang>.ts`. Le propriétaire `<module>` est l'identifiant Composer validé, jamais déduit d'une clé arbitraire. Les fichiers de langue des modules ne se remplacent pas mutuellement ; les conflits sur fichiers gérés, modifications locales et liens symboliques restent bloquants. Le retrait d'un module retire uniquement les sources qu'il avait synchronisées.
+
+Convention publique : `<scope>.<module|system>.<key>`. Les dictionnaires source utilisent des clés relatives au module et au scope ; `system` est réservé aux textes natifs des hôtes, jamais aux textes fonctionnels des modules. Ce changement couvre les dossiers Maker et la copie des fichiers ; le raccordement BDD et le chargement i18n des sources font l'objet d'étapes distinctes, à tester avant toute validation d'installation complète.
