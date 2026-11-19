@@ -30,3 +30,9 @@ Le registre `.symsvel/svelte-files.json` protège les fichiers gérés. Une sync
 Un module peut déclarer dans `module.json` les composants `bo`, `app` et `front` qu'il **sait fournir**. Cette déclaration ne signifie pas que le projet consommateur doit obligatoirement installer App ou Front. `SvelteModuleSynchronizer` synchronise uniquement les composants présents dans le workspace. Si App ou Front n'existe pas, leurs fichiers sont ignorés, sans créer les applications manquantes ni refuser un projet BO seul. Le BO, composant natif obligatoire, reste exigé lorsqu'un module déclare des fichiers BO. Si App est ajoutée ultérieurement, une nouvelle synchronisation installe les fichiers et routes correspondants.
 
 Le correctif est motivé par le module optionnel `module-two-factor`, qui fournit une page BO et une page App sans rendre App obligatoire. Le comportement antérieur refusait les projets BO seuls dès qu'un module installé déclarait un scope App. Le test `SvelteModuleSynchronizerTest::testBoOnlyProjectSkipsOptionalAppAndFrontScopes` couvre explicitement cette régression. Les contraintes de dépendances fonctionnelles comme Users obligatoire **lorsqu'App est activée** restent décidées par la CLI et le manifeste du Back ; aucun composant n'est installé automatiquement.
+
+## Guide pour les développeurs de modules BO
+
+Avant de créer une page BO d'un module, réutiliser les composants natifs du BO et leurs jetons. Le Tooling synchronise les pages mais ne duplique pas les composants du hôte.
+
+[Guide développeur BO : composants et couleurs](https://github.com/Symsvel-Framework/symsvel-bo/blob/dev/docs/dev/bo-components.md)
