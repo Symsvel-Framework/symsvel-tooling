@@ -136,6 +136,11 @@
       "version": "Version20261119000011",
       "repository": "symsvel-module-countries",
       "path": "Migration/Version20261119000011.php"
+    },
+    {
+      "version": "Version20261119000012",
+      "repository": "symsvel-module-auth",
+      "path": "Migration/Version20261119000012.php"
     }
   ]
 }
