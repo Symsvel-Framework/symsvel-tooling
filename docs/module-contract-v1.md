@@ -111,3 +111,15 @@ Composer locaux. Le ticket Tooling #64 reste ouvert pour ce cycle de vie
 réintroduire de registre global de routes contraire à l'ADR 0003.
 Vérifications attendues : CI Maker puis CT XT d'un module local et
 d'un package distribué via Flex.
+
+### Routes locales Composer `path` (19/11/2026)
+
+Le modèle `recipe/recipe.json` reste la déclaration explicite de
+l'import Symfony. Pour un module local installé par symlink, Tooling
+peut désormais publier et retirer `config/routes/<slug>.yaml` depuis
+cette déclaration, uniquement quand le module possède des contrôleurs.
+Un import déjà fourni par Flex ou le projet reste externe et intact ;
+le registre `.symsvel/composer-routes.json` ne sert qu'à vérifier la
+propriété des fichiers générés. La synchronisation précède `cache:clear`
+et n'introduit aucun mécanisme de routage runtime. Les CT XT du ticket #64
+restent requis.

@@ -73,6 +73,8 @@
             "@php -l tests/Module/ModuleCompiledMigrationGuardTest.php",
             "@php -l tests/Module/ModuleRemovalSqliteIntegrationTest.php",
             "@php -l src/Module/ComposerModuleRegistry.php",
+            "@php -l src/Module/ComposerModuleRouteSynchronizer.php",
+            "@php -l tests/Module/ComposerModuleRouteSynchronizerTest.php",
             "@php -l tests/Module/ComposerModuleRegistryTest.php",
             "@php -l src/Module/ComposerModulePlanner.php",
             "@php -l src/Module/ComposerModuleSynchronizer.php",
