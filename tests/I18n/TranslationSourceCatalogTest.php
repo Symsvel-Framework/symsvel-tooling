@@ -56,12 +56,14 @@ final class TranslationSourceCatalogTest extends TestCase
                 'export default {"a.b":"one","a":{"b":"two"}} as const;',
             ] as $invalid) {
                 file_put_contents($path, $invalid);
+                $rejected = false;
                 try {
                     $catalog->collect($root.'/backend', []);
                     self::fail('Invalid source must never produce an inventory.');
                 } catch (\InvalidArgumentException) {
-                    // Validation must happen before an inventory can be published.
+                    $rejected = true;
                 }
+                self::assertTrue($rejected, 'Invalid source must be rejected before publication.');
             }
         } finally {
             $iter = new \RecursiveIteratorIterator(
@@ -83,6 +85,7 @@ final class TranslationSourceCatalogTest extends TestCase
         mkdir($root.'/bo/src/lib', 0775, true);
         try {
             foreach (['system', 'generated'] as $owner) {
+                $rejected = false;
                 try {
                     (new TranslationSourceCatalog())->collect($root.'/backend', [[
                         'module' => $owner, 'path' => $root.'/absent',
@@ -90,7 +93,9 @@ final class TranslationSourceCatalogTest extends TestCase
                     ]]);
                     self::fail('A reserved module name cannot own translation sources.');
                 } catch (\InvalidArgumentException) {
+                    $rejected = true;
                 }
+                self::assertTrue($rejected, 'Reserved translation namespace must be rejected.');
             }
         } finally {
             $iterator = new \RecursiveIteratorIterator(

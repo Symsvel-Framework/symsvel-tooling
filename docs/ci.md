@@ -27,3 +27,13 @@ Le client `mysql` des assertions d'intégration est appelé avec `--batch --skip
 Les tags `vX.Y.Z` conservent leur workflow `.github/workflows/release.yml` avec les mêmes validations et la création d'une GitHub Release, mais utilisent maintenant les runners `[self-hosted, linux, ARM64, symsvel]` au lieu des runners GitHub facturés. PHP 8.4 et Composer sont vérifiés directement sur l'image du runner, déjà utilisée par la CI ; l'action Ubuntu de configuration PHP a été supprimée. La publication de la release passe par `actions/github-script@v7` et l'API GitHub (vérification du tag et création de la release), sans dépendre d'un exécutable `gh` non garanti sur le conteneur.
 
 Le workflow reste déclenché **uniquement par push d'un tag**, avec l'autorisation `contents: write` déjà nécessaire à la publication. Aucun tag ni release n'est créé par cette migration. Les runners doivent être en ligne ; les secrets et accès requis aux dépôts privés restent inchangés. Une release de validation et son journal sont nécessaires pour déclarer cette partie CD complètement validée. Le changement ne concerne pas la CI de branches ni le runtime SymSvel.
+
+## Contrôles des tests de refus I18n (19/11/2026)
+
+Les tests de rejet du catalogue de sources de traduction et du
+publisher vérifient désormais explicitement qu'une exception attendue
+a bien été levée pour **chaque** entrée invalide. Auparavant, leurs
+blocs `try/catch` pouvaient aboutir sans assertion enregistrée par
+PHPUnit 13, entraînant trois tests `risky` malgré un comportement de
+production correct. Le contrat I18n n'est pas modifié. Les validations
+restent : CI verte, exécution PHPUnit sans ces risques, puis CT XT.
