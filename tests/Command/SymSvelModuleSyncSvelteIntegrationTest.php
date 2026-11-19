@@ -18,11 +18,15 @@ final class SymSvelModuleSyncSvelteIntegrationTest extends TestCase
         $backend = $workspace.'/backend';
         mkdir($backend.'/vendor/composer', 0775, true);
         mkdir($backend.'/vendor/symsvel-framework', 0775, true);
+        mkdir($backend.'/config/routes', 0775, true);
         mkdir($workspace.'/bo/src/lib', 0775, true);
         mkdir($workspace.'/bo/src/routes', 0775, true);
         try {
             $module = (new ModuleMaker())->create($workspace, 'catalog', 'symsvel-framework', 'bo');
             mkdir($module.'/bo/src/routes/catalog', 0775, true);
+            file_put_contents($module.'/back/src/Controller/CatalogController.php',
+                "<?php\nnamespace SymSvel\\Module\\Catalog\\Controller;\nfinal class CatalogController {}\n",
+            );
             file_put_contents($module.'/bo/src/routes/catalog/+page.svelte', '<h1>Catalog</h1>');
             file_put_contents($module.'/bo/src/lib/translations/fr.ts', 'export default {"title":"Catalogue"} as const;');
             symlink($module, $backend.'/vendor/symsvel-framework/module-catalog');
@@ -31,6 +35,9 @@ final class SymSvelModuleSyncSvelteIntegrationTest extends TestCase
             $tester = new CommandTester(new SymSvelModuleSyncCommand($backend));
             self::assertSame(Command::SUCCESS, $tester->execute(['--source' => 'composer']));
             self::assertFileExists($workspace.'/bo/src/routes/catalog/+page.svelte');
+            $routeFile = $backend.'/config/routes/catalog.yaml';
+            self::assertFileExists($routeFile);
+            self::assertStringContainsString('module-catalog/back/src/Controller/', (string) file_get_contents($routeFile));
             $translation = $workspace.'/bo/src/lib/translations/catalog/fr.ts';
             self::assertFileExists($translation);
             self::assertStringContainsString('Catalogue', (string) file_get_contents($translation));
@@ -41,6 +48,7 @@ final class SymSvelModuleSyncSvelteIntegrationTest extends TestCase
             file_put_contents($installed, json_encode(['packages' => []], JSON_THROW_ON_ERROR));
             self::assertSame(Command::SUCCESS, $tester->execute(['--source' => 'composer']));
             self::assertFileDoesNotExist($workspace.'/bo/src/routes/catalog/+page.svelte');
+            self::assertFileDoesNotExist($routeFile);
             self::assertFileDoesNotExist($translation);
         } finally {
             $iterator = new \RecursiveIteratorIterator(

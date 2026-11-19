@@ -76,3 +76,5 @@ La validation du routage réel (`debug:router`, `router:match`, chemins
 publics), des collisions entre différentes routes déclarées et du cycle
 `require/update/remove` sur XT reste indispensable avant clôture de
 l'issue #64.
+
+La fixture d'intégration CLI/Svelte monte désormais également un répertoire de routes Symfony et un contrôleur de test explicite. Elle vérifie que la synchronisation Composer publie, conserve lors d'un second passage, puis retire ensemble les routes Symfony gérées et les relais Svelte lors de la suppression de l'inventaire du module. Les CT restent nécessaires pour vérifier le routeur réel.
