@@ -78,3 +78,34 @@ publics), des collisions entre différentes routes déclarées et du cycle
 l'issue #64.
 
 La fixture d'intégration CLI/Svelte monte désormais également un répertoire de routes Symfony et un contrôleur de test explicite. Elle vérifie que la synchronisation Composer publie, conserve lors d'un second passage, puis retire ensemble les routes Symfony gérées et les relais Svelte lors de la suppression de l'inventaire du module. Les CT restent nécessaires pour vérifier le routeur réel.
+
+## Assemblage de la documentation native (19/11/2026)
+
+La commande de maintenance interne `symsvel:documentation:sync`, appelée
+par `symsvel documentation:sync`, rassemble les fichiers Markdown
+`.md` déclarés sous `module.json.documentation` pour les modules
+**réellement installés par Composer**. Les sources `docs/` du Back et des
+hôtes BO/App/Front présents rejoignent uniquement le scope `dev` ;
+les documents `admin` et `user` appartiennent aux modules. Les
+fichiers sont conservés par propriétaire et chemin relatif, sans
+inventer de traduction ni copier des ressources hors manifeste.
+
+Tooling publie un index JSON privé et déterministe dans
+`backend/var/symsvel/documentation.json`. Il contient les titres,
+scopes, identifiants et sources Markdown. Le fichier est hors `public/`
+(et hors builds Svelte), avec checksum d'intégrité et publication par
+renommage atomique. Une modification locale de cet artefact, un lien
+symbolique dans les sources ou une source excessive bloque la
+synchronisation. Le retrait d'un module en retire les pages lors de la
+prochaine synchronisation. Aucun contenu privé n'est copié en
+`bo/static` : le BO devra accéder à cet index par un endpoint BO
+authentifié, détenu par un module natif, et ne jamais exposer directement
+le fichier à HTTP.
+
+Cette opération est **explicitement manuelle** après Setup. Elle ne
+lance ni Python, ni `pip`, ni MkDocs, ni build Svelte pendant
+`create-project`, le Wizard ou la compilation de modules. Elle ne
+remplace pas une publication MkDocs : tout build MkDocs ultérieur sera
+également une maintenance hors installation. Test d'inventaire, de
+régénération, de retrait, de collision et de protection du document
+requis en CI ; CT XT et accès authentifié BO restent indispensables.
