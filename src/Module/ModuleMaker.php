@@ -106,7 +106,7 @@ final class ModuleMaker
                                 'contents' => [
                                     $name.':',
                                     '    resource:',
-                                    "        path: '@".$class."Bundle/src/Controller/'",
+                                    "        path: '../../vendor/".$vendor."/module-".$name."/back/src/Controller/'",
                                     '        namespace: '.$namespace.'\\Controller',
                                     '    type: attribute',
                                     '',

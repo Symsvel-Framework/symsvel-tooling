@@ -91,3 +91,23 @@ Le modèle de guide Maker encode les guillemets JSON dans sa chaîne PHP via `\\
 ### Validation finale de la passe dictionnaires (18/11/2026)
 
 La CI complète de la branche de traduction, incluant les tests de synchronisation et la documentation Maker pour Tooling, ou les composants natifs du shell pour BO, a réussi sur les runners locaux. Le déclencheur CI temporaire de la branche a été retiré. La validation ne remplace pas les crash-tests XT ni les essais de migration multibase avant merge.
+
+### Chemin de routes du modèle de recette Flex (19/11/2026)
+
+Le Maker génère un modèle d'import Symfony `config/routes/<module>.yaml`
+dont le chemin est relatif au dossier `backend/config/routes/` :
+`../../vendor/<vendor>/module-<slug>/back/src/Controller/`. Ce chemin
+passe par l'entrée Composer du package et reste valable lorsque celle-ci
+est un lien symbolique vers `modules/<slug>/`. Il correspond au modèle
+déjà employé par la recette Countries et évite l'ancien alias
+`@NomBundle/src/Controller/`, qui ne désigne pas la racine du package.
+
+**Limite maintenue :** un modèle `recipe/recipe.json` placé dans le
+package n'est pas appliqué automatiquement par Symfony Flex. Cette
+correction garantit le chemin de l'import *une fois la recette installée* ;
+elle ne résout pas à elle seule la synchronisation des routes des modules
+Composer locaux. Le ticket Tooling #64 reste ouvert pour ce cycle de vie
+(idempotence, retrait, collisions et propriété des fichiers), sans
+réintroduire de registre global de routes contraire à l'ADR 0003.
+Vérifications attendues : CI Maker puis CT XT d'un module local et
+d'un package distribué via Flex.

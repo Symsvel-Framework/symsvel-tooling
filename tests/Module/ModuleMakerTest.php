@@ -46,6 +46,10 @@ final class ModuleMakerTest extends TestCase
             $entry = $recipe['manifests']['symsvel-framework/module-my-documents'];
             self::assertSame(['all'], $entry['manifest']['bundles']['SymSvel\\Module\\MyDocuments\\MyDocumentsBundle']);
             self::assertArrayHasKey('config/routes/my-documents.yaml', $entry['files']);
+            self::assertSame(
+                "        path: '../../vendor/symsvel-framework/module-my-documents/back/src/Controller/'",
+                $entry['files']['config/routes/my-documents.yaml']['contents'][2],
+            );
             self::assertSame('1.0.x-dev', $composer['extra']['branch-alias']['dev-main']);
             self::assertFileExists($path.'/.github/workflows/qa.yml');
             $this->expectException(\RuntimeException::class);
