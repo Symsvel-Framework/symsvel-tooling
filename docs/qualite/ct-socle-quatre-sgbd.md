@@ -1,6 +1,6 @@
 # Protocole XT : quatre installations vierges avant releases
 
-**Statut au 19 novembre 2026 : non exécuté, à valider par l'utilisateur.**
+**Statut au 20 novembre 2026 : quatre installations vierges `--dev` validées par l'utilisateur pour le Setup, la connexion et quelques actions ; la matrice exhaustive des opérations/rollbacks reste ouverte.**
 
 Ce protocole est la barrière entre les branches `dev` et la préparation des
 releases stables. Une CI verte ne remplace aucun des quatre crash-tests locaux.
@@ -11,10 +11,10 @@ aucune PR avant validation explicite des quatre moteurs.
 
 | Moteur | Projet vierge indépendant | Setup + migrations + seeds | BO / App / Front | Opérations et récupération | Validation XT |
 | --- | --- | --- | --- | --- | --- |
-| PostgreSQL | à créer | à tester | à tester | à tester | en attente |
-| MySQL | à créer | à tester | à tester | à tester | en attente |
-| MariaDB | à créer | à tester | à tester | à tester | en attente |
-| SQLite | à créer | à tester | à tester | à tester | en attente |
+| PostgreSQL | réalisé | Setup terminé (3'04) | Connexion et quelques actions vérifiées ; audit complet non attesté | non attesté | installation validée, 3'52 au total |
+| MySQL | réalisé | Setup terminé (3'05) | Connexion et quelques actions vérifiées ; audit complet non attesté | non attesté | installation validée, 4'08 au total |
+| MariaDB | réalisé | Setup terminé (3'05) | Connexion et quelques actions vérifiées ; audit complet non attesté | non attesté | installation validée, 4'15 au total |
+| SQLite | réalisé | Setup terminé (3'05) | Connexion et quelques actions vérifiées ; audit complet non attesté | non attesté | installation validée, 3'42 au total |
 
 Un projet distinct, une base neuve et des identifiants propres sont requis
 pour chaque moteur. Interdire la réutilisation d'un `vendor/`, de migrations
@@ -92,8 +92,8 @@ capture de Setup, nombre de migrations, résultats HTTP et E2E, anomalies
 résolues dans les dépôts sources, CI finales correspondantes et validation
 explicite XT.
 
-**Les quatre lignes doivent être validées par l'utilisateur** avant la
-phase 3 (préparation des dépendances stables), les merges vers `main`
-et les tags/releases. Un cinquième CT distinct sera effectué après
+**Validation utilisateur du 20/11/2026 :** feu vert explicite pour préparer les PR, les merges `main` et les releases à la suite de quatre installations sans explosion. Cela valide le parcours d'installation et les premiers tests fonctionnels, **pas** l'ensemble des étapes détaillées des phases B et C (en particulier les opérations `require/update/remove`, ModuleMaker, sauvegardes et récupération). L'inventaire de ces vérifications ne doit pas être présenté comme exécuté. Les incidents résiduels avérés restent bloquants selon les règles de release.
+
+La validation des publications exige aussi des contraintes Composer réellement satisfaites par les tags stables et des workflows de release réussis. Un cinquième CT distinct sera effectué après
 publication, sur une installation vierge **sans `--dev`** avec les
 packages réellement distribués via Satis et Flex.
