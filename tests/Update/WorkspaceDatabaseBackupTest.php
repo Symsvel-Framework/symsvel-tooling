@@ -14,7 +14,91 @@ final class WorkspaceDatabaseBackupTest extends TestCase
     {
         $backup = new WorkspaceDatabaseBackup();
         $this->expectException(\DomainException::class);
-        $backup->capture(sys_get_temp_dir(), 'mysql://localhost/example');
+        $backup->capture(sys_get_temp_dir(), 'oracle://localhost/example');
+    }
+
+    public function testMysqlAndMariaDbRejectSystemDatabaseBeforeDump(): void
+    {
+        foreach (['mysql', 'mariadb'] as $driver) {
+            try {
+                (new WorkspaceDatabaseBackup())->capture(sys_get_temp_dir(), $driver.'://localhost/mysql');
+                self::fail('System database checkpoint must be refused.');
+            } catch (\DomainException $error) {
+                self::assertStringContainsString('base système interdite', $error->getMessage());
+            }
+        }
+    }
+
+    public function testMysqlAndMariaDbRejectMismatchedArchiveBeforeRestore(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'symsvel-mysql-checkpoint-');
+        self::assertNotFalse($path);
+        file_put_contents($path, '-- Current Database: `another_database`');
+        try {
+            foreach (['mysql', 'mariadb'] as $driver) {
+                try {
+                    (new WorkspaceDatabaseBackup())->restore($driver.'://localhost/example', [
+                        'driver' => $driver, 'path' => $path,
+                    ]);
+                    self::fail('Mismatched database archive must be refused.');
+                } catch (\RuntimeException $error) {
+                    self::assertStringContainsString('Archive MySQL/MariaDB invalide', $error->getMessage());
+                }
+            }
+            self::assertFileExists($path);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function testMysqlAndMariaDbRestoreOriginalDataAndDropNewTables(): void
+    {
+        foreach (['mysql' => 'SYMSVEL_TEST_MYSQL_URL', 'mariadb' => 'SYMSVEL_TEST_MARIADB_URL'] as $driver => $variable) {
+            $url = getenv($variable);
+            if (!is_string($url) || $url === '') {
+                continue;
+            }
+            $parts = parse_url($url);
+            if ($parts === false || ($parts['path'] ?? '') !== '/symsvel_rollback_ci'
+                || ($parts['scheme'] ?? '') !== $driver) {
+                self::fail('Destructive MySQL/MariaDB tests require a dedicated symsvel_rollback_ci database.');
+            }
+            $args = ['mysql', '--batch', '--skip-column-names'];
+            foreach (['host' => '--host=', 'port' => '--port=', 'user' => '--user='] as $key => $prefix) {
+                if (isset($parts[$key])) {
+                    $args[] = $prefix.rawurldecode((string) $parts[$key]);
+                }
+            }
+            $args[] = '--database=symsvel_rollback_ci';
+            $env = isset($parts['pass']) ? ['MYSQL_PWD' => rawurldecode((string) $parts['pass'])] : [];
+            $sql = static function (string $query) use ($args, $env): string {
+                $process = new Process([...$args, '--execute='.$query], null, $env);
+                $process->mustRun();
+                return trim($process->getOutput());
+            };
+            $root = sys_get_temp_dir().'/symsvel-'.$driver.'-rollback-'.bin2hex(random_bytes(8));
+            mkdir($root);
+            $backup = new WorkspaceDatabaseBackup();
+            $checkpoint = null;
+            try {
+                $sql('DROP TABLE IF EXISTS symsvel_new_table; DROP TABLE IF EXISTS symsvel_initial_table; CREATE TABLE symsvel_initial_table (id INTEGER PRIMARY KEY, label VARCHAR(64)); INSERT INTO symsvel_initial_table VALUES (1, \'original\');');
+                $checkpoint = $backup->capture($root, $url);
+                $sql('UPDATE symsvel_initial_table SET label = \'changed\'; CREATE TABLE symsvel_new_table (id INTEGER); INSERT INTO symsvel_new_table VALUES (2);');
+                $backup->restore($url, $checkpoint);
+                self::assertSame('original', $sql('SELECT label FROM symsvel_initial_table WHERE id=1'));
+                self::assertSame('0', $sql("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='symsvel_rollback_ci' AND table_name='symsvel_new_table'"));
+            } finally {
+                if ($checkpoint !== null) {
+                    $backup->discard($checkpoint);
+                }
+                @rmdir($root.'/.symsvel/transactions');
+                @rmdir($root.'/.symsvel');
+                @rmdir($root);
+            }
+        }
+        if (!getenv('SYMSVEL_TEST_MYSQL_URL') && !getenv('SYMSVEL_TEST_MARIADB_URL')) {
+            self::markTestSkipped('Dedicated MySQL/MariaDB integration databases not configured.');
+        }
     }
 
     public function testRejectsMissingCheckpointWithoutModifyingDatabase(): void

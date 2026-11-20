@@ -49,6 +49,66 @@ final class ComposerTransactionRunnerTest extends TestCase
     }
 
 
+    public function testIncompleteInitialSnapshotReportsUnderlyingFailureBeforeComposer(): void
+    {
+        // A symbolic vendor directory is rejected by RuntimeArtifactSnapshot.
+        // No Composer command may execute and the incomplete checkpoint remains.
+        $this->deleteDirectory($this->backend.'/vendor');
+        symlink(sys_get_temp_dir(), $this->backend.'/vendor');
+
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+                self::fail('Composer must not run when the initial snapshot fails.');
+            });
+            try {
+                $runner->run($this->backend, ['update', 'symsvel-framework/module-settings']);
+                self::fail('Expected snapshot failure.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('Snapshot initial incomplet', $error->getMessage());
+                self::assertStringContainsString('Snapshot runtime refusé : lien symbolique', $error->getMessage());
+                self::assertStringContainsString('/vendor', $error->getMessage());
+                self::assertInstanceOf(\RuntimeException::class, $error->getPrevious());
+                self::assertCount(1, glob($this->backend.'/.symsvel/transactions/*'));
+            }
+        } finally {
+            unlink($this->backend.'/vendor');
+            foreach (glob($this->backend.'/.symsvel/transactions/*') ?: [] as $directory) {
+                $this->deleteDirectory($directory);
+            }
+        }
+    }
+
+    public function testComposerUpdateKeepsNodeDependenciesAvailableAndRestoresGeneratedBuild(): void
+    {
+        $bo = dirname($this->backend).'/bo';
+        mkdir($bo.'/node_modules/pkg', 0775, true);
+        mkdir($bo.'/build', 0775, true);
+        file_put_contents($bo.'/node_modules/pkg/index.js', 'installed dependency');
+        file_put_contents($bo.'/build/index.html', 'previous build');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command) use ($bo): void {
+            if (($command[0] ?? null) !== 'composer' || ($command[1] ?? null) !== 'update') {
+                self::fail('Unexpected command executed before the injected failure.');
+            }
+            // The Composer post-update hook requires these dependencies to build BO.
+            self::assertSame('installed dependency', file_get_contents($bo.'/node_modules/pkg/index.js'));
+            file_put_contents($bo.'/build/index.html', 'broken build');
+            throw new \RuntimeException('Composer failure after build change');
+        });
+
+        try {
+            try {
+                $runner->run($this->backend, ['update']);
+                self::fail('Injected Composer failure should trigger rollback.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+            }
+            self::assertSame('previous build', file_get_contents($bo.'/build/index.html'));
+            self::assertSame('installed dependency', file_get_contents($bo.'/node_modules/pkg/index.js'));
+        } finally {
+            $this->deleteDirectory($bo);
+        }
+    }
+
     public function testCompiledMigrationCleanupAcceptsRegisteredDoctrineVersion(): void
     {
         $directory = $this->backend.'/migrations';
@@ -64,6 +124,33 @@ final class ComposerTransactionRunnerTest extends TestCase
         } finally {
             @unlink($file);
             rmdir($directory);
+        }
+    }
+
+
+    public function testComposerScriptsAreDeferredUntilModuleInventoryIsPublished(): void
+    {
+        mkdir($this->backend.'/bin');
+        file_put_contents($this->backend.'/bin/console', '<?php // fixture');
+        $commands = [];
+        try {
+            $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend) use (&$commands): void {
+                $commands[] = $command;
+                if ($command === ['composer', 'run-script', 'post-update-cmd']) {
+                    self::assertFileExists($backend.'/.symsvel/modules.json');
+                    self::assertFileExists($backend.'/.symsvel/bundles.php');
+                    $inventory = json_decode((string) file_get_contents($backend.'/.symsvel/modules.json'), true, 512, JSON_THROW_ON_ERROR);
+                    self::assertSame(['schema' => 1, 'modules' => []], $inventory);
+                }
+            });
+            $runner->run($this->backend, ['update']);
+            self::assertSame(['composer', 'update', '--no-scripts'], $commands[0]);
+            self::assertSame(['composer', 'run-script', 'post-update-cmd'], $commands[1]);
+        } finally {
+            @unlink($this->backend.'/bin/console');
+            @rmdir($this->backend.'/bin');
+            @unlink($this->backend.'/.symsvel/modules.json');
+            @unlink($this->backend.'/.symsvel/bundles.php');
         }
     }
 
@@ -831,6 +918,55 @@ final class ComposerTransactionRunnerTest extends TestCase
             self::assertStringContainsString('composer.lock initial obligatoire', $error->getMessage());
         }
         self::assertDirectoryDoesNotExist($this->backend.'/.symsvel/transactions');
+    }
+
+    public function testNativeModuleCannotBeRemovedEvenBeforeSnapshot(): void
+    {
+        mkdir($this->backend.'/config');
+        file_put_contents($this->backend.'/config/symsvel-native-modules.json',
+            json_encode(['schema' => 1, 'modules' => [
+                'symsvel-framework/module-languages',
+                'symsvel-framework/module-auth',
+            ], 'components' => ['app' => ['symsvel-framework/module-users']]], JSON_THROW_ON_ERROR));
+        $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+            self::fail('Composer must never be called to remove a native module.');
+        });
+        try {
+            foreach (['symsvel-framework/module-languages','symsvel-framework/module-auth'] as $package) {
+                try {
+                    $runner->run($this->backend, ['remove', $package]);
+                    self::fail('Native module was removed.');
+                } catch (\DomainException $e) {
+                    self::assertStringContainsString('natif obligatoire', $e->getMessage());
+                }
+            }
+            self::assertDirectoryDoesNotExist($this->backend.'/.symsvel/transactions');
+        } finally {
+            unlink($this->backend.'/config/symsvel-native-modules.json');
+            rmdir($this->backend.'/config');
+        }
+    }
+
+    public function testNativeComponentModuleIsProtectedOnlyWhenComponentExists(): void
+    {
+        mkdir($this->backend.'/config');
+        file_put_contents($this->backend.'/config/symsvel-native-modules.json',
+            json_encode(['schema' => 1, 'modules' => [],
+                'components' => ['app' => ['symsvel-framework/module-users']]], JSON_THROW_ON_ERROR));
+        $app = dirname($this->backend).'/app';
+        mkdir($app);
+        $runner = new ComposerTransactionRunner(commandRunner: static function (): void {
+            self::fail('Composer must not remove Users while App exists.');
+        });
+        try {
+            $this->expectException(\DomainException::class);
+            $this->expectExceptionMessage('symsvel-framework/module-users');
+            $runner->run($this->backend, ['remove', 'symsvel-framework/module-users']);
+        } finally {
+            rmdir($app);
+            unlink($this->backend.'/config/symsvel-native-modules.json');
+            rmdir($this->backend.'/config');
+        }
     }
 
     public function testRejectsScriptBypassBeforeSnapshot(): void

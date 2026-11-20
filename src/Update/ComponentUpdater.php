@@ -78,12 +78,23 @@ final class ComponentUpdater
         }
 
         $sources = new WorkspaceFileSnapshot($backend, $transaction);
-        $runtime = new RuntimeArtifactSnapshot($directory, $transaction);
+        // npm ci reconstructs these directories. Moving the originals into
+        // the same-filesystem checkpoint avoids copying a changing npm tree.
+        $runtime = new RuntimeArtifactSnapshot($directory, $transaction, moveOnCapture: true);
         try {
             $sources->capture();
             $runtime->capture();
         } catch (\Throwable $failure) {
-            // Capturing checkpoints never changes project sources or runtime.
+            // A partially moved runtime must never be discarded if its return
+            // to the workspace failed: keep the checkpoint for recovery.
+            if ($runtime->hasPendingMoves()) {
+                throw new \RuntimeException(
+                    'Capture runtime interrompue, restauration incomplète ; sauvegarde conservée : '.$transaction,
+                    0,
+                    $failure,
+                );
+            }
+            // No moved runtime remains; sources were read-only snapshots.
             // A partially written snapshot must not be treated as a valid rollback.
             try {
                 $cleanup = new WorkspaceCleanupRegistry($backend);

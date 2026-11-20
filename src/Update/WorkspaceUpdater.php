@@ -127,6 +127,18 @@ final class WorkspaceUpdater
         $componentInProgress = 'WORKSPACE';
         $stepInProgress = 'Application native globale';
         (new WorkspaceNativeApply())->apply($backendDir, $prepared);
+        // Host upgrades may add native system strings. Rebuild the Composer
+        // ownership inventory after applying host sources and before Svelte builds.
+        // The existing workspace/database snapshots cover this entire stage.
+        if (is_file($backendDir.'/bin/console')) {
+            $componentInProgress = 'BACK';
+            $stepInProgress = 'Synchronisation des dictionnaires Svelte';
+            $this->run([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backendDir);
+            if ($effectiveDatabaseUrl !== null && is_file($backendDir.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
+                $stepInProgress = 'Persistance des traductions';
+                $this->run([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backendDir);
+            }
+        }
         foreach (['bo', 'app', 'front'] as $component) {
             $componentInProgress = strtoupper($component);
             $directory = $root.'/'.$component;

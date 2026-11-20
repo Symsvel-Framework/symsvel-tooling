@@ -11,7 +11,9 @@
     },
     "require-dev": {
         "phpunit/phpunit": "^13.4",
-        "symfony/dotenv": "^8.1"
+        "symfony/dotenv": "^8.1",
+        "doctrine/dbal": "^4.3",
+        "doctrine/orm": "^3.5"
     },
     "autoload": {
         "psr-4": {
@@ -29,6 +31,9 @@
             "@php -l src/Command/SymSvelInstallCommand.php",
             "@php -l src/Update/WorkspaceUpdater.php",
             "@php -l src/Module/ModuleMaker.php",
+            "@php -l src/Documentation/ComposerDocumentationAssembler.php",
+            "@php -l src/Command/SymSvelDocumentationSyncCommand.php",
+            "@php -l tests/Documentation/ComposerDocumentationAssemblerTest.php",
             "@php -l src/Command/SymSvelMakeModuleCommand.php",
             "@php -l src/Module/ModuleManifest.php",
             "@php -l src/Module/ModuleRegistry.php",
@@ -71,6 +76,8 @@
             "@php -l tests/Module/ModuleCompiledMigrationGuardTest.php",
             "@php -l tests/Module/ModuleRemovalSqliteIntegrationTest.php",
             "@php -l src/Module/ComposerModuleRegistry.php",
+            "@php -l src/Module/ComposerModuleRouteSynchronizer.php",
+            "@php -l tests/Module/ComposerModuleRouteSynchronizerTest.php",
             "@php -l tests/Module/ComposerModuleRegistryTest.php",
             "@php -l src/Module/ComposerModulePlanner.php",
             "@php -l src/Module/ComposerModuleSynchronizer.php",

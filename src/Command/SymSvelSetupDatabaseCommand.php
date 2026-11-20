@@ -83,52 +83,41 @@ final class SymSvelSetupDatabaseCommand extends Command
                 $process->setTimeout(null);
                 $process->run();
                 if (!$process->isSuccessful()) {
-                    throw new \RuntimeException('Database preparation failed; inspect migrations and database access.');
+                    // Preserve the failing child command's diagnostic for the local-only Setup.
+                    // Back sanitizes connection details before presenting this output in the Wizard.
+                    $details = trim($process->getErrorOutput()."\n".$process->getOutput());
+                    throw new \RuntimeException('Database preparation failed during '.($arguments[2] ?? 'console command')
+                        .' (exit '.($process->getExitCode() ?? 'unknown').'). '
+                        .($details !== '' ? $details : 'The command provided no diagnostic.'));
                 }
             }
 
-            // A retry must not regenerate an already-created native migration.
-            $marker = $workspace.'/.symsvel/native-migration-setup.json';
-            if (is_link($marker)) {
-                throw new \RuntimeException('Invalid native migration setup marker.');
-            }
-            if (!is_file($marker)) {
-                $before = glob($this->projectDir.'/migrations/Version??????????????.php');
-                if ($before === false) {
-                    throw new \RuntimeException('Unable to list existing migrations.');
-                }
-                $make = new Process([PHP_BINARY, 'bin/console', 'make:migration', '--no-interaction'], $this->projectDir);
-                $make->setTimeout(null);
-                $make->run();
-                if (!$make->isSuccessful()) {
-                    throw new \RuntimeException('Native Doctrine migration generation failed: '.trim($make->getErrorOutput().' '.$make->getOutput()));
-                }
-                $after = glob($this->projectDir.'/migrations/Version??????????????.php');
-                if ($after === false) {
-                    throw new \RuntimeException('Unable to list migrations after generation.');
-                }
-                $created = array_values(array_diff($after, $before));
-                if (count($created) > 1 || ($created !== [] && is_link($created[0]))) {
-                    throw new \RuntimeException('Unexpected native migration files after generation.');
-                }
-                $payload = json_encode(['schema' => 1, 'file' => $created === [] ? null : basename($created[0])], JSON_THROW_ON_ERROR);
-                if (file_put_contents($marker, $payload."\n", LOCK_EX) === false) {
-                    throw new \RuntimeException('Unable to record native migration setup.');
-                }
-            } else {
-                $payload = json_decode((string) file_get_contents($marker), true, 512, JSON_THROW_ON_ERROR);
-                $versions = glob($this->projectDir.'/migrations/Version??????????????.php');
-                $expected = $payload['file'] ?? null;
-                if (($payload['schema'] ?? null) !== 1 || ($expected !== null && !preg_match('/^Version[0-9]{14}\\.php$/D', $expected))
-                    || $versions === false || ($expected !== null && !in_array($this->projectDir.'/migrations/'.$expected, $versions, true))) {
-                    throw new \RuntimeException('Native migration setup marker does not match migration files.');
-                }
-            }
+            // Native framework migrations are versioned in the backend skeleton.
+            // Never generate a global ORM diff here: it would drop module-owned tables.
             $migrate = new Process([PHP_BINARY, 'bin/console', 'doctrine:migrations:migrate', '--no-interaction'], $this->projectDir);
             $migrate->setTimeout(null);
             $migrate->run();
             if (!$migrate->isSuccessful()) {
                 throw new \RuntimeException('Native Doctrine migration failed: '.trim($migrate->getErrorOutput().' '.$migrate->getOutput()));
+            }
+            // Settings rows are provisioned only after all module and native migrations.
+            // The Settings module owns this command; Tooling only orchestrates it.
+            if (is_file($this->projectDir.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
+                $sync = new Process([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $this->projectDir);
+                $sync->setTimeout(null);
+                $sync->run();
+                if (!$sync->isSuccessful()) {
+                    throw new \RuntimeException('Initial settings synchronization failed: '.trim($sync->getErrorOutput().' '.$sync->getOutput()));
+                }
+            }
+            // Persist source dictionaries only after Languages migrations and Settings sync.
+            if (is_file($this->projectDir.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
+                $translations = new Process([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $this->projectDir);
+                $translations->setTimeout(null);
+                $translations->run();
+                if (!$translations->isSuccessful()) {
+                    throw new \RuntimeException('Translation source synchronization failed: '.trim($translations->getErrorOutput().' '.$translations->getOutput()));
+                }
             }
             $this->state->transition($workspace, SetupState::RUNNING, SetupState::DATABASE_READY);
             $output->writeln('<info>Database and migrations ready.</info>');

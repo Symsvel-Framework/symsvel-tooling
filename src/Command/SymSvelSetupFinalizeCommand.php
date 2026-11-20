@@ -85,6 +85,23 @@ final class SymSvelSetupFinalizeCommand extends Command
             if (!$process->isSuccessful()) {
                 throw new \RuntimeException('Migrations non finalisées : '.trim($process->getErrorOutput().' '.$process->getOutput()));
             }
+            // Legacy one-phase setup must provision Settings after module migrations too.
+            if (is_file($this->projectDir.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
+                $settings = new Process([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $this->projectDir);
+                $settings->setTimeout(null);
+                $settings->run();
+                if (!$settings->isSuccessful()) {
+                    throw new \RuntimeException('Settings synchronization failed: '.trim($settings->getErrorOutput().' '.$settings->getOutput()));
+                }
+            }
+            if (is_file($this->projectDir.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
+                $translations = new Process([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $this->projectDir);
+                $translations->setTimeout(null);
+                $translations->run();
+                if (!$translations->isSuccessful()) {
+                    throw new \RuntimeException('Translation source synchronization failed: '.trim($translations->getErrorOutput().' '.$translations->getOutput()));
+                }
+            }
             $bootstrap = new Process([
                 PHP_BINARY, 'bin/console', 'symsvel:admins:bootstrap', '--no-interaction',
             ], $this->projectDir);

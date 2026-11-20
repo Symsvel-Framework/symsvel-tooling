@@ -65,6 +65,38 @@ final class WorkspaceUpdaterTest extends TestCase
         }
     }
 
+    public function testHostUpdatePublishesTranslationInventoryAndPersistsDefaultsBeforeBuild(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-update-i18n-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend/bin', 0775, true);
+        mkdir($root.'/backend/vendor/symsvel-framework/module-languages/back/src', 0775, true);
+        file_put_contents($root.'/backend/bin/console', '<?php');
+        file_put_contents($root.'/backend/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php', '<?php');
+        file_put_contents($root.'/backend/composer.json', '{}');
+        $fixture = new NativeWorkspaceFixture($root);
+        $fixture->component('bo', ['version.txt' => 'before'], ['version.txt' => 'after']);
+        $calls = [];
+        try {
+            $updater = new WorkspaceUpdater(static function (array $command, string $cwd) use (&$calls): void {
+                $calls[] = [$command, $cwd];
+            }, databaseUrl: 'sqlite:///%kernel.project_dir%/var/test.db',
+                nativePreparation: $fixture->preparation());
+            $updater->update($root.'/backend', 'test');
+            $sync = array_search([[PHP_BINARY, 'bin/console', 'symsvel:module:sync',
+                '--source=composer', '--no-interaction'], $root.'/backend'], $calls, true);
+            $translations = array_search([[PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync',
+                '--no-interaction'], $root.'/backend'], $calls, true);
+            $build = array_search([['npm', 'run', 'build'], $root.'/bo'], $calls, true);
+            self::assertIsInt($sync);
+            self::assertIsInt($translations);
+            self::assertIsInt($build);
+            self::assertLessThan($translations, $sync);
+            self::assertLessThan($build, $translations);
+        } finally {
+            $this->deleteFixtureTree($root);
+        }
+    }
+
     public function testDevRequiresStableComposerConstraintsBeforeNativePreparation(): void
     {
         $root = sys_get_temp_dir().'/symsvel-dev-'.bin2hex(random_bytes(8));

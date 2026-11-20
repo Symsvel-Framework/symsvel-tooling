@@ -88,6 +88,27 @@ final class ComposerModulePlannerTest extends TestCase
         self::assertSame($content, file_get_contents($target));
     }
 
+    public function testComposerMetadataIsReadableAfterAtomicPublicationAndReuse(): void
+    {
+        $this->module('my-base');
+        $this->installed(['my-base']);
+        $writers = [
+            new ComposerModuleInventoryWriter(),
+            new ComposerModuleBundleMapWriter(),
+        ];
+        foreach ($writers as $writer) {
+            $target = $writer->write($this->workspace);
+            clearstatcache(true, $target);
+            self::assertSame(0644, fileperms($target) & 0777);
+
+            // Simulate the restrictive permissions of a previous tempnam() publication.
+            self::assertTrue(chmod($target, 0600));
+            self::assertSame($target, $writer->write($this->workspace));
+            clearstatcache(true, $target);
+            self::assertSame(0644, fileperms($target) & 0777);
+        }
+    }
+
     public function testInvalidComposerDependenciesDoNotOverwritePublishedInventory(): void
     {
         $this->module('my-base');

@@ -225,3 +225,103 @@ La revue pré-merge a confirmé que `onlyManagedGeneratedFiles()`, `latestReleas
 ### Revue globale pré-merge : suppression des protections Git historiques (08/11/2026)
 
 `GitComponentCheckpoint` et son test ont été retirés : ils restauraient un composant par `git checkout -f` et `git reset --hard`, incompatibles avec la mise à jour native et sans appel dans les parcours actifs examinés. `GeneratedSvelteStatusGuard` et son test ont également été retirés : ils imposaient l'ancien contrôle de `git status` avant une mise à jour. La sécurité des mises à jour natives relève désormais de `ComponentUpdatePreflight`, `ComponentFilePlanner`, `ComponentRouteCollisionGuard`, `ComponentNativeFileApplier` et des snapshots de sources, avec leurs tests dédiés. `LegacyComponentBaseline` reste volontairement présent : il lit l'historique Git d'un ancien composant pour établir une provenance initiale vérifiable, sans modifier HEAD, branche ni fichiers. Les tests de rollback natif et de conservation des modifications locales restent la référence ; la validation des derniers commits nécessite une CI verte et les CT XT après fusion.
+
+
+## Incident d'assemblage BO XT du 16/11/2026 : dépendance UI entre dépôts
+
+Les pages BO des modules Admins, Users et Settings utilisent désormais
+`Button`, `Alert` et `DataTable` appartenant au dépôt `symsvel-bo`.
+Leurs imports relatifs depuis
+`src/lib/modules/<module>/routes/<module>/+page.svelte` montent bien
+de quatre niveaux jusqu'à `src/lib/components/`.
+
+Les composants génériques sont présents dans la branche `dev` du BO,
+pas dans la branche `main` historique. En cas d'assemblage Vite échouant sur
+`UNRESOLVED_IMPORT .../components/Button.svelte`, examiner l'état des fichiers
+natifs réellement installés dans le projet, avant de modifier les imports :
+un `symsvel update` Composer ne réalise **pas** de mise à jour native du BO.
+La séquence de maintenance du canal `dev` est :
+
+```bash
+symsvel update bo
+symsvel update
+```
+
+`symsvel update bo` sélectionne la branche correspondant au canal de
+`backend/.symsvel/project.json`, applique les fichiers natifs avec sauvegarde,
+synchronise les modules et effectue un build avant validation du manifeste.
+En cas d'échec, son rollback peut laisser dans XT l'ancien BO sans les
+composants nouveaux. Ne pas changer le canal à la main, injecter les
+composants dans `vendor/`, ni contourner les contrôles de provenance.
+
+Les CI d'intégration des modules assemblent un checkout BO `dev` neuf ;
+elles ne remplacent pas le crash-test des mises à jour ordonnées sur un
+workspace existant. L'incident ne permet pas, à lui seul, de conclure à un
+défaut des chemins d'import ni à un bug du planificateur trois voies.
+
+
+## Correctif XT : snapshot runtime sur le même volume (16/11/2026)
+
+Le CT `symsvel update bo` a rencontré
+`Snapshot runtime incohérent : node_modules` **avant** l'application des
+nouveaux fichiers BO. L'ancien `RuntimeArtifactSnapshot` copiait la totalité
+des dépendances npm et comparait ensuite la copie à l'original. Ce contrôle
+prouvait une divergence, sans en identifier la cause (fichier mutable,
+métadonnées ou autre). Il serait dangereux de supprimer la vérification.
+
+Pour les mises à jour **unitaires** `bo/app/front` via `ComponentUpdater`,
+la capture utilise désormais `moveOnCapture: true` : les anciens répertoires
+`node_modules`, `build`, `dist` et `.svelte-kit` sont **déplacés** dans
+le checkpoint de la même partition avant `npm ci` et le build. Le déplacement
+conserve les fichiers, permissions et liens symboliques sans copie d'un arbre
+npm potentiellement mutable. Un volume différent est refusé avant toute
+mutation. Le contenu déplacé reçoit une empreinte contrôlée avant tout
+rollback, comme auparavant.
+
+- En cas de réussite, l'ancien runtime est nettoyé avec le checkpoint.
+- En cas d'échec de l'installation/build, le nouveau runtime est retiré et
+  les anciens dossiers sont remis en place par déplacement, après contrôle
+  d'intégrité de **tous** les dossiers sauvegardés.
+- Si la capture échoue après un premier déplacement, elle tente de remettre
+  immédiatement tous les dossiers déplacés. Si cette restauration échoue,
+  `ComponentUpdater` **conserve le checkpoint** et signale son emplacement.
+- Les snapshots des transactions Composer et du `WorkspaceUpdater`, y compris
+  `vendor`, gardent leur fonctionnement par **copie**. Ils ne doivent pas
+  perdre l'accès aux fichiers au moment de leur propre capture.
+
+Tests de régression : restauration avec lien symbolique et inode conservé,
+capture partielle, snapshot altéré et refus d'un artefact racine symbolique.
+L'incident XT ne sera clôturé qu'après CI verte et crash-test réel sur XT.
+
+
+## Snapshot runtime de la maintenance Composer (16/11/2026)
+
+Le lanceur transactionnel de `symsvel update` (sans cible ou avec un
+package) réutilise les dépendances npm pour les builds déclenchés par ses
+hooks. Même si le parcours actuel n'exécute pas `npm ci`, les tests
+de rollback garantissent le rétablissement exact du runtime **y compris
+`node_modules`**, si un hook ou une commande l'a modifié.
+
+Pour éviter de copier et contrôler un arbre npm **mutable** pendant sa
+capture, `ComposerTransactionRunner` utilise le même déplacement sur
+le volume que la mise à jour native, mais avec `keepWorkingCopy: true` :
+
+1. Déplacer les originaux `node_modules`, `build`, `dist` et
+   `.svelte-kit` dans le checkpoint sur la **même partition**.
+2. Créer une copie de travail à partir du checkpoint désormais stable,
+   et vérifier les empreintes avant Composer.
+3. Garder les copies de travail disponibles pendant les hooks et builds.
+4. Si la transaction échoue, vérifier les originaux sauvegardés **avant**
+   de remplacer les copies modifiées par les dossiers déplacés.
+5. Si elle réussit, conserver le runtime actif et nettoyer les originaux
+   sauvegardés avec le checkpoint.
+
+Une capture partielle tente de replacer les dossiers déjà déplacés ; une
+restauration incomplète conserve le checkpoint pour récupération. Les
+snapshots de `vendor` et du `WorkspaceUpdater` restent en mode copie ;
+ce dernier réalise lui-même `npm ci` et reste un parcours distinct.
+
+Régression : vérification des copies de travail accessibles aux hooks,
+d'un original déplacé intact et du rollback des builds **et**
+des modifications simulées dans `node_modules` pour BO/App/Front.
+La clôture nécessite la CI verte et un crash-test XT.

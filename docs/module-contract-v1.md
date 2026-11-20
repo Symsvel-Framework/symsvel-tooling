@@ -39,3 +39,87 @@ Le Maker génère un bundle Symfony sous `back/src/`, des répertoires de migrat
 Le modèle `recipe/recipe.json` contient une référence de commit à remplacer et **n'est pas automatiquement publié** dans le catalogue Flex. L'installation, les routes, la synchronisation Svelte et les migrations sont assurées par les mécanismes Tooling/Composer/Flex appropriés, pas par la simple génération du dossier du module.
 
 Voir [les commandes](modules/commandes.md), [l'intégration des modules](modules/contrat.md) et [les transactions Composer](composer-transactions.md). Les crash-tests XT restent nécessaires pour valider le parcours complet sur les dépôts officiels.
+
+## Dictionnaires de traduction des modules (18/11/2026)
+
+Chaque scope Svelte d'un module peut fournir `<scope>/src/lib/translations/<lang>.ts` (par exemple `bo/src/lib/translations/fr.ts`). Le Maker crée le dossier avec `.gitkeep` mais n'invente pas de libellés. Un module sans textes n'a pas besoin de fichier `.ts`.
+
+Tooling synchronise les fichiers via le mécanisme existant `SvelteModuleSynchronizer`, dans l'hôte installé à `<scope>/src/lib/translations/<module>/<lang>.ts`. Le propriétaire `<module>` est l'identifiant Composer validé, jamais déduit d'une clé arbitraire. Les fichiers de langue des modules ne se remplacent pas mutuellement ; les conflits sur fichiers gérés, modifications locales et liens symboliques restent bloquants. Le retrait d'un module retire uniquement les sources qu'il avait synchronisées.
+
+Convention publique : `<scope>.<module|system>.<key>`. Les dictionnaires source utilisent des clés relatives au module et au scope ; `system` est réservé aux textes natifs des hôtes, jamais aux textes fonctionnels des modules. Ce changement couvre les dossiers Maker et la copie des fichiers ; le raccordement BDD et le chargement i18n des sources font l'objet d'étapes distinctes, à tester avant toute validation d'installation complète.
+
+### Contrat des fichiers source
+
+Les fichiers par langue sont des exports TypeScript contenant exclusivement un objet JSON valide suivi de `as const;`. Exemple : `export default {"pagination":{"first":"Première page"}} as const;`. Aucun import, fonction, variable ou tableau exécutable. Tooling valide les sources, déplie les clés et publie atomiquement `backend/.symsvel/translation-sources.json` (schéma 1), avec scope, module|system, clé relative, langue et valeur. Cet inventaire local est préparé avant toute persistance, qui doit intervenir après migrations ; il ne constitue ni une API HTTP ni une autorité sur les personnalisations.
+
+### Orchestration BDD
+
+Après l'exécution des migrations Doctrine de Languages, Tooling invoque `symsvel:languages:translations:sync` lors du Setup initial (parcours en une ou deux phases) et des transactions Composer de modules. Le module vérifie l'inventaire `backend/.symsvel/translation-sources.json`, puis persiste ses clés et textes dans ses tables. L'opération est idempotente et protégée par les snapshots/transactions existants ; une erreur bloque le cycle plutôt que de signaler une installation fictive. La migration Languages `Version20261118000001` est enregistrée dans le registre global.
+
+Les dictionnaires publiés après personnalisation depuis Languages sont écrits dans `src/lib/translations/generated/<lang>.ts`. Les anciens fichiers `src/lib/i18n/generated/` restent lisibles par les helpers Svelte pendant la transition, mais ne sont plus la cible des nouvelles publications. L'écrivain conserve les vérifications de signature, de répertoire géré, d'absence de symlink et de renommage atomique.
+
+Les indices numériques sont acceptés en segment interne, par exemple `strengthLevels.0`, pour les listes de libellés fixes. Le dictionnaire source reste un objet JSON et non un tableau ; le consommateur peut reconstruire sa liste à partir de ces clés.
+
+### Contrat testé sur plusieurs modules
+
+Un test de synchronisation installe simultanément deux modules possédant chacun un fichier `bo/src/lib/translations/fr.ts`. Les fichiers de destination sont isolés par l'identifiant de module, la resynchronisation est idempotente, une mise à jour affecte seulement le module concerné, et son retrait supprime ses fichiers sans toucher aux traductions de l'autre module.
+
+### Validation stricte des objets TypeScript
+
+Le lecteur décode le JSON en objets (`stdClass`), pas en tableaux PHP, afin de distinguer sans ambiguïté `{"0":"Aucune saisie"}` d'une liste JSON. Les indices numériques restent des segments de clés légitimes. Les tableaux JSON, les expressions TypeScript, les feuilles non textuelles et les clés aplaties en doublon (`a.b` et `a → b`) sont refusés **avant** toute publication de l'inventaire ou copie Svelte. La suite de tests inclut ces régressions.
+
+Les noms `system` et `generated` sont réservés dans les hôtes Svelte : `system` identifie exclusivement le composant natif, tandis que `generated` reçoit les personnalisations publiées depuis Languages. Un module Composer ne peut pas utiliser ces identifiants comme propriétaire de fichiers `lib/translations` ; Tooling refuse le conflit pendant le préflight et le synchroniseur protège également l'appel direct.
+
+### Validation du parseur PHP (18/11/2026)
+
+La CI de la branche a détecté une erreur d'échappement dans l'exception levée pour un dictionnaire Svelte invalide. Correction du namespace PHP dans `SvelteModuleSynchronizer` ; le lint `php -l` de tous les fichiers reste un prérequis avant toute validation du chantier.
+
+### Mise à jour globale des hôtes (`symsvel update`)
+
+Le cycle existant `WorkspaceUpdater` applique les sources natives BO/App/Front, puis lance `symsvel:module:sync --source=composer` pour reconstruire l'inventaire des modules et des dictionnaires. Si la BDD locale est configurée et Languages installé, il lance ensuite `symsvel:languages:translations:sync`, avant `npm ci` et les builds Svelte. Les snapshots sources/runtime/BDD du même cycle couvrent ces étapes : un échec annule la mise à jour plutôt que de laisser un inventaire incohérent. Les tests vérifient l'ordre de ces commandes ; les CT XT devront couvrir les échecs et restaurations sur projet réel.
+
+### Contrôle de CI sur branche de travail
+
+La CI a été exécutée sur la branche de traduction avec les runners locaux ; le déclencheur temporaire de cette branche a ensuite été retiré, et les règles de publication/restauration du workflow (`dev`, `main` et PR selon le dépôt) ont été conservées. Les CT XT restent requis avant merge.
+
+### Documentation générée par `make:module`
+
+Le Maker renseigne désormais `docs/dev/index.md` du nouveau module avec le chemin des dictionnaires de chaque scope, la convention publique `<scope>.<module>.<key>`, l'exigence d'un export JSON strict `as const` et la synchronisation post-migrations. Le squelette reste volontairement dépourvu de libellés fictifs ; un test vérifie que ces indications sont présentes dans la documentation générée.
+
+Le modèle de guide Maker encode les guillemets JSON dans sa chaîne PHP via `\\x22`, afin que le fichier généré contienne réellement l'exemple `export default {"title":"Texte"} as const;`. Les tests vérifient la convention générique `<scope>.<module>.<key>` plutôt que de supposer un scope unique dans la documentation commune d'un module multi-scope.
+
+### Validation finale de la passe dictionnaires (18/11/2026)
+
+La CI complète de la branche de traduction, incluant les tests de synchronisation et la documentation Maker pour Tooling, ou les composants natifs du shell pour BO, a réussi sur les runners locaux. Le déclencheur CI temporaire de la branche a été retiré. La validation ne remplace pas les crash-tests XT ni les essais de migration multibase avant merge.
+
+### Chemin de routes du modèle de recette Flex (19/11/2026)
+
+Le Maker génère un modèle d'import Symfony `config/routes/<module>.yaml`
+dont le chemin est relatif au dossier `backend/config/routes/` :
+`../../vendor/<vendor>/module-<slug>/back/src/Controller/`. Ce chemin
+passe par l'entrée Composer du package et reste valable lorsque celle-ci
+est un lien symbolique vers `modules/<slug>/`. Il correspond au modèle
+déjà employé par la recette Countries et évite l'ancien alias
+`@NomBundle/src/Controller/`, qui ne désigne pas la racine du package.
+
+**Limite maintenue :** un modèle `recipe/recipe.json` placé dans le
+package n'est pas appliqué automatiquement par Symfony Flex. Cette
+correction garantit le chemin de l'import *une fois la recette installée* ;
+elle ne résout pas à elle seule la synchronisation des routes des modules
+Composer locaux. Le ticket Tooling #64 reste ouvert pour ce cycle de vie
+(idempotence, retrait, collisions et propriété des fichiers), sans
+réintroduire de registre global de routes contraire à l'ADR 0003.
+Vérifications attendues : CI Maker puis CT XT d'un module local et
+d'un package distribué via Flex.
+
+### Routes locales Composer `path` (19/11/2026)
+
+Le modèle `recipe/recipe.json` reste la déclaration explicite de
+l'import Symfony. Pour un module local installé par symlink, Tooling
+peut désormais publier et retirer `config/routes/<slug>.yaml` depuis
+cette déclaration, uniquement quand le module possède des contrôleurs.
+Un import déjà fourni par Flex ou le projet reste externe et intact ;
+le registre `.symsvel/composer-routes.json` ne sert qu'à vérifier la
+propriété des fichiers générés. La synchronisation précède `cache:clear`
+et n'introduit aucun mécanisme de routage runtime. Les CT XT du ticket #64
+restent requis.

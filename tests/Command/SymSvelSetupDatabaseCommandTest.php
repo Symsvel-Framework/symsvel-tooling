@@ -28,9 +28,7 @@ final class SymSvelSetupDatabaseCommandTest extends TestCase
         foreach (['backend/commands.log', 'backend/bin/console', 'backend/.env.local', '.symsvel/migration-recovery.json', '.symsvel/setup.json'] as $path) {
             @unlink($this->root.'/'.$path);
         }
-        @unlink($this->root.'/backend/migrations/Version20261112171400.php');
         @unlink($this->root.'/backend/migrations/Version20261111120000.php');
-        @unlink($this->root.'/.symsvel/native-migration-setup.json');
         @rmdir($this->root.'/backend/migrations');
         @rmdir($this->root.'/backend/var/data');
         @rmdir($this->root.'/backend/var');
@@ -53,10 +51,6 @@ if (($argv[1] ?? "") === "symsvel:module:migrations:compile") {
     @mkdir(dirname(__DIR__)."/migrations");
     file_put_contents(dirname(__DIR__)."/migrations/Version20261111120000.php", "<?php // compiled module");
 }
-if (($argv[1] ?? "") === "make:migration") {
-    @mkdir(dirname(__DIR__)."/migrations");
-    file_put_contents(dirname(__DIR__)."/migrations/Version20261112171400.php", "<?php // native observation");
-}
 exit('.$exitExpression.');
 ');
     }
@@ -66,12 +60,11 @@ exit('.$exitExpression.');
         $this->fakeConsole();
         self::assertSame(0, $this->command()->execute([]));
         self::assertSame(SetupState::DATABASE_READY, (new SetupState())->read($this->root));
-        self::assertSame('Version20261112171400.php', json_decode((string) file_get_contents($this->root.'/.symsvel/native-migration-setup.json'), true)['file']);
         self::assertFileExists($this->root.'/backend/migrations/Version20261111120000.php');
+        self::assertFileDoesNotExist($this->root.'/.symsvel/native-migration-setup.json');
         self::assertSame([
             'doctrine:database:create --if-not-exists --no-interaction',
             'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
-            'make:migration --no-interaction',
             'doctrine:migrations:migrate --no-interaction',
         ], file($this->root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
     }
@@ -84,7 +77,6 @@ exit('.$exitExpression.');
         self::assertDirectoryExists($this->root.'/backend/var/data');
         self::assertSame([
             'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
-            'make:migration --no-interaction',
             'doctrine:migrations:migrate --no-interaction',
         ], file($this->root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
         self::assertSame(SetupState::DATABASE_READY, (new SetupState())->read($this->root));
@@ -125,6 +117,25 @@ exit('.$exitExpression.');
         self::assertSame(0, $this->command()->execute([]));
         self::assertSame(SetupState::DATABASE_READY, (new SetupState())->read($this->root));
         self::assertStringNotContainsString('symsvel:admins:bootstrap', file_get_contents($this->root.'/backend/commands.log'));
+    }
+
+    public function testFailedCompilerErrorIsVisibleForSetupDiagnostics(): void
+    {
+        $this->fakeConsole("(\$argv[1] === 'symsvel:module:migrations:compile' ? 1 : 0)");
+        $console = $this->root.'/backend/bin/console';
+        $contents = (string) file_get_contents($console);
+        $contents = str_replace(
+            'exit(',
+            'if (($argv[1] ?? "") === "symsvel:module:migrations:compile") { fwrite(STDERR, "Invalid module migration source\\n"); }'."\n".'exit(',
+            $contents,
+        );
+        file_put_contents($console, $contents);
+
+        $tester = $this->command();
+        self::assertSame(1, $tester->execute([]));
+        self::assertStringContainsString('symsvel:module:migrations:compile', $tester->getDisplay());
+        self::assertStringContainsString('Invalid module migration source', $tester->getDisplay());
+        self::assertSame(SetupState::RUNNING, (new SetupState())->read($this->root));
     }
 
     public function testRecoveryJournalBlocksExecution(): void

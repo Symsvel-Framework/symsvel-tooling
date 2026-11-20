@@ -30,9 +30,14 @@ final class SvelteModuleSynchronizer
                 throw new \RuntimeException('Application Svelte symbolique interdite : '.$scope);
             }
             if (!is_dir($app)) {
-                foreach ($plan as $module) {
-                    if (isset($module['components'][$scope])) {
-                        throw new \RuntimeException('Application Svelte requise mais absente : '.$scope);
+                // BO is mandatory. App and Front are optional project
+                // components: a reusable module may support them without
+                // forcing their installation on a BO-only project.
+                if ($scope === 'bo') {
+                    foreach ($plan as $module) {
+                        if (isset($module['components'][$scope])) {
+                            throw new \RuntimeException('Application Svelte requise mais absente : '.$scope);
+                        }
                     }
                 }
                 continue;
@@ -51,7 +56,18 @@ final class SvelteModuleSynchronizer
                 }
                 $files = $this->files($source);
                 foreach ($files as $relative => $content) {
-                    if (str_starts_with($relative, 'lib/')) {
+                    if (str_starts_with($relative, 'lib/translations/')) {
+                        if (in_array($slug, ['system', 'generated'], true)) {
+                            throw new \RuntimeException('Reserved translation owner: '.$slug);
+                        }
+                        // Source dictionaries use lib/translations/<language>.ts.
+                        // Namespace them by owning Composer module in the host to avoid
+                        // fr.ts collisions and preserve <scope>.<module>.<key> ownership.
+                        if (!preg_match('~^lib/translations/([a-z]{2,4})\\.ts$~D', $relative, $matches)) {
+                            throw new \RuntimeException('Dictionnaire Svelte invalide : '.$slug.'/'.$relative);
+                        }
+                        $destination = $app.'/src/lib/translations/'.$slug.'/'.$matches[1].'.ts';
+                    } elseif (str_starts_with($relative, 'lib/')) {
                         $destination = $app.'/src/'. $relative;
                     } elseif (str_starts_with($relative, 'routes/')) {
                         $destination = $app.'/src/lib/modules/'.$slug.'/'.$relative;

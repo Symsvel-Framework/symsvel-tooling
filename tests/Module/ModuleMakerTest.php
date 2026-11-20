@@ -46,6 +46,10 @@ final class ModuleMakerTest extends TestCase
             $entry = $recipe['manifests']['symsvel-framework/module-my-documents'];
             self::assertSame(['all'], $entry['manifest']['bundles']['SymSvel\\Module\\MyDocuments\\MyDocumentsBundle']);
             self::assertArrayHasKey('config/routes/my-documents.yaml', $entry['files']);
+            self::assertSame(
+                "        path: '../../vendor/symsvel-framework/module-my-documents/back/src/Controller/'",
+                $entry['files']['config/routes/my-documents.yaml']['contents'][2],
+            );
             self::assertSame('1.0.x-dev', $composer['extra']['branch-alias']['dev-main']);
             self::assertFileExists($path.'/.github/workflows/qa.yml');
             $this->expectException(\RuntimeException::class);
@@ -87,6 +91,10 @@ final class ModuleMakerTest extends TestCase
                 if (in_array($scope, $components, true)) {
                     self::assertFileExists($path.'/'.$scope.'/tsconfig.json');
                     self::assertFileExists($path.'/'.$scope.'/src/lib/modules/test-profile/index.ts');
+                    self::assertFileExists($path.'/'.$scope.'/src/lib/translations/.gitkeep');
+                    $guide = (string) file_get_contents($path.'/docs/dev/index.md');
+                    self::assertStringContainsString('lib/translations/<lang>.ts', $guide);
+                    self::assertStringContainsString('<scope>.test-profile.<key>', $guide);
                     self::assertFileExists($path.'/'.$scope.'/tests/test-profile.test.ts');
                     $tsconfig = json_decode((string) file_get_contents($path.'/'.$scope.'/tsconfig.json'), true, 512, JSON_THROW_ON_ERROR);
                     self::assertTrue($tsconfig['compilerOptions']['strict']);
@@ -121,6 +129,32 @@ final class ModuleMakerTest extends TestCase
             self::assertSame('symsvel-framework/module-languages', $composer['name']);
             self::assertSame('Languages', $manifest['name']);
             self::assertFileExists($path.'/back/src/LanguagesBundle.php');
+        } finally {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($workspace, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
+            );
+            foreach ($iterator as $item) {
+                $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
+            }
+            rmdir($workspace);
+        }
+    }
+
+    public function testFrameworkWorkspaceUsesSiblingRepositoryName(): void
+    {
+        $workspace = sys_get_temp_dir().'/symsvel-framework-maker-'.bin2hex(random_bytes(6));
+        mkdir($workspace);
+        mkdir($workspace.'/symsvel-cli');
+        mkdir($workspace.'/symsvel-tooling');
+        try {
+            $path = (new ModuleMaker())->create($workspace, 'symsvel-module-mail', 'symsvel-framework', 'bo');
+            self::assertSame($workspace.'/symsvel-module-mail', $path);
+            self::assertDirectoryDoesNotExist($workspace.'/modules');
+            self::assertFileExists($path.'/back/src/MailBundle.php');
+            self::assertFileExists($path.'/bo/tsconfig.json');
+            $composer = json_decode((string) file_get_contents($path.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame('symsvel-framework/module-mail', $composer['name']);
         } finally {
             $iterator = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($workspace, \FilesystemIterator::SKIP_DOTS),

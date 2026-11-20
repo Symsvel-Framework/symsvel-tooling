@@ -42,11 +42,12 @@ final class ModuleMaker
         if (in_array('app', $componentsSelected, true) || in_array('front', $componentsSelected, true)) {
             $docsSelected[] = 'user';
         }
-        $root = rtrim($workspace, '/').'/modules';
+        $frameworkWorkspace = is_dir($workspace.'/symsvel-cli') && is_dir($workspace.'/symsvel-tooling');
+        $root = $frameworkWorkspace ? rtrim($workspace, '/') : rtrim($workspace, '/').'/modules';
         if (!is_dir($workspace)) {
             throw new \RuntimeException('Workspace introuvable.');
         }
-        $destination = $root.'/'.$name;
+        $destination = $root.'/'.($frameworkWorkspace ? 'symsvel-module-'.$name : $name);
         if (file_exists($destination) || is_link($destination)) {
             throw new \RuntimeException('Le module existe déjà : '.$destination);
         }
@@ -89,7 +90,7 @@ final class ModuleMaker
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n",
             'back/src/'.$class.'Bundle.php' => "<?php\n\ndeclare(strict_types=1);\n\nnamespace ".$namespace.";\n\nuse Symfony\\Component\\HttpKernel\\Bundle\\AbstractBundle;\n\nfinal class ".$class."Bundle extends AbstractBundle\n{\n}\n",
             'README.md' => '# '.$class."\n\nModule SymSvel (manifest schema 1).\n",
-            'docs/dev/index.md' => '# '.$class."\n\nDocumentation développeur.\n",
+            'docs/dev/index.md' => '# '.$class."\n\nDocumentation développeur.\n\n## Traductions Svelte\n\nPour chaque scope Svelte du module (bo, app, front), placer les dictionnaires dans `<scope>/src/lib/translations/<lang>.ts` uniquement si des libellés sont nécessaires. Format obligatoire : `export default {\x22title\x22:\x22Texte\x22} as const;` (objet JSON strict, pas de code TypeScript exécuté par Tooling). Clé publique : `<scope>.".$name.".<key>`. Tooling déploie les fichiers sous `<scope>/src/lib/translations/".$name."/<lang>.ts`, puis Languages persiste les clés après migrations. Le dossier initial est vide ; ne pas inventer de clés.\n",
             '.gitignore' => "/vendor/\n/node_modules/\n/.phpunit.result.cache\n",
             // Template to publish in symsvel-recipes when the module is released.
             // Flex does not discover recipes inside Composer packages automatically.
@@ -105,7 +106,7 @@ final class ModuleMaker
                                 'contents' => [
                                     $name.':',
                                     '    resource:',
-                                    "        path: '@".$class."Bundle/src/Controller/'",
+                                    "        path: '../../vendor/".$vendor."/module-".$name."/back/src/Controller/'",
                                     '        namespace: '.$namespace.'\\Controller',
                                     '    type: attribute',
                                     '',
@@ -145,6 +146,9 @@ final class ModuleMaker
                     ],
                     'include' => ['src/**/*.ts', 'src/**/*.js', 'src/**/*.svelte', 'tests/**/*.ts'],
                 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
+                // A module may ship scope-specific dictionaries in lib/translations/<lang>.ts.
+                // The empty directory is versioned without inventing translatable keys.
+                $files[$scope.'/src/lib/translations/.gitkeep'] = '';
                 $files[$scope.'/src/lib/modules/'.$name.'/index.ts'] = "export const moduleId = '".$name."';\n";
                 $files[$scope.'/src/lib/modules/'.$name.'/README.md'] = '# '.$class." (".$scope.")\n\nPoint d'intégration SvelteKit du module. Importer les composants et services ici ; aucune route applicative n'est imposée.\n";
                 $files[$scope.'/tests/'.$name.'.test.ts'] = "import { describe, expect, it } from 'vitest';\nimport { moduleId } from '../src/lib/modules/".$name."';\n\ndescribe('".$name." module', () => {\n  it('exports its identifier', () => {\n    expect(moduleId).toBe('".$name."');\n  });\n});\n";
@@ -162,7 +166,7 @@ final class ModuleMaker
         $files['back/config/.gitkeep'] = '';
         $files['Migration/.gitkeep'] = '';
         if (!is_dir($root) && !mkdir($root, 0775, true) && !is_dir($root)) {
-            throw new \RuntimeException('Impossible de créer modules/.');
+            throw new \RuntimeException('Impossible de créer le répertoire des modules.');
         }
         if (!mkdir($destination, 0775)) {
             throw new \RuntimeException('Impossible de créer le module.');

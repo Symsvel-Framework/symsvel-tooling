@@ -49,6 +49,9 @@ final class ComposerTransactionRunner
             }
         }
         $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
+        if ($arguments[0] === 'remove') {
+            $this->preventNativeModuleRemoval($backend, $arguments);
+        }
         if ($bootstrap) {
             if (!$this->isUnconfiguredWorkspace($backend)) {
                 throw new \RuntimeException('Bootstrap interdit hors setup initial en attente.');
@@ -119,15 +122,29 @@ final class ComposerTransactionRunner
                 if (!is_dir($directory)) {
                     continue;
                 }
-                $runtime = new RuntimeArtifactSnapshot($directory, $transaction.'/'.$component);
+                // Composer scripts need node_modules, while rollback must restore
+                // any runtime mutation. Move originals into the checkpoint, then
+                // recreate the active trees from that stable snapshot.
+                $componentCheckpoint = $transaction.'/'.$component;
+                if (!is_dir($componentCheckpoint) && !mkdir($componentCheckpoint, 0700, true)
+                    && !is_dir($componentCheckpoint)) {
+                    throw new \RuntimeException('Checkpoint runtime impossible : '.$component);
+                }
+                $runtime = new RuntimeArtifactSnapshot(
+                    $directory,
+                    $componentCheckpoint,
+                    moveOnCapture: true,
+                    keepWorkingCopy: true,
+                );
                 $runtime->capture();
                 $runtimeSnapshots[$component] = $runtime;
             }
         } catch (\Throwable $failure) {
-            // No Composer command has started. Keep the snapshot for diagnosis;
-            // do not report a successful transaction or attempt a partial restore.
+            // A capture that failed to move an original back must retain the
+            // entire checkpoint. A successful local return is already handled
+            // inside RuntimeArtifactSnapshot::capture().
             throw new \RuntimeException(
-                'BACK / Snapshot initial incomplet : opération Composer annulée avant exécution ; snapshot conservé : '.$transaction,
+                'BACK / Snapshot initial incomplet : '.$failure->getMessage().'; opération Composer annulée avant exécution ; snapshot conservé : '.$transaction,
                 0,
                 $failure,
             );
@@ -138,8 +155,31 @@ final class ComposerTransactionRunner
                 $removedVersions = $this->removeModuleMigrations($backend, $arguments, $databaseUrl, $progress);
             }
             $this->prepareDevelopmentModuleRepositories($backend, $arguments, $progress);
-            $this->execute(array_merge(['composer'], $arguments, []), $backend, $progress);
+            // Composer's post-update scripts run cache:clear before the application's
+            // legacy module-sync hook. Defer them until ownership is refreshed.
+            $deferScripts = is_file($backend.'/bin/console');
+            $composerArguments = array_merge(['composer'], $arguments, $deferScripts ? ['--no-scripts'] : []);
+            $this->execute($composerArguments, $backend, $progress);
+            if ($deferScripts) {
+                // Pure PHP metadata writers: never boot Symfony with stale module paths.
+                (new \SymSvel\Tooling\Module\ComposerModuleBundleMapWriter())->write($backend);
+                (new \SymSvel\Tooling\Module\ComposerModuleInventoryWriter())->write($backend);
+                $this->execute(['composer', 'run-script', 'post-update-cmd'], $backend, $progress);
+            }
+            // Ownership compilation consumes the refreshed Composer module inventory.
+            // Publish it before booting the container for migrations or settings.
+            if (is_file($backend.'/bin/console')) {
+                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backend, $progress);
+            }
             $this->applyComposerMigrations($backend, $databaseUrl, $progress, $bootstrap);
+            if ($databaseUrl !== null && is_file($backend.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
+                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $backend, $progress);
+            }
+            // The bundle owns its tables and import logic. Tooling only invokes
+            // the post-migration operation while the Composer rollback is active.
+            if ($databaseUrl !== null && is_file($backend.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
+                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backend, $progress);
+            }
             $this->removeCompiledMigrations($backend, $removedVersions);
         } catch (\Throwable $failure) {
             $recoveryErrors = [];
@@ -324,6 +364,50 @@ final class ComposerTransactionRunner
                 $this->execute(['composer', 'config', 'repositories.'.$key, 'vcs', $url], $backend, $progress);
             }
             $repositories[$key] = $repository;
+        }
+    }
+
+    /**
+     * Keep mandatory native modules installed. Use the same persisted manifest
+     * already consumed by bootstrap, not a hardcoded Tooling package list.
+     *
+     * @param list<string> $arguments
+     */
+    private function preventNativeModuleRemoval(string $backend, array $arguments): void
+    {
+        $manifest = $backend.'/config/symsvel-native-modules.json';
+        if (!file_exists($manifest) && !is_link($manifest)) {
+            return; // Compatibility with isolated composer test fixtures.
+        }
+        if (is_link($manifest) || !is_file($manifest) || !is_readable($manifest)) {
+            throw new \RuntimeException('Manifeste des modules natifs absent ou non fiable.');
+        }
+        $config = json_decode((string) file_get_contents($manifest), true, 32, JSON_THROW_ON_ERROR);
+        if (!is_array($config) || ($config['schema'] ?? null) !== 1
+            || !is_array($config['modules'] ?? null) || !array_is_list($config['modules'])) {
+            throw new \RuntimeException('Manifeste des modules natifs invalide.');
+        }
+        $required = $config['modules'];
+        $components = $config['components'] ?? [];
+        if (!is_array($components)) {
+            throw new \RuntimeException('Modules natifs de composants invalides.');
+        }
+        foreach ($components as $component => $packages) {
+            if (!in_array($component, ['bo', 'app', 'front'], true)
+                || !is_array($packages) || !array_is_list($packages)) {
+                throw new \RuntimeException('Modules natifs de composants invalides.');
+            }
+            if (is_dir(dirname($backend).'/'.$component)) {
+                array_push($required, ...$packages);
+            }
+        }
+        foreach ($arguments as $argument) {
+            if (!is_string($argument) || !str_starts_with($argument, 'symsvel-framework/module-')) {
+                continue;
+            }
+            if (in_array($argument, $required, true)) {
+                throw new \DomainException('Module natif obligatoire non désinstallable : '.$argument);
+            }
         }
     }
 

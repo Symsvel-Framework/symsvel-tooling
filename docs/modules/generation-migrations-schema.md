@@ -169,3 +169,25 @@ Pour éviter de rejouer ou d'exécuter une migration native étrangère, la prem
 ### Correctif CT : migrations compilées déjà présentes
 
 Les migrations Schema des modules sont compilées dans `backend/migrations/Version*.php` avant `make:migration`. Le refus initial de tout fichier préexistant bloquait donc systématiquement le setup. Le contrôle prend désormais un instantané des fichiers avant la génération et identifie le **nouveau fichier uniquement** par différence ; les migrations compilées restent présentes. En reprise, le marqueur natif vérifie l'existence du fichier généré sans exiger que ce soit le seul fichier du répertoire. Le test simule une migration compilée et une migration Doctrine complémentaire. Validation CI et nouveau CT requis.
+
+## Setup : migrations techniques du squelette
+
+Le setup exécute les migrations des modules puis `doctrine:migrations:migrate`, qui applique aussi les migrations versionnées du squelette Symfony. Il ne lance plus `make:migration` : le diff ORM global pouvait générer des `DROP TABLE` pour les tables de modules non mappées comme entités ORM. La table du transport Doctrine Messenger est créée par `symsvel-back/migrations/Version20000000000000.php`. Aucun marqueur `native-migration-setup.json` n'est nécessaire.
+
+## Diagnostic des échecs de compilation au Setup (CT du 17 novembre 2026)
+
+`symsvel:setup:database` lance `symsvel:module:migrations:compile --source=composer --execute` dans un processus enfant. Lors d'un CT MySQL 8.4.5, la création de la base `xt12345` avait réussi, mais la compilation renvoyait le code 1 ; l'ancienne erreur générique de Setup masquait la sortie d'erreur et la sortie standard du compilateur. Les entrées `console.DEBUG` du `dev.log` ne conservent que les codes de sortie, pas le diagnostic original.
+
+Tooling inclut désormais la commande enfant, son code de sortie et ses messages dans l'échec de `symsvel:setup:database`. Le contrôleur du Setup local dans Back est déjà chargé de masquer les URL de connexion et mots de passe avant de présenter cette sortie au navigateur. Le test `SymSvelSetupDatabaseCommandTest::testFailedCompilerErrorIsVisibleForSetupDiagnostics` vérifie cette propagation. **La cause SQL/Doctrine de l'échec du CT n'est pas établie par les logs reçus** ; ne pas déduire qu'elle est résolue par ce seul correctif de diagnostic.
+
+Avant reprise du Setup, vérifier la présence d'un journal `.symsvel/migration-recovery.json` : lorsqu'il existe, le mécanisme de récupération doit être utilisé et aucune relance brute de la compilation ne doit contourner cette sécurité. La CI, puis un nouveau CT utilisateur sont nécessaires.
+
+## Réservation unique des versions Doctrine (CT du 17 novembre 2026)
+
+**Source de référence mainteneur :** `docs/modules/migration-versions.json` dans `symsvel-tooling/dev`. Le fichier recense les **24 fichiers de migration présents** dans `symsvel-back` et les modules natifs à cette date, en associant chaque `VersionYYYYMMDDHHMMSS` à son dépôt et à son chemin. Il ne remplace ni les reçus d'exécution `.symsvel/migrations.json` de chaque projet ni `doctrine_migration_versions`.
+
+**Procédure obligatoire avant toute nouvelle migration :** vérifier l'inventaire global, réserver un numéro unique, créer la source dans le module propriétaire et ajouter dans le même chantier l'entrée `version/repository/path` au registre versionné. Lors d'une évolution, comparer le registre à la liste effective des fichiers source sur les branches `dev` des dépôts concernés, car une vérification interne du JSON seul ne garantit pas leur synchronisation. Ne jamais changer une version déjà enregistrée dans un projet sans procédure explicite de compatibilité.
+
+**Incident corrigé :** Admins et Users ont initialement créé deux fichiers `Version20261117000001.php`, alors qu'ils ajoutent `language` sur des tables distinctes. Admins conserve `Version20261117000001` ; Users utilise `Version20261117000002`. La rectification Users intervient avant validation du CT de développement et exige la reprise sécurisée d'un éventuel projet dont la version aurait été enregistrée.
+
+**Détection avant compilation :** `ModuleMigrationDiff::compare()` refuse désormais deux migrations de modules avec la même version, avant l'écriture des fichiers compilés. Le test `ModuleMigrationVersionCollisionTest` protège ce contrôle et vérifie l'unicité des entrées du registre. La CI doit passer au vert puis l'utilisateur doit valider un nouveau CT MySQL ; la cause exacte du premier échec reste à confirmer sur le projet.

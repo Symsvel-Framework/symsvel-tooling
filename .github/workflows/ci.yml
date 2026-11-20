@@ -7,22 +7,25 @@ on:
     branches: [main]
 
 # Cost control: superseded runs on the same branch/PR are cancelled.
-# Keep PostgreSQL rollback tests and client enabled; DB is supplied by runner Compose.
+# PostgreSQL, MySQL and MariaDB rollback databases are supplied by runner Compose.
+# Destructive tests share databases across both runners: serialize ALL workflow runs.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: symsvel-tooling-shared-rollback-databases
+  cancel-in-progress: false
 
 jobs:
   qa:
     runs-on: [self-hosted, linux, ARM64, symsvel]
     steps:
       - uses: actions/checkout@v5
-      - name: Verify preinstalled PHP 8.4 and PostgreSQL 17 client
+      - name: Verify PHP 8.4 and PostgreSQL/MySQL clients
         run: |
           php -v
           php -r 'if (PHP_VERSION_ID < 80400 || PHP_VERSION_ID >= 80500) { exit(1); }'
           composer --version
           pg_dump --version
+          mysql --version
+          mysqldump --version
       - name: Validate Composer manifest
         run: composer validate --no-check-publish --no-check-lock
       - name: Install dependencies
@@ -42,4 +45,8 @@ jobs:
           SYMSVEL_CI_POSTGRES_PASSWORD: ${{ secrets.SYMSVEL_CI_POSTGRES_PASSWORD }}
         run: |
           export SYMSVEL_TEST_POSTGRES_URL="$(php -r 'echo "postgresql://symsvel_ci:".rawurlencode(getenv("SYMSVEL_CI_POSTGRES_PASSWORD"))."@postgres:5432/symsvel_rollback_ci";')"
-          vendor/bin/phpunit --display-warnings --fail-on-warning
+          export SYMSVEL_TEST_MYSQL_URL="$(php -r 'echo "mysql://root:".rawurlencode(getenv("SYMSVEL_CI_POSTGRES_PASSWORD"))."@mysql:3306/symsvel_rollback_ci";')"
+          export SYMSVEL_TEST_MARIADB_URL="$(php -r 'echo "mariadb://root:".rawurlencode(getenv("SYMSVEL_CI_POSTGRES_PASSWORD"))."@mariadb:3306/symsvel_rollback_ci";')"
+          mysql --host=mysql --user=root --password="$SYMSVEL_CI_POSTGRES_PASSWORD" --execute='SELECT 1' symsvel_rollback_ci
+          mysql --host=mariadb --user=root --password="$SYMSVEL_CI_POSTGRES_PASSWORD" --execute='SELECT 1' symsvel_rollback_ci
+          vendor/bin/phpunit --display-warnings --display-skipped --fail-on-warning

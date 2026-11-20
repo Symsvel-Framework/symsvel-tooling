@@ -31,6 +31,10 @@ final class ComposerModuleInventoryWriter
         }
         $json = json_encode(['schema' => 1, 'modules' => $plan], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
         if (is_file($target) && file_get_contents($target) === $json) {
+            // The CLI may run under a different account from the local web server.
+            if (!chmod($target, 0644)) {
+                throw new \RuntimeException('Permissions de publication invalides : '.$target);
+            }
             return $target;
         }
         $temporary = tempnam($directory, '.modules-');
@@ -38,7 +42,8 @@ final class ComposerModuleInventoryWriter
             throw new \RuntimeException('Impossible de créer un fichier temporaire.');
         }
         try {
-            if (file_put_contents($temporary, $json) === false || !rename($temporary, $target)) {
+            if (file_put_contents($temporary, $json) === false || !chmod($temporary, 0644)
+                || !rename($temporary, $target)) {
                 throw new \RuntimeException('Impossible de publier le registre des modules.');
             }
         } finally {

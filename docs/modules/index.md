@@ -21,3 +21,7 @@ Le Maker impose une structure standardisée afin que le Tooling puisse intégrer
 | all (profil) | Back + BO + App + Front |
 
 L'usage du Maker n'est pas obligatoire ; le respect du contrat du module l'est. Voir [le contrat](contrat.md).
+
+## Migrations
+
+Avant de créer une migration de module, consulter le [registre des versions de migrations natives](registre-versions-migrations.md) et vérifier les fichiers `Migration/Version*.php` des modules concernés. Le registre documentaire ne remplace pas les fichiers sources ni les contrôles de collision du compilateur.
