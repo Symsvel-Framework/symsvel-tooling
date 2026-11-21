@@ -972,6 +972,7 @@ final class ComposerTransactionRunnerTest extends TestCase
 
     public function testSuccessfulComposerModuleOperationsRefreshDocsOnlyAfterCommit(): void
     {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'stable');
         $workspace = dirname($this->backend);
         mkdir($workspace.'/dev-doc/docs', 0775, true);
         file_put_contents($workspace.'/dev-doc/mkdocs.yml', 'site_name: Local');
