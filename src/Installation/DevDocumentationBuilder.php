@@ -13,8 +13,10 @@ use Symfony\Component\Process\Process;
 final class DevDocumentationBuilder
 {
     /** @param null|\Closure(list<string>, string):void $runner */
-    public function __construct(private readonly ?\Closure $runner = null)
-    {
+    public function __construct(
+        private readonly ?\Closure $runner = null,
+        private readonly DevDocumentationPublisher $publisher = new DevDocumentationPublisher(),
+    ) {
     }
 
     public function build(string $workspace): void
@@ -33,6 +35,9 @@ final class DevDocumentationBuilder
             || is_link($site) || (file_exists($site) && !is_dir($site))) {
             throw new \RuntimeException('Arborescence dev-doc invalide ou symbolique.');
         }
+
+        // Populate MkDocs from the actual developer docs, never admin/user guides.
+        $this->publisher->synchronize($workspace);
 
         $python = $venv.'/bin/python';
         if (!is_file($python) || !is_executable($python)) {
