@@ -19,23 +19,58 @@ final class ComposerDocumentationAssembler
     {
     }
 
+    /**
+     * Developer-only Markdown sources, without publishing the private BO index.
+     *
+     * @return list<array{id:string,scope:string,source:string,owner:string,file:string,title:string,markdown:string}>
+     */
+    public function developerPages(string $backend): array
+    {
+        $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
+        $pages = [];
+        $this->collectDeveloperPages($pages, $backend);
+        ksort($pages, SORT_STRING);
+
+        return array_values($pages);
+    }
+
+    /** @param array<string, array<string, string>> $pages */
+    private function collectDeveloperPages(array &$pages, string $backend): void
+    {
+        $workspace = dirname($backend);
+        foreach ([
+            'back' => $backend.'/docs',
+            'bo' => $workspace.'/bo/docs',
+            'app' => $workspace.'/app/docs',
+            'front' => $workspace.'/front/docs',
+            'core' => $backend.'/vendor/symsvel-framework/core/docs',
+            'tooling' => $backend.'/vendor/symsvel-framework/tooling/docs',
+        ] as $owner => $source) {
+            if (is_dir($source) || is_link($source)) {
+                $this->collect($pages, $source, 'dev', 'host', $owner);
+            }
+        }
+
+        // During early bootstrap Composer metadata can be absent from a
+        // partial project; the next build after module installation adds it.
+        if (!is_file($backend.'/vendor/composer/installed.json')) {
+            return;
+        }
+        foreach ($this->registry->discover($backend) as $module => $installed) {
+            $relative = $installed['manifest']['documentation']['dev'] ?? null;
+            if (is_string($relative)) {
+                $this->collect($pages, $installed['path'].'/'.$relative, 'dev', 'module', $module);
+            }
+        }
+    }
+
     /** @return array{path:string, pages:int, changed:bool} */
     public function assemble(string $backend): array
     {
         $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
         $workspace = dirname($backend);
         $pages = [];
-        // Host documentation is development-only; never expose it as admin help.
-        foreach ([
-            'back' => $backend.'/docs',
-            'bo' => $workspace.'/bo/docs',
-            'app' => $workspace.'/app/docs',
-            'front' => $workspace.'/front/docs',
-        ] as $owner => $source) {
-            if (is_dir($source)) {
-                $this->collect($pages, $source, 'dev', 'host', $owner);
-            }
-        }
+        $this->collectDeveloperPages($pages, $backend);
         // Project-authored guides live in their own workspaces, but are
         // still delivered only through the private authenticated index.
         foreach ([
@@ -46,9 +81,13 @@ final class ComposerDocumentationAssembler
                 $this->collect($pages, $source, $scope, 'host', $scope.'-doc');
             }
         }
-        foreach ($this->registry->discover($backend) as $module => $installed) {
-            foreach ($installed['manifest']['documentation'] as $scope => $relative) {
-                $this->collect($pages, $installed['path'].'/'.$relative, $scope, 'module', $module);
+        if (is_file($backend.'/vendor/composer/installed.json')) {
+            foreach ($this->registry->discover($backend) as $module => $installed) {
+                foreach ($installed['manifest']['documentation'] as $scope => $relative) {
+                    if ($scope !== 'dev') {
+                        $this->collect($pages, $installed['path'].'/'.$relative, $scope, 'module', $module);
+                    }
+                }
             }
         }
         ksort($pages, SORT_STRING);
