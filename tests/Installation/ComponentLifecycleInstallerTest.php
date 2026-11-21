@@ -105,7 +105,13 @@ PHP
         (new ComponentLifecycleInstaller(new ComponentInstaller(['app' => $repository])))
             ->install($this->workspace.'/backend', 'app');
 
-        self::assertDirectoryExists($this->workspace.'/app/.git');
+        self::assertDirectoryDoesNotExist($this->workspace.'/app/.git');
+        self::assertFileDoesNotExist($this->workspace.'/app/.git');
+        self::assertFileExists($this->workspace.'/backend/.symsvel/components.json');
+        $manifest = (new \SymSvel\Tooling\Update\ComponentManifest($this->workspace.'/backend'))->get('app');
+        self::assertNotNull($manifest);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{40}$/D', $manifest['revision']);
+        self::assertArrayHasKey('src/routes/.gitkeep', $manifest['files']);
         self::assertFileExists($this->workspace.'/backend/.symsvel/svelte-files.json');
         self::assertSame(['require', 'symsvel-framework/module-users', '--bootstrap'], json_decode((string) file_get_contents($this->workspace.'/backend/native-module-invocation.json'), true, 512, JSON_THROW_ON_ERROR));
     }
