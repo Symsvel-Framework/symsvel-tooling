@@ -26,6 +26,10 @@ final class DevDocumentationBuilderTest extends TestCase
                     chmod($cwd.'/.venv/bin/python', 0755);
                     file_put_contents($cwd.'/.venv/pyvenv.cfg', 'home=fake');
                 }
+                if (in_array('pip', $command, true)) {
+                    file_put_contents($cwd.'/.venv/bin/mkdocs', 'fake');
+                    chmod($cwd.'/.venv/bin/mkdocs', 0755);
+                }
                 if (in_array('build', $command, true)) {
                     if (!is_dir($cwd.'/site')) {
                         mkdir($cwd.'/site');
@@ -42,7 +46,14 @@ final class DevDocumentationBuilderTest extends TestCase
             self::assertContains('mkdocs', $commands[2]);
 
             $builder->build($root);
-            self::assertCount(5, $commands);
+            self::assertCount(4, $commands, 'A repeat MkDocs build must not reinstall unchanged Python requirements.');
+            self::assertContains('mkdocs', $commands[3]);
+
+            file_put_contents($root.'/dev-doc/requirements.txt', "mkdocs>=1.6,<2\n# Refresh dependency cache\n");
+            $builder->build($root);
+            self::assertCount(6, $commands, 'Changing Python requirements must trigger pip again.');
+            self::assertContains('pip', $commands[4]);
+            self::assertContains('mkdocs', $commands[5]);
             self::assertFileDoesNotExist($root.'/backend/public/dev-doc/index.html');
             self::assertDirectoryDoesNotExist($root.'/admin-doc/site');
             self::assertDirectoryDoesNotExist($root.'/user-doc/site');
