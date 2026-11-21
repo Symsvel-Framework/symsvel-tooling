@@ -14,6 +14,7 @@ use SymSvel\Tooling\Module\ModuleMigrationDiff;
 use SymSvel\Tooling\Module\ModuleMigrationRegistry;
 use SymSvel\Tooling\Module\ModuleMigrationExecutor;
 use SymSvel\Tooling\Installation\SetupState;
+use SymSvel\Tooling\Installation\LocalDeveloperDocumentationRefresher;
 
 /**
  * Opt-in Composer transaction runner.
@@ -27,6 +28,7 @@ final class ComposerTransactionRunner
         private readonly ComposerTransactionSnapshot $snapshots = new ComposerTransactionSnapshot(),
         /** @var null|callable(list<string>, string, ?callable):void */
         private readonly mixed $commandRunner = null,
+        private readonly LocalDeveloperDocumentationRefresher $docsRefresher = new LocalDeveloperDocumentationRefresher(),
     ) {
     }
 
@@ -294,6 +296,9 @@ final class ComposerTransactionRunner
                 $progress('AVERTISSEMENT : opération Composer réussie, nettoyage non enregistré ou interrompu : '.$cleanupFailure->getMessage().'; checkpoint conservé si présent : '.$transaction);
             }
         }
+        // Derived local docs are regenerated only after the Composer transaction
+        // commits. Never publish module pages while a rollback is still possible.
+        $this->docsRefresher->afterSuccess($backend, $progress);
     }
 
     /**

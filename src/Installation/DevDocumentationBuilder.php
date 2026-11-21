@@ -13,8 +13,10 @@ use Symfony\Component\Process\Process;
 final class DevDocumentationBuilder
 {
     /** @param null|\Closure(list<string>, string):void $runner */
-    public function __construct(private readonly ?\Closure $runner = null)
-    {
+    public function __construct(
+        private readonly ?\Closure $runner = null,
+        private readonly DevDocumentationPublisher $publisher = new DevDocumentationPublisher(),
+    ) {
     }
 
     public function build(string $workspace): void
@@ -34,6 +36,9 @@ final class DevDocumentationBuilder
             throw new \RuntimeException('Arborescence dev-doc invalide ou symbolique.');
         }
 
+        // Populate MkDocs from the actual developer docs, never admin/user guides.
+        $this->publisher->synchronize($workspace);
+
         $python = $venv.'/bin/python';
         if (!is_file($python) || !is_executable($python)) {
             $interpreter = getenv('SYMSVEL_SETUP_PYTHON');
@@ -52,8 +57,24 @@ final class DevDocumentationBuilder
             throw new \RuntimeException('Environnement Python dev-doc introuvable après initialisation.');
         }
 
-        $this->run([$python, '-m', 'pip', 'install', '--disable-pip-version-check',
-            '--no-input', '-r', $requirements], $docs, 600);
+        // Rebuilding after each module transaction must not download
+        // Python dependencies again unless requirements changed.
+        $requirementsStamp = $venv.'/.symsvel-requirements.sha256';
+        if (is_link($requirementsStamp) || (file_exists($requirementsStamp) && !is_file($requirementsStamp))) {
+            throw new \RuntimeException('Cache des dépendances MkDocs invalide.');
+        }
+        $requirementsHash = hash_file('sha256', $requirements);
+        if ($requirementsHash === false) {
+            throw new \RuntimeException('Impossible de vérifier requirements.txt.');
+        }
+        if (!is_file($venv.'/bin/mkdocs') || !is_file($requirementsStamp)
+            || trim((string) file_get_contents($requirementsStamp)) !== $requirementsHash) {
+            $this->run([$python, '-m', 'pip', 'install', '--disable-pip-version-check',
+                '--no-input', '-r', $requirements], $docs, 600);
+            if (file_put_contents($requirementsStamp, $requirementsHash."\n", LOCK_EX) === false) {
+                throw new \RuntimeException('Impossible de mémoriser les dépendances MkDocs.');
+            }
+        }
         $this->run([$python, '-m', 'mkdocs', 'build', '--clean',
             '--config-file', $configuration, '--site-dir', $site], $docs, 180);
 

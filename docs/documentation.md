@@ -48,9 +48,43 @@ cd dev-doc
 ```
 
 Cette adresse locale ne doit jamais être ouverte sur le VPS.
-Le contenu initial MkDocs est un accueil minimal ; l'assemblage documentaire
-des modules via `symsvel documentation:sync` reste une opération distincte
-tant que la publication des sources vers MkDocs n'est pas raccordée.
+MkDocs reçoit automatiquement les **sources développeur réelles** :
+`backend/docs/`, les `docs/` des hôtes BO/App/Front, celles de Core et
+Tooling installés par Composer, puis les `docs/dev` des modules installés
+et déclarés dans `module.json`. La commande de création de projet effectue
+un second build après l'installation et la synchronisation des modules natifs.
+Le répertoire `dev-doc/docs/symsvel/` est généré et réservé par Tooling ;
+il ne doit pas être édité ou versionné. Les personnalisations sont rédigées
+dans `dev-doc/docs/` en dehors de ce répertoire, ou dans les sources des
+composants et modules. Le dossier généré est ignoré par Git.
+
+## Rafraîchissement automatique en local
+
+Après un `symsvel require`, `symsvel update` ou `symsvel remove`
+réussi, le lanceur transactionnel de Tooling actualise automatiquement
+`dev-doc/docs/symsvel/` puis relance MkDocs. Les pages d'un module supprimé
+disparaissent de la publication, les pages nouvelles et modifiées sont
+récupérées à partir des sources Composer réellement installées.
+La mise à jour globale du workspace effectue la même opération **après**
+sa transaction, jamais pendant la fenêtre de rollback.
+
+Ces opérations sont réservées aux espaces de développement locaux qui
+possèdent un `dev-doc/mkdocs.yml` valide ; elles sont ignorées si
+`APP_ENV=prod`, en absence de `dev-doc`, ou pendant le bootstrap initial
+(`SYMSVEL_DEFER_BUILDS=1`). Le site `dev-doc` n'est jamais déployé.
+Un échec MkDocs est affiché en avertissement et se corrige avec
+`symsvel documentation:build-dev`, sans faire passer une opération Composer
+déjà validée pour un échec ni provoquer un rollback fictif.
+
+Une édition directe de fichiers Markdown hors d'une opération CLI ne déclenche
+pas une transaction : `mkdocs serve` peut surveiller les fichiers locaux
+en développement, ou `symsvel documentation:build-dev` reconstruit
+explicitement le site.
+
+Le build local MkDocs est **distinct** de `symsvel documentation:sync` :
+cette dernière commande maintient l'index privé pour l'interface BO et ne
+publie jamais de site statique. Aucun guide `admin` ou `user` n'est copié
+vers le site développeur.
 
 - `dev-doc/` appartient au **développement uniquement**. Il ne doit
   jamais être synchronisé vers le VPS de production, ni être inclus dans
@@ -88,4 +122,5 @@ la documentation elle-même reste différée.
 ## Validation requise
 
 CI Tooling, tests d'accès HTTP BO, contrôle des droits sur les scopes et
-CT utilisateur. Le pipeline Setup n'exécute aucune étape documentaire.
+CT utilisateur. Le Setup Wizard n'exécute aucune étape documentaire supplémentaire :
+les builds sont réalisés à la création de projet, avant son ouverture.
