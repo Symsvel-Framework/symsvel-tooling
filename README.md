@@ -1,6 +1,12 @@
 # SymSvel Tooling
 
-Bundle Symfony `symsvel-framework/tooling` : opérations de développement et de maintenance d'un workspace SymSvel. **La CLI autonome `symsvel` est l'entrée utilisateur privilégiée** ; les commandes `php bin/console symsvel:*` sont les points d'entrée Symfony et les outils de diagnostic.
+> [!IMPORTANT]
+> **Vous souhaitez utiliser SymSvel ? Rendez-vous sur [SymSvel CLI](https://github.com/Symsvel-Framework/symsvel-cli).** Ce dépôt est un **composant du framework**, pas un point d'installation autonome. Création de projets, installation des modules et mises à jour passent par la CLI. Les éventuelles commandes Composer, npm ou Symfony décrites ci-dessous concernent le travail des mainteneurs, sauf indication explicite contraire.
+>
+> [!WARNING]
+> **SymSvel est en cours de développement.** Les fonctionnalités et procédures peuvent évoluer ou présenter des anomalies. **Utilisation à vos risques et périls.**
+
+Bundle Symfony `symsvel-framework/tooling` : opérations de développement et de maintenance d'un workspace SymSvel. **La CLI autonome `symsvel` est l'unique point d'entrée des développeurs utilisateurs** ; les commandes `php bin/console symsvel:*` sont des interfaces Symfony internes réservées aux mainteneurs et au diagnostic.
 
 > Référence de travail : branche `feat/60-update-init-simplification` (PR #62), coordonnée avec la CLI PR #10. Les parcours GitHub/Satis et les crash-tests XT ne sont pas encore validés de bout en bout. Ne pas confondre CI verte et validation terrain.
 
@@ -127,3 +133,11 @@ L'exécution exige que le Mac, Docker et le service PostgreSQL soient disponible
 ### Correctif SQLite au Setup (11/11/2026)
 
 Le Setup détecte une `DATABASE_URL` SQLite de la forme `sqlite:///%kernel.project_dir%/chemin/relatif.db`, crée son répertoire parent si nécessaire et **n'exécute pas** `doctrine:database:create --if-not-exists` : DBAL ne prend pas en charge `listDatabases()` sur SQLite. La première connexion aux migrations ouvre/crée le fichier SQLite. PostgreSQL, MySQL et MariaDB conservent la commande Doctrine existante. Un test automatisé vérifie la sélection du parcours SQLite et la préparation du dossier (fixture `.env.local` avec guillemets et retour à la ligne réels, corrigée après un échec CI) ; le CT XT SQLite reste à confirmer avant release. Ne jamais considérer la CI seule comme validation du CT.
+
+---
+
+## Participer et soutenir le projet
+
+SymSvel est un projet en cours de développement. Pour contribuer, proposer une amélioration ou échanger avec le mainteneur : **[xavier@xavier-tezza.fr](mailto:xavier@xavier-tezza.fr)**.
+
+SymSvel vous est utile et vous souhaitez me remercier ? **Offrez-moi une bière ! 🍺** (lien PayPal à compléter avant l'ouverture publique).
