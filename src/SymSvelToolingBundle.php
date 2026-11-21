@@ -10,6 +10,7 @@ use SymSvel\Tooling\Command\SymSvelSetupDatabaseCommand;
 use SymSvel\Tooling\Command\SymSvelSetupCompleteCommand;
 use SymSvel\Tooling\Command\SymSvelMakeModuleCommand;
 use SymSvel\Tooling\Command\SymSvelDocumentationSyncCommand;
+use SymSvel\Tooling\Command\SymSvelDevDocumentationBuildCommand;
 use SymSvel\Tooling\Documentation\ComposerDocumentationAssembler;
 use SymSvel\Tooling\Module\ModuleMaker;
 use SymSvel\Tooling\Module\ModuleManifest;
@@ -59,6 +60,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelDocumentationSyncCommand::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelDevDocumentationBuildCommand::class)
             ->autowire()
             ->autoconfigure()
             ->set(ModuleManifest::class)
