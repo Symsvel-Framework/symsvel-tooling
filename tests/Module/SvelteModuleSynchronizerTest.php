@@ -80,7 +80,7 @@ final class SvelteModuleSynchronizerTest extends TestCase
         $portable = json_decode((string) file_get_contents($registry), true, 512, JSON_THROW_ON_ERROR);
         self::assertNotEmpty($portable);
         foreach (array_keys($portable) as $relative) {
-            self::assertStringStartsWith('bo/src/', $relative);
+            self::assertMatchesRegularExpression('~^(?:bo|app|front)/src/(?:lib|routes)/~', $relative);
             self::assertStringNotContainsString($this->workspace, $relative);
         }
 
