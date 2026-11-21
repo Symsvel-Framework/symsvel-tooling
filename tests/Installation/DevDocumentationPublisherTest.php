@@ -73,6 +73,25 @@ final class DevDocumentationPublisherTest extends TestCase
         self::assertStringContainsString('Mise à jour du guide', (string) file_get_contents($generated.'/framework/back/guides/setup.md'));
     }
 
+    public function testRemovingModulePrunesItsDeveloperPagesButKeepsFrameworkDocs(): void
+    {
+        $publisher = new DevDocumentationPublisher();
+        $publisher->synchronize($this->workspace);
+        $generated = $this->workspace.'/dev-doc/docs/symsvel';
+        self::assertFileExists($generated.'/modules/catalogue/index.md');
+
+        unlink($this->workspace.'/backend/vendor/symsvel-framework/module-catalogue');
+        file_put_contents(
+            $this->workspace.'/backend/vendor/composer/installed.json',
+            '{"packages":[]}',
+        );
+        $publisher->synchronize($this->workspace);
+
+        self::assertDirectoryDoesNotExist($generated.'/modules/catalogue');
+        self::assertFileExists($generated.'/framework/back/guides/setup.md');
+        self::assertStringNotContainsString('Module catalogue', (string) file_get_contents($generated.'/index.md'));
+    }
+
     public function testNeverOverwritesCustomLandingPageOrReservedGeneratedDirectory(): void
     {
         $publisher = new DevDocumentationPublisher();
