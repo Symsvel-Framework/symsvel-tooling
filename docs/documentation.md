@@ -35,7 +35,22 @@ Markdown comme du **texte** et ne pas injecter de HTML non filtré.
 
 Le bootstrap du workspace crée `dev-doc/`, `admin-doc/` et
 `user-doc/` avec un répertoire `docs/` et un `.gitignore` chacun.
-Aucun environnement Python, build MkDocs ou site exposé n'est créé.
+Une installation locale de Python 3 est requise pour `create-project` :
+Tooling crée un environnement isolé `dev-doc/.venv/`, installe MkDocs
+depuis `dev-doc/requirements.txt` puis construit `dev-doc/site/`.
+L'initialisation ne crée aucun site public pour `admin-doc` et `user-doc`.
+Le build local produit immédiatement un `site/index.html` consultable.
+Pour la prévisualisation HTTP (et les mises à jour automatiques), lancer :
+
+```bash
+cd dev-doc
+.venv/bin/python -m mkdocs serve --dev-addr 127.0.0.1:8001
+```
+
+Cette adresse locale ne doit jamais être ouverte sur le VPS.
+Le contenu initial MkDocs est un accueil minimal ; l'assemblage documentaire
+des modules via `symsvel documentation:sync` reste une opération distincte
+tant que la publication des sources vers MkDocs n'est pas raccordée.
 
 - `dev-doc/` appartient au **développement uniquement**. Il ne doit
   jamais être synchronisé vers le VPS de production, ni être inclus dans
