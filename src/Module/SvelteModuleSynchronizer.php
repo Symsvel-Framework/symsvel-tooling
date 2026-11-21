@@ -96,13 +96,13 @@ final class SvelteModuleSynchronizer
         if (is_link($registry)) {
             throw new \RuntimeException('Registre symbolique interdit.');
         }
-        $previous = is_file($registry) ? json_decode((string) file_get_contents($registry), true, 512, JSON_THROW_ON_ERROR) : [];
-        if (!is_array($previous)) {
-            throw new \RuntimeException('Registre Svelte invalide.');
-        }
-        foreach ($previous as $path => $hash) {
-            if (!is_string($path) || !is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash)
-                || !$this->managedPath($workspace, $path)) {
+        // Inventory keys are workspace-relative. Legacy absolute keys are
+        // rebased only after validating their managed suffix; each destination
+        // is then hash-verified before any write or registry migration.
+        $previous = (new SvelteFileRegistry())->read($backend);
+        foreach ($previous as $relative => $hash) {
+            $path = $workspace.'/'.$relative;
+            if (!$this->managedPath($workspace, $path)) {
                 throw new \RuntimeException('Entrée de registre invalide.');
             }
             $parent = dirname($path);
@@ -120,7 +120,8 @@ final class SvelteModuleSynchronizer
             if (!$this->managedPath($workspace, $path)) {
                 throw new \RuntimeException('Destination hors répertoire géré : '.$path);
             }
-            if (is_link($path) || (file_exists($path) && (!isset($previous[$path]) || !is_file($path)))) {
+            $relative = substr($path, strlen($workspace) + 1);
+            if (is_link($path) || (file_exists($path) && (!isset($previous[$relative]) || !is_file($path)))) {
                 throw new \RuntimeException('Fichier non géré déjà présent : '.$path);
             }
             $parent = dirname($path);
@@ -144,7 +145,8 @@ final class SvelteModuleSynchronizer
             }
         }
         $removed = 0;
-        foreach ($previous as $path => $hash) {
+        foreach ($previous as $relative => $hash) {
+            $path = $workspace.'/'.$relative;
             if (!isset($targets[$path])) {
                 unlink($path);
                 $this->pruneEmptyParents(dirname($path), $workspace);
@@ -154,7 +156,7 @@ final class SvelteModuleSynchronizer
         ksort($targets);
         $next = [];
         foreach ($targets as $path => $content) {
-            $next[$path] = hash('sha256', $content);
+            $next[substr($path, strlen($workspace) + 1)] = hash('sha256', $content);
         }
         if (!is_dir(dirname($registry)) && !mkdir(dirname($registry), 0775, true) && !is_dir(dirname($registry))) {
             throw new \RuntimeException('Registre indisponible.');
