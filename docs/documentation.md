@@ -48,9 +48,20 @@ cd dev-doc
 ```
 
 Cette adresse locale ne doit jamais être ouverte sur le VPS.
-Le contenu initial MkDocs est un accueil minimal ; l'assemblage documentaire
-des modules via `symsvel documentation:sync` reste une opération distincte
-tant que la publication des sources vers MkDocs n'est pas raccordée.
+MkDocs reçoit automatiquement les **sources développeur réelles** :
+`backend/docs/`, les `docs/` des hôtes BO/App/Front, celles de Core et
+Tooling installés par Composer, puis les `docs/dev` des modules installés
+et déclarés dans `module.json`. La commande de création de projet effectue
+un second build après l'installation et la synchronisation des modules natifs.
+Le répertoire `dev-doc/docs/symsvel/` est généré et réservé par Tooling ;
+il ne doit pas être édité ou versionné. Les personnalisations sont rédigées
+dans `dev-doc/docs/` en dehors de ce répertoire, ou dans les sources des
+composants et modules. Le dossier généré est ignoré par Git.
+
+Le build local MkDocs est **distinct** de `symsvel documentation:sync` :
+cette dernière commande maintient l'index privé pour l'interface BO et ne
+publie jamais de site statique. Aucun guide `admin` ou `user` n'est copié
+vers le site développeur.
 
 - `dev-doc/` appartient au **développement uniquement**. Il ne doit
   jamais être synchronisé vers le VPS de production, ni être inclus dans
@@ -88,4 +99,5 @@ la documentation elle-même reste différée.
 ## Validation requise
 
 CI Tooling, tests d'accès HTTP BO, contrôle des droits sur les scopes et
-CT utilisateur. Le pipeline Setup n'exécute aucune étape documentaire.
+CT utilisateur. Le Setup Wizard n'exécute aucune étape documentaire supplémentaire :
+les builds sont réalisés à la création de projet, avant son ouverture.
