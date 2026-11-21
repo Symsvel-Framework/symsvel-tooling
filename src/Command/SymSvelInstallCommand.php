@@ -106,7 +106,7 @@ final class SymSvelInstallCommand extends Command
         }
 
         $io->success('Interfaces installées : '.implode(', ', $components));
-        $io->note('Documentation développeur construite sous dev-doc/site/. Builds SvelteKit différés jusqu’à la fin du Setup.');
+        $io->note('Documentation développeur construite sous dev-doc/site/. Prévisualisation locale : cd dev-doc && .venv/bin/python -m mkdocs serve --dev-addr 127.0.0.1:8001. Builds SvelteKit différés jusqu’à la fin du Setup.');
         return Command::SUCCESS;
     }
 }
