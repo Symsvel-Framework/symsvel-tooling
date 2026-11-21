@@ -91,9 +91,11 @@ final class SymSvelInstallCommandTest extends TestCase
             self::assertSame(0, $tester->execute([]));
             self::assertSame('preserved', file_get_contents($projectDir.'/bo/keep.txt'));
             self::assertFileExists($projectDir.'/dev-doc/docs/index.md');
+            self::assertFileExists($projectDir.'/admin-doc/docs/index.md');
+            self::assertFileExists($projectDir.'/user-doc/docs/index.md');
             self::assertFileDoesNotExist($projectDir.'/dev-doc/site/index.html');
         } finally {
-            (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $projectDir.'/dev-doc', $projectDir.'/secrets']))->run();
+            (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $projectDir.'/dev-doc', $projectDir.'/admin-doc', $projectDir.'/user-doc', $projectDir.'/secrets']))->run();
             // Workspace bootstrap creates persistent setup state and a one-time token.
             // Remove both test-owned artifacts before deleting the temporary workspace.
             @unlink($projectDir.'/.symsvel/setup-token');
@@ -158,6 +160,8 @@ final class SymSvelInstallCommandTest extends TestCase
             self::assertSame(0, $tester->execute(['--components' => 'bo'], ['interactive' => false]));
             self::assertSame('preserved', file_get_contents($root.'/bo/keep.txt'));
             self::assertFileExists($root.'/dev-doc/docs/index.md');
+            self::assertFileExists($root.'/admin-doc/docs/index.md');
+            self::assertFileExists($root.'/user-doc/docs/index.md');
             self::assertFileDoesNotExist($root.'/dev-doc/site/index.html');
             self::assertFileExists($root.'/secrets/.env.example');
         } finally {
