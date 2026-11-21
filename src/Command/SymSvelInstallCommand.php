@@ -94,7 +94,7 @@ final class SymSvelInstallCommand extends Command
             } else {
                 $io->text('Interfaces déjà présentes : installation npm et clonage ignorés.');
             }
-            $io->text('Initialisation de dev-doc (MkDocs) et secrets...');
+            $io->text('Initialisation des documentations (dev/admin/user) et secrets...');
             (new WorkspaceInitializer())->initialize($root);
         } catch (\Throwable $exception) {
             $io->error($exception->getMessage());
