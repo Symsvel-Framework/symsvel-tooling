@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Tests\Command;
 
 use SymSvel\Tooling\Command\SymSvelInstallCommand;
+use SymSvel\Tooling\Installation\ComponentInstaller;
+use SymSvel\Tooling\Installation\DevDocumentationBuilder;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Console\Helper\HelperSet;
@@ -12,12 +14,29 @@ use Symfony\Component\Console\Helper\QuestionHelper;
 
 final class SymSvelInstallCommandTest extends TestCase
 {
+    private function installCommand(string $backend): SymSvelInstallCommand
+    {
+        $builder = new DevDocumentationBuilder(static function (array $command, string $cwd): void {
+            if (in_array('venv', $command, true)) {
+                mkdir($cwd.'/.venv/bin', 0775, true);
+                file_put_contents($cwd.'/.venv/bin/python', 'fake');
+                chmod($cwd.'/.venv/bin/python', 0755);
+                file_put_contents($cwd.'/.venv/pyvenv.cfg', 'home=fake');
+            }
+            if (in_array('build', $command, true)) {
+                mkdir($cwd.'/site', 0775, true);
+                file_put_contents($cwd.'/site/index.html', '<html><body>Docs</body></html>');
+            }
+        });
+        return new SymSvelInstallCommand($backend, new ComponentInstaller(), $builder);
+    }
+
     public function testLegacyFlatSymfonyLayoutIsRejected(): void
     {
         $dir = sys_get_temp_dir().'/symsvel-flat-'.bin2hex(random_bytes(8));
         mkdir($dir);
         try {
-            $tester = new CommandTester(new SymSvelInstallCommand($dir));
+            $tester = new CommandTester($this->installCommand($dir));
             self::assertSame(1, $tester->execute(['--components' => 'bo'], ['interactive' => false]));
             self::assertDirectoryDoesNotExist($dir.'/bo');
         } finally {
@@ -27,7 +46,7 @@ final class SymSvelInstallCommandTest extends TestCase
 
     public function testInvalidExplicitChoiceIsRejected(): void
     {
-        $command = new SymSvelInstallCommand(sys_get_temp_dir());
+        $command = $this->installCommand(sys_get_temp_dir());
         $tester = new CommandTester($command);
         self::assertSame(2, $tester->execute(['--components' => 'invalid'], ['interactive' => false]));
     }
@@ -41,7 +60,7 @@ final class SymSvelInstallCommandTest extends TestCase
         mkdir($projectDir.'/front');
         file_put_contents($projectDir.'/front/keep.txt', 'preserved');
         try {
-            $command = new SymSvelInstallCommand($projectDir.'/backend');
+            $command = $this->installCommand($projectDir.'/backend');
             $tester = new CommandTester($command);
             self::assertSame(1, $tester->execute(['--components' => 'all'], ['interactive' => false]));
             self::assertSame('preserved', file_get_contents($projectDir.'/front/keep.txt'));
@@ -63,7 +82,7 @@ final class SymSvelInstallCommandTest extends TestCase
         mkdir($projectDir.'/backend');
         file_put_contents($projectDir.'/backend/composer.json', '{}');
         try {
-            $command = new SymSvelInstallCommand($projectDir.'/backend');
+            $command = $this->installCommand($projectDir.'/backend');
             $command->setHelperSet(new HelperSet(['question' => new QuestionHelper()]));
             $tester = new CommandTester($command);
             self::assertSame(2, $tester->execute([], ['interactive' => false]));
@@ -84,16 +103,18 @@ final class SymSvelInstallCommandTest extends TestCase
         mkdir($projectDir.'/bo');
         file_put_contents($projectDir.'/bo/keep.txt', 'preserved');
         try {
-            $command = new SymSvelInstallCommand($projectDir.'/backend');
+            $command = $this->installCommand($projectDir.'/backend');
             $command->setHelperSet(new HelperSet(['question' => new QuestionHelper()]));
             $tester = new CommandTester($command);
             $tester->setInputs(['1']);
             self::assertSame(0, $tester->execute([]));
             self::assertSame('preserved', file_get_contents($projectDir.'/bo/keep.txt'));
             self::assertFileExists($projectDir.'/dev-doc/docs/index.md');
-            self::assertFileDoesNotExist($projectDir.'/dev-doc/site/index.html');
+            self::assertFileExists($projectDir.'/admin-doc/docs/index.md');
+            self::assertFileExists($projectDir.'/user-doc/docs/index.md');
+            self::assertFileExists($projectDir.'/dev-doc/site/index.html');
         } finally {
-            (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $projectDir.'/dev-doc', $projectDir.'/secrets']))->run();
+            (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $projectDir.'/dev-doc', $projectDir.'/admin-doc', $projectDir.'/user-doc', $projectDir.'/secrets']))->run();
             // Workspace bootstrap creates persistent setup state and a one-time token.
             // Remove both test-owned artifacts before deleting the temporary workspace.
             @unlink($projectDir.'/.symsvel/setup-token');
@@ -130,7 +151,7 @@ final class SymSvelInstallCommandTest extends TestCase
         mkdir($projectDir.'/'.$component);
         file_put_contents($projectDir.'/'.$component.'/keep.txt', 'preserved');
         try {
-            $command = new SymSvelInstallCommand($projectDir.'/backend');
+            $command = $this->installCommand($projectDir.'/backend');
             $command->setHelperSet(new HelperSet(['question' => new QuestionHelper()]));
             $tester = new CommandTester($command);
             $tester->setInputs([$choice]);
@@ -154,11 +175,13 @@ final class SymSvelInstallCommandTest extends TestCase
         mkdir($root.'/bo');
         file_put_contents($root.'/bo/keep.txt', 'preserved');
         try {
-            $tester = new CommandTester(new SymSvelInstallCommand($root.'/backend'));
+            $tester = new CommandTester($this->installCommand($root.'/backend'));
             self::assertSame(0, $tester->execute(['--components' => 'bo'], ['interactive' => false]));
             self::assertSame('preserved', file_get_contents($root.'/bo/keep.txt'));
             self::assertFileExists($root.'/dev-doc/docs/index.md');
-            self::assertFileDoesNotExist($root.'/dev-doc/site/index.html');
+            self::assertFileExists($root.'/admin-doc/docs/index.md');
+            self::assertFileExists($root.'/user-doc/docs/index.md');
+            self::assertFileExists($root.'/dev-doc/site/index.html');
             self::assertFileExists($root.'/secrets/.env.example');
         } finally {
             (new \Symfony\Component\Process\Process(['rm', '-rf', '--', $root]))->run();

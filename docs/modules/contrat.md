@@ -22,7 +22,22 @@ Les fichiers `bo|app|front/src/lib/**` d'un module sont reproduits **à l'identi
 
 Les sources `src/routes/**` du module sont conservées sous `src/lib/modules/<slug>/routes/**` pour éviter les collisions entre fichiers sources et routes SvelteKit. Un fichier `+page.svelte` génère une page relais sous `src/routes/**` qui importe la source correspondante. Un module ne déclarant que `index.ts` ne génère aucune page.
 
-Le registre `.symsvel/svelte-files.json` protège les fichiers gérés. Une synchronisation après mise à jour migre les anciens chemins gérés `src/lib/vendor/<slug>/**` vers les nouvelles destinations, sous réserve d'absence de modification locale et de collision. Les fichiers locaux ne sont jamais supprimés.
+Le registre `.symsvel/svelte-files.json` protège les fichiers gérés.
+Ses clés sont relatives au workspace (par exemple `bo/src/lib/modules/users/index.ts`) :
+il est donc destiné à être versionné avec les sources du projet pour permettre
+un `git clone` puis des `symsvel require/update/remove` sans perdre les
+empreintes de propriété. Au premier `symsvel:module:sync` après mise à jour de
+Tooling, les anciens registres contenant des chemins absolus sont migrés vers
+le format relatif seulement si tous les fichiers gérés présents ont leurs
+empreintes d'origine. Une personnalisation, une disparition ou une collision
+continue de bloquer la synchronisation avant toute écriture.
+
+Les fichiers de travail locaux (`.symsvel/cleanup.lock`,
+`.symsvel/cleanup-pending.json`, `.symsvel/transactions/`) et l'inventaire
+Composer dépendant des chemins d'installation (`.symsvel/modules.json`) ne
+constituent pas des sources Git portables. Cette distinction concerne **Git
+du développeur**, pas les artefacts statiques Svelte et le runtime déployés
+en production. Une synchronisation après mise à jour migre les anciens chemins gérés `src/lib/vendor/<slug>/**` vers les nouvelles destinations, sous réserve d'absence de modification locale et de collision. Les fichiers locaux ne sont jamais supprimés.
 
 
 ## Scopes Svelte optionnels d'un module (17/11/2026)

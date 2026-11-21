@@ -10,6 +10,7 @@ use SymSvel\Tooling\Command\SymSvelSetupDatabaseCommand;
 use SymSvel\Tooling\Command\SymSvelSetupCompleteCommand;
 use SymSvel\Tooling\Command\SymSvelMakeModuleCommand;
 use SymSvel\Tooling\Command\SymSvelDocumentationSyncCommand;
+use SymSvel\Tooling\Command\SymSvelDevDocumentationBuildCommand;
 use SymSvel\Tooling\Documentation\ComposerDocumentationAssembler;
 use SymSvel\Tooling\Module\ModuleMaker;
 use SymSvel\Tooling\Module\ModuleManifest;
@@ -45,6 +46,7 @@ use SymSvel\Tooling\Command\SymSvelUpdateCommand;
 use SymSvel\Tooling\Command\SymSvelComponentUpdateCommand;
 use SymSvel\Tooling\Update\WorkspaceUpdater;
 use SymSvel\Tooling\Installation\ComponentInstaller;
+use SymSvel\Tooling\Installation\DevDocumentationBuilder;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
@@ -58,6 +60,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelDocumentationSyncCommand::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelDevDocumentationBuildCommand::class)
             ->autowire()
             ->autoconfigure()
             ->set(ModuleManifest::class)
@@ -154,6 +159,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(ComponentInstaller::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(DevDocumentationBuilder::class)
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelInstallCommand::class)

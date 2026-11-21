@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Tests\Composer;
 
 use PHPUnit\Framework\TestCase;
 use SymSvel\Tooling\Composer\ComposerTransactionRunner;
+use SymSvel\Tooling\Installation\LocalDeveloperDocumentationRefresher;
 
 final class ComposerTransactionRunnerTest extends TestCase
 {
@@ -966,6 +967,79 @@ final class ComposerTransactionRunnerTest extends TestCase
             rmdir($app);
             unlink($this->backend.'/config/symsvel-native-modules.json');
             rmdir($this->backend.'/config');
+        }
+    }
+
+    public function testSuccessfulComposerModuleOperationsRefreshDocsOnlyAfterCommit(): void
+    {
+        \SymSvel\Tooling\Update\ProjectChannel::write($this->backend, 'stable');
+        $workspace = dirname($this->backend);
+        mkdir($workspace.'/dev-doc/docs', 0775, true);
+        file_put_contents($workspace.'/dev-doc/mkdocs.yml', 'site_name: Local');
+        $previousEnv = getenv('APP_ENV');
+        $previousDefer = getenv('SYMSVEL_DEFER_BUILDS');
+        putenv('APP_ENV=dev');
+        putenv('SYMSVEL_DEFER_BUILDS');
+        $built = [];
+        $actions = [];
+        $refresher = new LocalDeveloperDocumentationRefresher(
+            static function (string $root) use (&$built, &$actions): void {
+                self::assertSame('composer', end($actions));
+                $built[] = $root;
+            },
+        );
+        $runner = new ComposerTransactionRunner(
+            commandRunner: static function (array $command) use (&$actions): void {
+                $actions[] = $command[0];
+            },
+            docsRefresher: $refresher,
+        );
+        try {
+            $runner->run($this->backend, ['require', 'symsvel-framework/module-demo:^1.0']);
+            $runner->run($this->backend, ['update', 'symsvel-framework/module-demo']);
+            $runner->run($this->backend, ['remove', 'symsvel-framework/module-demo']);
+            self::assertCount(3, $built);
+            self::assertSame([$workspace, $workspace, $workspace], $built);
+        } finally {
+            $previousEnv === false ? putenv('APP_ENV') : putenv('APP_ENV='.$previousEnv);
+            $previousDefer === false ? putenv('SYMSVEL_DEFER_BUILDS') : putenv('SYMSVEL_DEFER_BUILDS='.$previousDefer);
+            @unlink($workspace.'/dev-doc/mkdocs.yml');
+            @rmdir($workspace.'/dev-doc/docs');
+            @rmdir($workspace.'/dev-doc');
+        }
+    }
+
+    public function testFailedComposerModuleOperationNeverRefreshesDeveloperDocs(): void
+    {
+        $workspace = dirname($this->backend);
+        mkdir($workspace.'/dev-doc/docs', 0775, true);
+        file_put_contents($workspace.'/dev-doc/mkdocs.yml', 'site_name: Local');
+        $previousEnv = getenv('APP_ENV');
+        $previousDefer = getenv('SYMSVEL_DEFER_BUILDS');
+        putenv('APP_ENV=dev');
+        putenv('SYMSVEL_DEFER_BUILDS');
+        $refresher = new LocalDeveloperDocumentationRefresher(
+            static function (): void { self::fail('Rollback must never publish new MkDocs pages.'); },
+        );
+        try {
+            $runner = new ComposerTransactionRunner(
+                commandRunner: static function (): void {
+                    throw new \RuntimeException('composer failed');
+                },
+                docsRefresher: $refresher,
+            );
+            try {
+                $runner->run($this->backend, ['update', 'symsvel-framework/module-demo']);
+                self::fail('Failure must trigger rollback.');
+            } catch (\RuntimeException $failure) {
+                self::assertStringContainsString('dépendances restaurées', $failure->getMessage());
+            }
+        } finally {
+            $previousEnv === false ? putenv('APP_ENV') : putenv('APP_ENV='.$previousEnv);
+            $previousDefer === false ? putenv('SYMSVEL_DEFER_BUILDS') : putenv('SYMSVEL_DEFER_BUILDS='.$previousDefer);
+            @unlink($workspace.'/dev-doc/mkdocs.yml');
+            @rmdir($workspace.'/dev-doc/docs');
+            @rmdir($workspace.'/dev-doc');
         }
     }
 

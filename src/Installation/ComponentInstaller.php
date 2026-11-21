@@ -73,6 +73,22 @@ final class ComponentInstaller
                 $revisionProcess = new Process(['git', 'rev-parse', 'HEAD'], $target);
                 $revisionProcess->mustRun();
                 $revision = trim($revisionProcess->getOutput());
+
+                // The cloned Git repository belongs to the framework. The
+                // consuming project must start with its own independent Git
+                // history and remote, while provenance remains in the
+                // ComponentManifest recorded below.
+                $upstreamGit = $target.'/.git';
+                if (!is_dir($upstreamGit) || is_link($upstreamGit)) {
+                    throw new \RuntimeException('Métadonnées Git du composant invalides : '.$component);
+                }
+                $removeGit = new Process(['rm', '-rf', '--', $upstreamGit]);
+                $removeGit->setTimeout(60);
+                $removeGit->mustRun();
+                if (file_exists($upstreamGit) || is_link($upstreamGit)) {
+                    throw new \RuntimeException('Suppression du Git upstream impossible : '.$component);
+                }
+
                 $commands = [['npm', 'ci']];
                 if (getenv('SYMSVEL_DEFER_BUILDS') !== '1') {
                     $commands[] = ['npm', 'run', 'build'];

@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Tests\Update;
 
 use PHPUnit\Framework\TestCase;
 use SymSvel\Tooling\Update\WorkspaceUpdater;
+use SymSvel\Tooling\Installation\LocalDeveloperDocumentationRefresher;
 
 final class WorkspaceUpdaterTest extends TestCase
 {
@@ -93,6 +94,41 @@ final class WorkspaceUpdaterTest extends TestCase
             self::assertLessThan($translations, $sync);
             self::assertLessThan($build, $translations);
         } finally {
+            $this->deleteFixtureTree($root);
+        }
+    }
+
+    public function testCommittedGlobalUpdateRefreshesLocalDeveloperDocumentation(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-update-docs-'.bin2hex(random_bytes(8));
+        mkdir($root.'/backend', 0775, true);
+        mkdir($root.'/dev-doc/docs', 0775, true);
+        file_put_contents($root.'/backend/composer.json', '{}');
+        file_put_contents($root.'/dev-doc/mkdocs.yml', 'site_name: Local');
+        $fixture = new NativeWorkspaceFixture($root);
+        $fixture->component('bo', ['version.txt' => 'before'], ['version.txt' => 'after']);
+        $previousEnv = getenv('APP_ENV');
+        $previousDefer = getenv('SYMSVEL_DEFER_BUILDS');
+        putenv('APP_ENV=dev');
+        putenv('SYMSVEL_DEFER_BUILDS');
+        $built = [];
+        try {
+            $refresher = new LocalDeveloperDocumentationRefresher(
+                static function (string $workspace) use (&$built): void {
+                    $built[] = $workspace;
+                },
+            );
+            $updater = new WorkspaceUpdater(
+                static function (): void {},
+                nativePreparation: $fixture->preparation(),
+                docsRefresher: $refresher,
+            );
+            $updater->update($root.'/backend', 'test');
+            self::assertSame([$root], $built);
+            self::assertSame('after', file_get_contents($root.'/bo/version.txt'));
+        } finally {
+            $previousEnv === false ? putenv('APP_ENV') : putenv('APP_ENV='.$previousEnv);
+            $previousDefer === false ? putenv('SYMSVEL_DEFER_BUILDS') : putenv('SYMSVEL_DEFER_BUILDS='.$previousDefer);
             $this->deleteFixtureTree($root);
         }
     }

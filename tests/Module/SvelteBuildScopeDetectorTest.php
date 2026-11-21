@@ -23,6 +23,10 @@ final class SvelteBuildScopeDetectorTest extends TestCase
         ];
         self::assertSame(['app', 'front'], $detector->changedScopes('/workspace', $before, $after));
         self::assertSame([], $detector->changedScopes('/workspace', $before, $before));
+        self::assertSame(['app'], $detector->changedScopes('/workspace',
+            ['app/src/lib/b.svelte' => str_repeat('b', 64)],
+            ['app/src/lib/b.svelte' => str_repeat('d', 64)],
+        ));
         self::assertSame(['bo'], $detector->changedScopes('/workspace', [], [
             '/workspace/bo/src/routes/new/+page.svelte' => str_repeat('e', 64),
         ]));
@@ -43,8 +47,12 @@ final class SvelteBuildScopeDetectorTest extends TestCase
         try {
             $detector = new SvelteBuildScopeDetector();
             self::assertSame([], $detector->readInventory($backend));
-            $expected = ['/workspace/bo/src/lib/a.svelte' => str_repeat('a', 64)];
+            $expected = ['bo/src/lib/a.svelte' => str_repeat('a', 64)];
             file_put_contents($backend.'/.symsvel/svelte-files.json', json_encode($expected, JSON_THROW_ON_ERROR));
+            self::assertSame($expected, $detector->readInventory($backend));
+            file_put_contents($backend.'/.symsvel/svelte-files.json', json_encode([
+                '/Volumes/Workspace/www.choralys.com/bo/src/lib/a.svelte' => str_repeat('a', 64),
+            ], JSON_THROW_ON_ERROR));
             self::assertSame($expected, $detector->readInventory($backend));
         } finally {
             @unlink($backend.'/.symsvel/svelte-files.json');

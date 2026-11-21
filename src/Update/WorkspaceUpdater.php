@@ -7,11 +7,12 @@ namespace SymSvel\Tooling\Update;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Composer\ComposerTransactionSnapshot;
 use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
+use SymSvel\Tooling\Installation\LocalDeveloperDocumentationRefresher;
 
 final class WorkspaceUpdater
 {
     /** @param null|callable(list<string>, string):void $runner */
-    public function __construct(private readonly mixed $runner = null, private readonly bool $snapshotWithRunner = false, private readonly ?string $databaseUrl = null, private readonly ?WorkspaceNativePreparation $nativePreparation = null)
+    public function __construct(private readonly mixed $runner = null, private readonly bool $snapshotWithRunner = false, private readonly ?string $databaseUrl = null, private readonly ?WorkspaceNativePreparation $nativePreparation = null, private readonly LocalDeveloperDocumentationRefresher $docsRefresher = new LocalDeveloperDocumentationRefresher())
     {
     }
 
@@ -236,6 +237,9 @@ final class WorkspaceUpdater
                 }
             }
         }
+        // The global update has committed; refresh developer-only docs after
+        // the module/component sources have reached their final state.
+        $this->docsRefresher->afterSuccess($backendDir, $progress);
         if ($progress !== null) {
             $progress('Tous les composants présents ont été traités.');
         }
