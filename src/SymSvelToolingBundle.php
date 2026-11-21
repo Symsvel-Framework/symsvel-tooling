@@ -45,6 +45,7 @@ use SymSvel\Tooling\Command\SymSvelUpdateCommand;
 use SymSvel\Tooling\Command\SymSvelComponentUpdateCommand;
 use SymSvel\Tooling\Update\WorkspaceUpdater;
 use SymSvel\Tooling\Installation\ComponentInstaller;
+use SymSvel\Tooling\Installation\DevDocumentationBuilder;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
@@ -154,6 +155,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(ComponentInstaller::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(DevDocumentationBuilder::class)
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelInstallCommand::class)
