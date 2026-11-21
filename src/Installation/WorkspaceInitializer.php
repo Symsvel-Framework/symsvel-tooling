@@ -19,6 +19,7 @@ final class WorkspaceInitializer
         }
         $this->writeIfMissing($docs.'/mkdocs.yml', "site_name: SymSvel - Documentation développeur\ndocs_dir: docs\nsite_dir: site\nnav:\n  - Accueil: index.md\n");
         $this->writeIfMissing($docs.'/docs/index.md', "# Documentation développeur SymSvel\n\nÀ compléter.\n");
+        $this->writeIfMissing($docs.'/requirements.txt', "mkdocs>=1.6,<2\n");
         // Project-specific admin and user documentation is kept outside
         // BO/App source trees and is not exposed as an independent website.
         // Tooling assembles it into the private authenticated documentation index.
