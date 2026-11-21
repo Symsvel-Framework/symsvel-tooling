@@ -36,7 +36,7 @@ La commande Symfony `php bin/console symsvel:install --components=all` existe to
 
 ### Initialisation documentaire
 
-`WorkspaceInitializer` prépare `dev-doc/docs/`, `admin-doc/docs/`, `user-doc/docs/`, les `.gitignore` documentaires, `dev-doc/mkdocs.yml`, des pages d'accueil minimales et `secrets/.env.example` sans écraser les fichiers existants. `dev-doc` reste strictement hors du déploiement de production ; les documentations administrateur/utilisateur sont intégrées aux interfaces BO/App, sans vhost public dédié. Il **n'installe pas** Python, pip, MkDocs ni d'environnement virtuel et **ne construit pas** le site documentaire. Le mécanisme de setup prépare aussi un jeton local dans `.symsvel/setup-token` : ne pas le versionner ni le divulguer. La génération documentaire est un chantier distinct.
+`WorkspaceInitializer` prépare `dev-doc/docs/`, `admin-doc/docs/`, `user-doc/docs/`, les `.gitignore` documentaires, `dev-doc/mkdocs.yml`, des pages d'accueil minimales et `secrets/.env.example` sans écraser les fichiers existants. `dev-doc` reste strictement hors du déploiement de production ; les documentations administrateur/utilisateur sont intégrées aux interfaces BO/App, sans vhost public dédié. Il crée ensuite un environnement Python isolé sous `dev-doc/.venv/`, installe MkDocs depuis `dev-doc/requirements.txt` et construit le site local dans `dev-doc/site/`. Python 3 est requis sur la machine de développement ; aucune opération MkDocs n'est réalisée sur le VPS. Le mécanisme de setup prépare aussi un jeton local dans `.symsvel/setup-token` : ne pas le versionner ni le divulguer. La génération documentaire est un chantier distinct.
 
 ## Maintenance : deux parcours différents
 
