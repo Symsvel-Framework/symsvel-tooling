@@ -72,6 +72,72 @@ final class SvelteModuleSynchronizerTest extends TestCase
         self::assertDirectoryExists($this->workspace.'/bo/src/routes');
     }
 
+    public function testWritesPortableOwnershipKeysAndMigratesLegacyAbsolutePaths(): void
+    {
+        $sync = new SvelteModuleSynchronizer();
+        $sync->sync($this->backend);
+        $registry = $this->backend.'/.symsvel/svelte-files.json';
+        $portable = json_decode((string) file_get_contents($registry), true, 512, JSON_THROW_ON_ERROR);
+        self::assertNotEmpty($portable);
+        foreach (array_keys($portable) as $relative) {
+            self::assertStringStartsWith('bo/src/', $relative);
+            self::assertStringNotContainsString($this->workspace, $relative);
+        }
+
+        $legacy = [];
+        foreach ($portable as $relative => $hash) {
+            $legacy['/Volumes/Workspace/www.choralys.com/'.$relative] = $hash;
+        }
+        file_put_contents($registry, json_encode($legacy, JSON_THROW_ON_ERROR));
+
+        self::assertSame(['written' => 0, 'removed' => 0], $sync->sync($this->backend));
+        self::assertSame($portable, json_decode((string) file_get_contents($registry), true, 512, JSON_THROW_ON_ERROR));
+        self::assertSame(['written' => 0, 'removed' => 0], $sync->sync($this->backend));
+    }
+
+    public function testLegacyRegistryNeverAdoptsModifiedGeneratedFile(): void
+    {
+        $sync = new SvelteModuleSynchronizer();
+        $sync->sync($this->backend);
+        $registry = $this->backend.'/.symsvel/svelte-files.json';
+        $portable = json_decode((string) file_get_contents($registry), true, 512, JSON_THROW_ON_ERROR);
+        $legacy = [];
+        foreach ($portable as $relative => $hash) {
+            $legacy['/Volumes/Workspace/www.choralys.com/'.$relative] = $hash;
+        }
+        file_put_contents($registry, json_encode($legacy, JSON_THROW_ON_ERROR));
+        $modified = $this->workspace.'/bo/src/lib/modules/catalog/index.ts';
+        file_put_contents($modified, 'Personalized');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Fichier généré modifié ou absent');
+        try {
+            $sync->sync($this->backend);
+        } finally {
+            self::assertSame('Personalized', file_get_contents($modified));
+            self::assertSame($legacy, json_decode((string) file_get_contents($registry), true, 512, JSON_THROW_ON_ERROR));
+        }
+    }
+
+    public function testRejectsLegacyRegistryWithInconsistentOrigins(): void
+    {
+        $sync = new SvelteModuleSynchronizer();
+        $sync->sync($this->backend);
+        $registry = $this->backend.'/.symsvel/svelte-files.json';
+        $portable = json_decode((string) file_get_contents($registry), true, 512, JSON_THROW_ON_ERROR);
+        self::assertGreaterThanOrEqual(2, count($portable));
+        $legacy = [];
+        $index = 0;
+        foreach ($portable as $relative => $hash) {
+            $root = $index++ % 2 === 0 ? '/Volumes/Workspace/project-a' : '/Volumes/Workspace/project-b';
+            $legacy[$root.'/'.$relative] = $hash;
+        }
+        file_put_contents($registry, json_encode($legacy, JSON_THROW_ON_ERROR));
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Origine de registre Svelte incohérente');
+        $sync->sync($this->backend);
+    }
+
     public function testIndependentModuleDictionariesCanShareLanguageNamesAndUninstallSeparately(): void
     {
         $other = (new ModuleMaker())->create($this->workspace, 'reports', 'symsvel-framework', 'bo');
