@@ -35,7 +35,7 @@ final class SvelteFileRegistry
         $legacyRoot = null;
         foreach ($entries as $key => $hash) {
             if (!is_string($key) || !is_string($hash) || !preg_match('/^[a-f0-9]{64}$/D', $hash)) {
-                throw new \RuntimeException('Entrée de registre Svelte invalide.');
+                throw new \RuntimeException('Entrée de registre invalide.');
             }
             $relative = $key;
             if (str_starts_with($key, '/')) {
@@ -45,7 +45,7 @@ final class SvelteFileRegistry
                     // Legacy absolute paths from another checkout. Never open
                     // the original path; rebase only a recognized managed suffix.
                     if (!preg_match('~^(.+)/(bo|app|front)/src/(lib|routes)/(.+)$~D', $key, $matches)) {
-                        throw new \RuntimeException('Entrée de registre Svelte invalide.');
+                        throw new \RuntimeException('Entrée de registre invalide.');
                     }
                     $root = $matches[1];
                     if (str_contains($root, '\\') || str_contains($root, "\0")
@@ -58,7 +58,7 @@ final class SvelteFileRegistry
                 }
             }
             if (!self::isManagedRelativePath($relative) || isset($normalized[$relative])) {
-                throw new \RuntimeException('Entrée de registre Svelte invalide.');
+                throw new \RuntimeException('Entrée de registre invalide.');
             }
             $normalized[$relative] = $hash;
         }
