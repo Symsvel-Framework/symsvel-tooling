@@ -36,6 +36,16 @@ final class ComposerDocumentationAssembler
                 $this->collect($pages, $source, 'dev', 'host', $owner);
             }
         }
+        // Project-authored guides live in their own workspaces, but are
+        // still delivered only through the private authenticated index.
+        foreach ([
+            'admin' => $workspace.'/admin-doc/docs',
+            'user' => $workspace.'/user-doc/docs',
+        ] as $scope => $source) {
+            if (is_dir($source) || is_link($source)) {
+                $this->collect($pages, $source, $scope, 'host', $scope.'-doc');
+            }
+        }
         foreach ($this->registry->discover($backend) as $module => $installed) {
             foreach ($installed['manifest']['documentation'] as $scope => $relative) {
                 $this->collect($pages, $installed['path'].'/'.$relative, $scope, 'module', $module);
