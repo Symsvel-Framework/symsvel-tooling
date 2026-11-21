@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Command;
 
 use SymSvel\Tooling\Installation\ComponentInstaller;
+use SymSvel\Tooling\Installation\DevDocumentationBuilder;
 use SymSvel\Tooling\Installation\WorkspaceInitializer;
 use SymSvel\Tooling\Update\ProjectChannel;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -22,6 +23,7 @@ final class SymSvelInstallCommand extends Command
     public function __construct(
         #[Autowire('%kernel.project_dir%')] private readonly string $projectDir,
         private readonly ComponentInstaller $installer = new ComponentInstaller(),
+        private readonly DevDocumentationBuilder $docsBuilder = new DevDocumentationBuilder(),
     ) {
         parent::__construct();
     }
@@ -94,15 +96,17 @@ final class SymSvelInstallCommand extends Command
             } else {
                 $io->text('Interfaces déjà présentes : installation npm et clonage ignorés.');
             }
-            $io->text('Initialisation de dev-doc (MkDocs) et secrets...');
+            $io->text('Initialisation des documentations (dev/admin/user) et secrets...');
             (new WorkspaceInitializer())->initialize($root);
+            $io->text('Construction de la documentation développeur locale (MkDocs)...');
+            $this->docsBuilder->build($root);
         } catch (\Throwable $exception) {
             $io->error($exception->getMessage());
             return Command::FAILURE;
         }
 
         $io->success('Interfaces installées : '.implode(', ', $components));
-        $io->note('Sources et documentation minimale préparées. Les builds SvelteKit et MkDocs sont différés.');
+        $io->note('Documentation développeur construite sous dev-doc/site/. Prévisualisation locale : cd dev-doc && .venv/bin/python -m mkdocs serve --dev-addr 127.0.0.1:8001. Builds SvelteKit différés jusqu’à la fin du Setup.');
         return Command::SUCCESS;
     }
 }

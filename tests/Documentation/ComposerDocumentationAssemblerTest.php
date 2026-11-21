@@ -24,6 +24,10 @@ final class ComposerDocumentationAssemblerTest extends TestCase
         mkdir($this->backend.'/vendor/symsvel-framework', 0775, true);
         mkdir($this->backend.'/docs/adr', 0775, true);
         mkdir($this->workspace.'/bo/docs', 0775, true);
+        mkdir($this->workspace.'/admin-doc/docs', 0775, true);
+        mkdir($this->workspace.'/user-doc/docs', 0775, true);
+        file_put_contents($this->workspace.'/admin-doc/docs/aide.md', '# Paramétrer Choralys');
+        file_put_contents($this->workspace.'/user-doc/docs/aide.md', '# Utiliser Choralys');
         file_put_contents($this->backend.'/docs/adr/0001.md', "# Architecture interne\nAucun secret.");
         file_put_contents($this->workspace.'/bo/docs/bo.md', '# BO hôte');
         $this->module = (new ModuleMaker())->create($this->workspace, 'catalogue', 'symsvel-framework', 'bo');
@@ -65,6 +69,10 @@ final class ComposerDocumentationAssemblerTest extends TestCase
         self::assertArrayHasKey('dev:module:catalogue:index.md', $pages);
         self::assertArrayHasKey('dev:host:back:adr/0001.md', $pages);
         self::assertArrayHasKey('dev:host:bo:bo.md', $pages);
+        self::assertArrayHasKey('admin:host:admin-doc:aide.md', $pages);
+        self::assertArrayHasKey('user:host:user-doc:aide.md', $pages);
+        self::assertSame('Paramétrer Choralys', $pages['admin:host:admin-doc:aide.md']['title']);
+        self::assertSame('Utiliser Choralys', $pages['user:host:user-doc:aide.md']['title']);
         self::assertSame('Gestion du catalogue', $pages['admin:module:catalogue:guide.md']['title']);
         self::assertSame('Lecture seule.', trim(explode("\n", $pages['admin:module:catalogue:guide.md']['markdown'])[1]));
 
