@@ -1,10 +1,8 @@
 # Intégration continue
 
-La branche `dev` est le terrain de développement ; `main` conserve la version stable.
+Depuis le 22/11/2026, la CI active `.github/workflows/ci.yml` est exécutée sur **GitHub-hosted Ubuntu 24.04**, avec PHP 8.4 installé par `shivammathur/setup-php@v2`, Composer et les tests existants. Les `push` vers `dev` et `main`, ainsi que les PR vers `main`, déclenchent la CI. `ci.yml.stub` reste une archive inactive.
 
-Le workflow `.github/workflows/ci.yml` est déclenché par les `push` sur `dev` et `main`, ainsi que par les pull requests ciblant `main`. Les pull requests ciblant `dev` ne déclenchent pas de CI au titre de l'événement `pull_request` ; un `push` sur `dev` déclenche sa propre exécution. Les éventuels déclencheurs supplémentaires définis dans le workflow restent applicables.
-
-Les jobs utilisent les runners auto-hébergés configurés dans le workflow. Une modification n'est validée qu'après exécution et réussite de la CI, puis les crash-tests locaux requis.
+Les runners du mainteneur ne servent plus ces dépôts publics : ils restent réservés à `symsvel-packages` et `symsvel-recipes` (privés). CI et crash-tests restent des validations distinctes.
 
 ## Fixtures Git de tests
 
@@ -14,19 +12,15 @@ Dans les tests de cycle de vie, le fichier `.symsvel/project.json` est une donn�
 
 ## Couverture Doctrine et bases d'intégration
 
-Les dépendances `doctrine/dbal` et `doctrine/orm` sont installées en `require-dev` uniquement pour les tests du moteur Schema. Elles restent fournies par le projet hôte à l'exécution du Tooling. La CI exécute PHPUnit avec `--display-skipped` pour exposer les éventuelles exclusions.
+Les dépendances `doctrine/dbal` et `doctrine/orm` servent aux tests du compilateur Schema. La CI exécute PHPUnit avec `--display-skipped`.
 
-Le test destructif `WorkspaceDatabaseBackupTest::testMysqlAndMariaDbRestoreOriginalDataAndDropNewTables` exige `SYMSVEL_TEST_MYSQL_URL` et `SYMSVEL_TEST_MARIADB_URL` vers des bases dédiées nommées **exactement** `symsvel_rollback_ci`. Le Compose des runners fournit désormais PostgreSQL 17, MySQL 8.4 et MariaDB 11.4 sur le réseau Docker interne, sans publication de ports. L'image des runners inclut `mysql` et `mysqldump` (`default-mysql-client`). Le workflow fournit les deux URL de test à partir du secret `SYMSVEL_CI_POSTGRES_PASSWORD`, réutilisé comme mot de passe root **uniquement pour ces bases CI jetables**, et vérifie les connexions avant PHPUnit. Les sauvegardes et restaurations recréent `symsvel_rollback_ci` ; elles nécessitent les privilèges correspondants. Ne jamais diriger ces tests vers une base projet.
+Le workflow GitHub-hosted démarre des services **jetables et isolés par exécution** : PostgreSQL 17, MySQL 8.4 et MariaDB 11.8. Les bases de test se nomment `symsvel_rollback_ci` et utilisent un mot de passe fixe réservé à la CI (`symsvel_ci_only`), jamais une base projet. PostgreSQL écoute en local sur 5432, MySQL sur 3306 et MariaDB sur 3307. Les clients SQL sont installés dans le job, dont `pg_dump` 17. `mysqldump` désactive les statistiques de colonnes non disponibles dans MariaDB via un fichier de configuration temporaire.
 
-Les deux runners partagent ces bases. La concurrence du workflow Tooling utilise donc le groupe global `symsvel-tooling-shared-rollback-databases` avec `cancel-in-progress: false` pour empêcher les exécutions destructives simultanées, y compris entre `dev`, `main` et PR. Les autres dépôts restent parallélisables. Si un runner n’a pas été reconstruit avec le client MySQL ou si les conteneurs de bases ne sont pas sains, la CI échoue explicitement ; le test ne doit plus être silencieusement ignoré.
+Les tests de sauvegarde/restauration, destructifs par nature, n'utilisent que ces bases jetables et sont exécutés par le workflow. Les exécutions de branches différentes disposent chacune de leurs propres services, sans verrou global sur les runners du mainteneur. Les crash-tests locaux restent obligatoires avant une release.
 
-Le client `mysql` des assertions d'intégration est appelé avec `--batch --skip-column-names` afin de comparer les valeurs SQL sans l'en-tête de colonne. Cela ne modifie pas le format des archives produites par `mysqldump` ni la restauration.
+## Releases sur GitHub-hosted (22/11/2026)
 
-## CD des releases sur runners locaux (16/11/2026)
-
-Les tags `vX.Y.Z` conservent leur workflow `.github/workflows/release.yml` avec les mêmes validations et la création d'une GitHub Release, mais utilisent maintenant les runners `[self-hosted, linux, ARM64, symsvel]` au lieu des runners GitHub facturés. PHP 8.4 et Composer sont vérifiés directement sur l'image du runner, déjà utilisée par la CI ; l'action Ubuntu de configuration PHP a été supprimée. La publication de la release passe par `actions/github-script@v7` et l'API GitHub (vérification du tag et création de la release), sans dépendre d'un exécutable `gh` non garanti sur le conteneur.
-
-Le workflow reste déclenché **uniquement par push d'un tag**, avec l'autorisation `contents: write` déjà nécessaire à la publication. Aucun tag ni release n'est créé par cette migration. Les runners doivent être en ligne ; les secrets et accès requis aux dépôts privés restent inchangés. Une release de validation et son journal sont nécessaires pour déclarer cette partie CD complètement validée. Le changement ne concerne pas la CI de branches ni le runtime SymSvel.
+`.github/workflows/release.yml` publie les tags `vX.Y.Z` via GitHub-hosted Ubuntu 24.04 (PHP 8.4 / Composer installés dans le workflow). Les contrôles existants, la vérification du tag et la création de la GitHub Release restent inchangés. Une publication réelle doit encore être vérifiée.
 
 ## Contrôles des tests de refus I18n (19/11/2026)
 
