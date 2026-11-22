@@ -10,11 +10,16 @@ permissions:
 
 jobs:
   release:
-    runs-on: [self-hosted, linux, ARM64, symsvel]
+    runs-on: ubuntu-24.04
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
-      - name: Verify preinstalled PHP 8.4 and Composer
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+      - name: Verify PHP 8.4 and Composer
         run: |
           php -v
           composer --version
