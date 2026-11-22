@@ -92,6 +92,10 @@ jobs:
           pg_isready -h 127.0.0.1 -U symsvel_ci -d postgres
           dropdb --if-exists --force -h 127.0.0.1 -U symsvel_ci symsvel_rollback_ci
           createdb -h 127.0.0.1 -U symsvel_ci symsvel_rollback_ci
+      - name: Configure mysqldump for MySQL and MariaDB compatibility
+        run: |
+          printf '[mysqldump]\ncolumn-statistics=0\n' > "$HOME/.my.cnf"
+          chmod 0600 "$HOME/.my.cnf"
       - name: PHPUnit
         env:
           SYMSVEL_CI_POSTGRES_PASSWORD: symsvel_ci_only
