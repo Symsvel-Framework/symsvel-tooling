@@ -2,7 +2,7 @@
     "name": "symsvel-framework/tooling",
     "description": "SymSvel development tooling Symfony bundle",
     "type": "symfony-bundle",
-    "license": "proprietary",
+    "license": "MIT",
     "require": {
         "php": ">=8.4",
         "symfony/framework-bundle": "^8.1",
