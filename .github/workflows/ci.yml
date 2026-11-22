@@ -6,18 +6,70 @@ on:
   pull_request:
     branches: [main]
 
-# Cost control: superseded runs on the same branch/PR are cancelled.
-# PostgreSQL, MySQL and MariaDB rollback databases are supplied by runner Compose.
-# Destructive tests share databases across both runners: serialize ALL workflow runs.
+# Each GitHub-hosted job has isolated PostgreSQL, MySQL and MariaDB services.
+# Cancel superseded runs for the same branch or PR.
 concurrency:
-  group: symsvel-tooling-shared-rollback-databases
-  cancel-in-progress: false
+  group: tooling-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   qa:
-    runs-on: [self-hosted, linux, ARM64, symsvel]
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: symsvel_ci
+          POSTGRES_PASSWORD: symsvel_ci_only
+          POSTGRES_DB: symsvel_rollback_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U symsvel_ci -d symsvel_rollback_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: symsvel_ci_only
+          MYSQL_DATABASE: symsvel_rollback_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -psymsvel_ci_only"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: symsvel_ci_only
+          MARIADB_DATABASE: symsvel_rollback_ci
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite, pdo_pgsql, pdo_mysql, pgsql, intl, sodium
+          tools: composer:v2
+          coverage: none
+      - name: Install PostgreSQL 17 and MySQL/MariaDB clients
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y curl ca-certificates gnupg default-mysql-client
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          key_file="$(mktemp)"
+          trap 'rm -f "$key_file"' EXIT
+          curl --fail --show-error --silent --location --retry 5 --retry-all-errors --retry-delay 3 \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc --output "$key_file"
+          gpg --batch --show-keys "$key_file" > /dev/null
+          sudo install -m 0644 "$key_file" /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -o Acquire::Retries=5 -qq
+          sudo apt-get install -y postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
       - name: Verify PHP 8.4 and PostgreSQL/MySQL clients
         run: |
           php -v
@@ -34,19 +86,19 @@ jobs:
         run: find src tests -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Reset dedicated PostgreSQL test database
         env:
-          PGPASSWORD: ${{ secrets.SYMSVEL_CI_POSTGRES_PASSWORD }}
+          PGPASSWORD: symsvel_ci_only
         run: |
           test -n "$PGPASSWORD"
-          pg_isready -h postgres -U symsvel_ci -d postgres
-          dropdb --if-exists --force -h postgres -U symsvel_ci symsvel_rollback_ci
-          createdb -h postgres -U symsvel_ci symsvel_rollback_ci
+          pg_isready -h 127.0.0.1 -U symsvel_ci -d postgres
+          dropdb --if-exists --force -h 127.0.0.1 -U symsvel_ci symsvel_rollback_ci
+          createdb -h 127.0.0.1 -U symsvel_ci symsvel_rollback_ci
       - name: PHPUnit
         env:
-          SYMSVEL_CI_POSTGRES_PASSWORD: ${{ secrets.SYMSVEL_CI_POSTGRES_PASSWORD }}
+          SYMSVEL_CI_POSTGRES_PASSWORD: symsvel_ci_only
         run: |
-          export SYMSVEL_TEST_POSTGRES_URL="$(php -r 'echo "postgresql://symsvel_ci:".rawurlencode(getenv("SYMSVEL_CI_POSTGRES_PASSWORD"))."@postgres:5432/symsvel_rollback_ci";')"
-          export SYMSVEL_TEST_MYSQL_URL="$(php -r 'echo "mysql://root:".rawurlencode(getenv("SYMSVEL_CI_POSTGRES_PASSWORD"))."@mysql:3306/symsvel_rollback_ci";')"
-          export SYMSVEL_TEST_MARIADB_URL="$(php -r 'echo "mariadb://root:".rawurlencode(getenv("SYMSVEL_CI_POSTGRES_PASSWORD"))."@mariadb:3306/symsvel_rollback_ci";')"
-          mysql --host=mysql --user=root --password="$SYMSVEL_CI_POSTGRES_PASSWORD" --execute='SELECT 1' symsvel_rollback_ci
-          mysql --host=mariadb --user=root --password="$SYMSVEL_CI_POSTGRES_PASSWORD" --execute='SELECT 1' symsvel_rollback_ci
+          export SYMSVEL_TEST_POSTGRES_URL="$(php -r 'echo "postgresql://symsvel_ci:".rawurlencode(getenv("SYMSVEL_CI_POSTGRES_PASSWORD"))."@127.0.0.1:5432/symsvel_rollback_ci";')"
+          export SYMSVEL_TEST_MYSQL_URL="$(php -r 'echo "mysql://root:".rawurlencode(getenv("SYMSVEL_CI_POSTGRES_PASSWORD"))."@127.0.0.1:3306/symsvel_rollback_ci";')"
+          export SYMSVEL_TEST_MARIADB_URL="$(php -r 'echo "mariadb://root:".rawurlencode(getenv("SYMSVEL_CI_POSTGRES_PASSWORD"))."@127.0.0.1:3307/symsvel_rollback_ci";')"
+          mysql --host=127.0.0.1 --port=3306 --protocol=tcp --user=root --password="$SYMSVEL_CI_POSTGRES_PASSWORD" --execute='SELECT 1' symsvel_rollback_ci
+          mysql --host=127.0.0.1 --port=3307 --protocol=tcp --user=root --password="$SYMSVEL_CI_POSTGRES_PASSWORD" --execute='SELECT 1' symsvel_rollback_ci
           vendor/bin/phpunit --display-warnings --display-skipped --fail-on-warning
