@@ -127,3 +127,11 @@ L'exécution exige que le Mac, Docker et le service PostgreSQL soient disponible
 ### Correctif SQLite au Setup (11/11/2026)
 
 Le Setup détecte une `DATABASE_URL` SQLite de la forme `sqlite:///%kernel.project_dir%/chemin/relatif.db`, crée son répertoire parent si nécessaire et **n'exécute pas** `doctrine:database:create --if-not-exists` : DBAL ne prend pas en charge `listDatabases()` sur SQLite. La première connexion aux migrations ouvre/crée le fichier SQLite. PostgreSQL, MySQL et MariaDB conservent la commande Doctrine existante. Un test automatisé vérifie la sélection du parcours SQLite et la préparation du dossier (fixture `.env.local` avec guillemets et retour à la ligne réels, corrigée après un échec CI) ; le CT XT SQLite reste à confirmer avant release. Ne jamais considérer la CI seule comme validation du CT.
+
+## Licence MIT et contributions
+
+Ce dépôt est distribué sous [licence MIT](LICENSE). Le code peut être utilisé, modifié et redistribué, y compris dans des projets commerciaux ou propriétaires, dans les conditions de cette licence (notamment la conservation de la notice de copyright et de licence).
+
+**Contribuer :** créer un fork, puis proposer une pull request vers `dev` lorsque cette branche existe, sinon vers la branche par défaut. Expliquer la modification et fournir les tests et la documentation concernés. Les mainteneurs conservent la maîtrise des revues, des validations (CI et crash-tests), de l'intégration et des releases officielles. Une PR ne garantit pas son acceptation.
+
+**Versions officielles :** seules les versions diffusées par l'organisation [Symsvel-Framework](https://github.com/Symsvel-Framework) sont officielles. Les forks sont libres sous MIT, mais ne doivent pas être présentés comme officiellement approuvés par les mainteneurs. Cette distinction n'ajoute aucune restriction aux droits accordés par la licence MIT sur le code.
