@@ -107,7 +107,7 @@ PHP);
             try {
                 (new ModuleMigrationExecutor())->install($backend, $root, $compiled, [], new ModuleMigrationRegistry());
                 self::fail('Expected simulated failure.');
-            } catch (\\RuntimeException $exception) {
+            } catch (\RuntimeException $exception) {
                 self::assertStringContainsString('rollback incomplet', $exception->getMessage());
             }
             // An in-flight failure requires manual recovery: no file may be removed.
@@ -156,7 +156,7 @@ PHP);
             try {
                 (new ModuleMigrationExecutor())->install($backend, $root, $migrations, [], new ModuleMigrationRegistry());
                 self::fail('Registry write must fail.');
-            } catch (\\RuntimeException $exception) {
+            } catch (\RuntimeException $exception) {
                 self::assertStringContainsString('Installation annulée', $exception->getMessage());
             }
             self::assertFileExists($migrations[0]['path']);
