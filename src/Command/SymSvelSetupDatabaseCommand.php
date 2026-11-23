@@ -77,7 +77,7 @@ final class SymSvelSetupDatabaseCommand extends Command
                 $commands[] = [PHP_BINARY, 'bin/console', 'doctrine:database:create', '--if-not-exists', '--no-interaction'];
             }
             // Module-owned migrations must run before Doctrine computes the residual diff.
-            $commands[] = [PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--no-interaction'];
+            $commands[] = [PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--setup-initial', '--no-interaction'];
             foreach ($commands as $arguments) {
                 $process = new Process($arguments, $this->projectDir);
                 $process->setTimeout(null);
