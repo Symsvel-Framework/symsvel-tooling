@@ -63,10 +63,6 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
             if ($changes['removed'] !== []) {
                 throw new \DomainException('Sources intégrées absentes : '.implode(', ', $changes['removed']).'. Utilisez le cycle de désinstallation.');
             }
-            if ($changes['pending'] === []) {
-                $io->success('Aucune nouvelle migration.');
-                return Command::SUCCESS;
-            }
             $execute = (bool) $input->getOption('execute');
             $initialSetup = (bool) $input->getOption('setup-initial');
             if ($initialSetup && (!$execute || $source !== 'composer'
@@ -75,6 +71,10 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
             }
             if ($execute && !$initialSetup && ($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV')) === 'prod') {
                 throw new \DomainException('Exécution de migrations interdite en production.');
+            }
+            if ($changes['pending'] === []) {
+                $io->success('Aucune nouvelle migration.');
+                return Command::SUCCESS;
             }
             // Compile every source before touching the database. The executor
             // commits receipts only when the complete batch succeeds.
@@ -112,7 +112,9 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
                     }
                     if ($migration !== null) {
                         $compiled[] = $migration;
-                        $io->text('Compilée : '.$migration['path']);
+                        if (!$initialSetup || ($migration['created'] ?? true)) {
+                            $io->text('Compilée : '.$migration['path']);
+                        }
                     }
                 }
             } catch (\Throwable $compileFailure) {
