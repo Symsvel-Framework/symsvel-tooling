@@ -13,7 +13,7 @@ use Symfony\Component\Process\Process;
 final class ModuleMigrationExecutor
 {
     /**
-     * @param list<array{version: string, path: string, entries: array<string, array{sha256: string, doctrine: string}>}> $compiled
+     * @param list<array{version: string, path: string, entries: array<string, array{sha256: string, doctrine: string}>, created?: bool}> $compiled
      * @param array<string, array{sha256: string, doctrine: string}> $registered
      */
     public function install(string $backend, string $workspace, array $compiled, array $registered, ModuleMigrationRegistry $registry): void
@@ -73,7 +73,7 @@ final class ModuleMigrationExecutor
                 throw new \RuntimeException('Installation échouée : '.$failure->getMessage().'. Récupération manuelle requise, rollback incomplet : '.implode('; ', $errors), 0, $failure);
             }
             foreach ($compiled as $migration) {
-                if (is_file($migration['path'])) {
+                if (($migration['created'] ?? true) && is_file($migration['path'])) {
                     unlink($migration['path']);
                 }
             }
