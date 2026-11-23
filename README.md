@@ -146,3 +146,5 @@ Tests de non-régression ajoutés à `ModuleMigrationExecutorTest` : échec avec
 La résolution des migrations du Setup initial est isolée dans `InitialSetupMigrationResolver` et couverte par cinq tests : compilation si absente, réutilisation sans réécriture, collision avec une migration étrangère, collision entre modules, refus d'un dossier `migrations/` symbolique. Les tests de compensation du rollback sont dans `ModuleMigrationExecutorTest`. Le script Composer `qa` inclut le lint des nouveaux fichiers et PHPUnit. L'exécution CI et le CT PostgreSQL restent des validations distinctes.
 
 Correctif de maintenance : après extraction du résolveur de migrations, suppression d'un bloc conditionnel résiduel et d'une accolade supplémentaire dans `SymSvelModuleMigrationsCompileCommand` qui provoquaient une erreur de syntaxe PHP. Validation attendue : lint PHP, suite PHPUnit et CI verte avant CT de production.
+
+Correctif de syntaxe des tests de rollback : les deux clauses `catch` utilisent désormais le nom PHP `\\RuntimeException` avec un seul antislash dans le code source (ancien échappement doublé invalide). Validation CI à confirmer.
