@@ -94,10 +94,6 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
                         }
                     }
                     if ($migration !== null) {
-                            $migration['created'] = true;
-                        }
-                    }
-                    if ($migration !== null) {
                         $compiled[] = $migration;
                         if (!$initialSetup || ($migration['created'] ?? true)) {
                             $io->text('Compilée : '.$migration['path']);
