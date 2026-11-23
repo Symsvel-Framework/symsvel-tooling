@@ -95,9 +95,13 @@ PHP);
         $migration = $resolver->resolve($this->root, $this->source, new ModuleMigrationCompiler());
         $other = $this->source;
         $other['module'] = 'another';
-        $this->expectException(\DomainException::class);
-        $resolver->resolve($this->root, $other, new ModuleMigrationCompiler());
-        self::assertFileExists($migration['path']);
+        try {
+            $resolver->resolve($this->root, $other, new ModuleMigrationCompiler());
+            self::fail('Foreign module collision must be rejected.');
+        } catch (\DomainException $exception) {
+            self::assertStringContainsString('Collision', $exception->getMessage());
+            self::assertFileExists($migration['path']);
+        }
     }
 
     public function testSymlinkedDoctrineDirectoryIsRejected(): void
