@@ -52,6 +52,8 @@
             "@php -l src/Module/ModuleMigrationCompiler.php",
             "@php -l src/Command/SymSvelModuleMigrationsCompileCommand.php",
             "@php -l src/Module/ModuleMigrationExecutor.php",
+            "@php -l src/Module/InitialSetupMigrationResolver.php",
+            "@php -l tests/Module/InitialSetupMigrationResolverTest.php",
             "@php -l tests/Module/ModuleMigrationExecutorTest.php",
             "@php -l src/Module/ModuleMigrationRecovery.php",
             "@php -l src/Command/SymSvelModuleMigrationRecoverCommand.php",
