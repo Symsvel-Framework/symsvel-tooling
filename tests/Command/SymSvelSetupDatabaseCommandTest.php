@@ -64,7 +64,7 @@ exit('.$exitExpression.');
         self::assertFileDoesNotExist($this->root.'/.symsvel/native-migration-setup.json');
         self::assertSame([
             'doctrine:database:create --if-not-exists --no-interaction',
-            'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
+            'symsvel:module:migrations:compile --source=composer --execute --setup-initial --no-interaction',
             'doctrine:migrations:migrate --no-interaction',
         ], file($this->root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
     }
@@ -76,7 +76,7 @@ exit('.$exitExpression.');
         self::assertSame(0, $this->command()->execute([]));
         self::assertDirectoryExists($this->root.'/backend/var/data');
         self::assertSame([
-            'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
+            'symsvel:module:migrations:compile --source=composer --execute --setup-initial --no-interaction',
             'doctrine:migrations:migrate --no-interaction',
         ], file($this->root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
         self::assertSame(SetupState::DATABASE_READY, (new SetupState())->read($this->root));
