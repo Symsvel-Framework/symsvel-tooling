@@ -11,6 +11,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use Symfony\Component\Process\Process;
 
 #[AsCommand(name: 'symsvel:setup:finalize', description: 'Execute deferred native module migrations and complete initial setup')]
@@ -43,6 +44,7 @@ final class SymSvelSetupFinalizeCommand extends Command
                 || is_link($workspace.'/.symsvel/migration-recovery.json')) {
                 throw new \RuntimeException('Récupération de migrations en attente : résolvez le journal avant de finaliser.');
             }
+            $php = PhpCliExecutableResolver::resolve();
             $environment = $this->projectDir.'/.env.local';
             if (is_link($environment) || !is_file($environment)) {
                 throw new \RuntimeException('Configurez DATABASE_URL dans backend/.env.local avant la finalisation.');
@@ -66,7 +68,7 @@ final class SymSvelSetupFinalizeCommand extends Command
             // Doctrine connects to the maintenance database when creating a missing
             // PostgreSQL database. The operation is safe to repeat on setup retries.
             $databaseCreate = new Process([
-                PHP_BINARY, 'bin/console', 'doctrine:database:create',
+                $php, 'bin/console', 'doctrine:database:create',
                 '--if-not-exists', '--no-interaction',
             ], $this->projectDir);
             $databaseCreate->setTimeout(60);
@@ -77,7 +79,7 @@ final class SymSvelSetupFinalizeCommand extends Command
             // The migration executor opens the target DB connection itself.
             // Do not depend on optional Doctrine console SQL commands.
             $process = new Process([
-                PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile',
+                $php, 'bin/console', 'symsvel:module:migrations:compile',
                 '--source=composer', '--execute', '--no-interaction',
             ], $this->projectDir);
             $process->setTimeout(null);
@@ -87,7 +89,7 @@ final class SymSvelSetupFinalizeCommand extends Command
             }
             // Legacy one-phase setup must provision Settings after module migrations too.
             if (is_file($this->projectDir.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
-                $settings = new Process([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $this->projectDir);
+                $settings = new Process([$php, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $this->projectDir);
                 $settings->setTimeout(null);
                 $settings->run();
                 if (!$settings->isSuccessful()) {
@@ -95,7 +97,7 @@ final class SymSvelSetupFinalizeCommand extends Command
                 }
             }
             if (is_file($this->projectDir.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
-                $translations = new Process([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $this->projectDir);
+                $translations = new Process([$php, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $this->projectDir);
                 $translations->setTimeout(null);
                 $translations->run();
                 if (!$translations->isSuccessful()) {
@@ -103,7 +105,7 @@ final class SymSvelSetupFinalizeCommand extends Command
                 }
             }
             $bootstrap = new Process([
-                PHP_BINARY, 'bin/console', 'symsvel:admins:bootstrap', '--no-interaction',
+                $php, 'bin/console', 'symsvel:admins:bootstrap', '--no-interaction',
             ], $this->projectDir);
             $bootstrap->setTimeout(60);
             $bootstrap->run();

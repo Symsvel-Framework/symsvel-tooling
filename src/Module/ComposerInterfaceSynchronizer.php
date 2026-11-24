@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Module;
 
 use Symfony\Component\Dotenv\Dotenv;
+use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use Symfony\Component\Process\Process;
 
 final class ComposerInterfaceSynchronizer
@@ -37,7 +38,7 @@ final class ComposerInterfaceSynchronizer
 
         $detector = new SvelteBuildScopeDetector();
         $before = $detector->readInventory($backend);
-        $sync = new Process([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--env='.$environment], $backend);
+        $sync = new Process([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:module:sync', '--source=composer', '--env='.$environment], $backend);
         $sync->setTimeout(900);
         $sync->run(static function (string $type, string $output): void {
             echo $output;

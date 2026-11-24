@@ -10,6 +10,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use Symfony\Component\Process\Process;
 
 #[AsCommand(name: 'symsvel:setup:database', description: 'Create the database and run native migrations before administrator setup')]
@@ -50,6 +51,8 @@ final class SymSvelSetupDatabaseCommand extends Command
             if (file_exists($recovery) || is_link($recovery)) {
                 throw new \RuntimeException('Pending migration recovery must be resolved first.');
             }
+            $stage = 'php:resolve';
+            $php = PhpCliExecutableResolver::resolve();
             if ($status === SetupState::PENDING) {
                 $this->state->transition($workspace, SetupState::PENDING, SetupState::RUNNING);
             }
@@ -75,10 +78,10 @@ final class SymSvelSetupDatabaseCommand extends Command
             }
             $commands = [];
             if (!$sqlite) {
-                $commands[] = [PHP_BINARY, 'bin/console', 'doctrine:database:create', '--if-not-exists', '--no-interaction'];
+                $commands[] = [$php, 'bin/console', 'doctrine:database:create', '--if-not-exists', '--no-interaction'];
             }
             // Module-owned migrations must run before Doctrine computes the residual diff.
-            $commands[] = [PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--setup-initial', '--no-interaction'];
+            $commands[] = [$php, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--setup-initial', '--no-interaction'];
             foreach ($commands as $arguments) {
                 $stage = $arguments[2];
                 $process = new Process($arguments, $this->projectDir);
@@ -97,7 +100,7 @@ final class SymSvelSetupDatabaseCommand extends Command
             // Native framework migrations are versioned in the backend skeleton.
             // Never generate a global ORM diff here: it would drop module-owned tables.
             $stage = 'doctrine:migrations:migrate';
-            $migrate = new Process([PHP_BINARY, 'bin/console', 'doctrine:migrations:migrate', '--no-interaction'], $this->projectDir);
+            $migrate = new Process([$php, 'bin/console', 'doctrine:migrations:migrate', '--no-interaction'], $this->projectDir);
             $migrate->setTimeout(null);
             $migrate->run();
             if (!$migrate->isSuccessful()) {
@@ -107,7 +110,7 @@ final class SymSvelSetupDatabaseCommand extends Command
             // The Settings module owns this command; Tooling only orchestrates it.
             if (is_file($this->projectDir.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
                 $stage = 'symsvel:settings:sync';
-                $sync = new Process([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $this->projectDir);
+                $sync = new Process([$php, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $this->projectDir);
                 $sync->setTimeout(null);
                 $sync->run();
                 if (!$sync->isSuccessful()) {
@@ -117,7 +120,7 @@ final class SymSvelSetupDatabaseCommand extends Command
             // Persist source dictionaries only after Languages migrations and Settings sync.
             if (is_file($this->projectDir.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
                 $stage = 'symsvel:languages:translations:sync';
-                $translations = new Process([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $this->projectDir);
+                $translations = new Process([$php, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $this->projectDir);
                 $translations->setTimeout(null);
                 $translations->run();
                 if (!$translations->isSuccessful()) {

@@ -138,6 +138,23 @@ exit('.$exitExpression.');
         self::assertSame(SetupState::RUNNING, (new SetupState())->read($this->root));
     }
 
+    public function testInvalidPhpOverrideStopsBeforeChangingStateOrRunningCommands(): void
+    {
+        $previous = getenv('SYMSVEL_PHP_CLI');
+        putenv('SYMSVEL_PHP_CLI='.$this->root.'/missing-php');
+        try {
+            $this->fakeConsole();
+            $tester = $this->command();
+            self::assertSame(1, $tester->execute([]));
+            self::assertStringContainsString('SYMSVEL_PHP_CLI must designate', $tester->getDisplay());
+            self::assertStringContainsString('stage=php:resolve', $tester->getDisplay());
+            self::assertSame(SetupState::PENDING, (new SetupState())->read($this->root));
+            self::assertFileDoesNotExist($this->root.'/backend/commands.log');
+        } finally {
+            putenv($previous === false ? 'SYMSVEL_PHP_CLI' : 'SYMSVEL_PHP_CLI='.$previous);
+        }
+    }
+
     public function testRecoveryJournalBlocksExecution(): void
     {
         $this->fakeConsole();

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Composer;
 
+use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\RuntimeArtifactSnapshot;
 use SymSvel\Tooling\Update\ProjectChannel;
@@ -172,16 +173,16 @@ final class ComposerTransactionRunner
             // Ownership compilation consumes the refreshed Composer module inventory.
             // Publish it before booting the container for migrations or settings.
             if (is_file($backend.'/bin/console')) {
-                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backend, $progress);
+                $this->execute([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backend, $progress);
             }
             $this->applyComposerMigrations($backend, $databaseUrl, $progress, $bootstrap);
             if ($databaseUrl !== null && is_file($backend.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
-                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $backend, $progress);
+                $this->execute([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $backend, $progress);
             }
             // The bundle owns its tables and import logic. Tooling only invokes
             // the post-migration operation while the Composer rollback is active.
             if ($databaseUrl !== null && is_file($backend.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
-                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backend, $progress);
+                $this->execute([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backend, $progress);
             }
             $this->removeCompiledMigrations($backend, $removedVersions);
         } catch (\Throwable $failure) {
@@ -519,7 +520,7 @@ final class ComposerTransactionRunner
             $progress('Compilation et exécution des migrations Composer...'.PHP_EOL);
         }
         $this->execute([
-            PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile',
+            PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:module:migrations:compile',
             '--source=composer', '--execute', '--no-interaction',
         ], $backend, $progress);
     }

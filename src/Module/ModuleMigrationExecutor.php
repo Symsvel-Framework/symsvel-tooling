@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Module;
 
+use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use Symfony\Component\Process\Process;
 
 /**
@@ -117,7 +118,7 @@ final class ModuleMigrationExecutor
             throw new \InvalidArgumentException('Direction Doctrine invalide.');
         }
         $process = new Process(
-            [PHP_BINARY, 'bin/console', 'doctrine:migrations:execute', $version, '--'.$direction, '--no-interaction'],
+            [PhpCliExecutableResolver::resolve(), 'bin/console', 'doctrine:migrations:execute', $version, '--'.$direction, '--no-interaction'],
             $backend,
         );
         $process->run();

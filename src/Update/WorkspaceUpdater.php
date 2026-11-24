@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Update;
 
+use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Composer\ComposerTransactionSnapshot;
 use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
@@ -134,10 +135,10 @@ final class WorkspaceUpdater
         if (is_file($backendDir.'/bin/console')) {
             $componentInProgress = 'BACK';
             $stepInProgress = 'Synchronisation des dictionnaires Svelte';
-            $this->run([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backendDir);
+            $this->run([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backendDir);
             if ($effectiveDatabaseUrl !== null && is_file($backendDir.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
                 $stepInProgress = 'Persistance des traductions';
-                $this->run([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backendDir);
+                $this->run([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backendDir);
             }
         }
         foreach (['bo', 'app', 'front'] as $component) {
