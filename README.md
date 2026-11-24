@@ -1,6 +1,12 @@
 # SymSvel Tooling
 
-Bundle Symfony `symsvel-framework/tooling` : opérations de développement et de maintenance d'un workspace SymSvel. **La CLI autonome `symsvel` est l'entrée utilisateur privilégiée** ; les commandes `php bin/console symsvel:*` sont les points d'entrée Symfony et les outils de diagnostic.
+> [!IMPORTANT]
+> **Vous souhaitez utiliser SymSvel ? Rendez-vous sur [SymSvel CLI](https://github.com/Symsvel-Framework/symsvel-cli).** Ce dépôt est un **composant du framework**, pas un point d'installation autonome. Création de projets, installation des modules et mises à jour passent par la CLI. Les éventuelles commandes Composer, npm ou Symfony décrites ci-dessous concernent le travail des mainteneurs, sauf indication explicite contraire.
+
+> [!WARNING]
+> **SymSvel est en cours de développement.** Les fonctionnalités et procédures peuvent évoluer ou présenter des anomalies. **Utilisation à vos risques et périls.**
+
+Bundle Symfony `symsvel-framework/tooling` : opérations de développement et de maintenance d'un workspace SymSvel. **La CLI autonome `symsvel` est l'unique point d'entrée des développeurs utilisateurs** ; les commandes `php bin/console symsvel:*` sont des interfaces Symfony internes réservées aux mainteneurs et au diagnostic.
 
 > Référence de travail : branche `feat/60-update-init-simplification` (PR #62), coordonnée avec la CLI PR #10. Les parcours GitHub/Satis et les crash-tests XT ne sont pas encore validés de bout en bout. Ne pas confondre CI verte et validation terrain.
 
@@ -148,3 +154,9 @@ La résolution des migrations du Setup initial est isolée dans `InitialSetupMig
 Correctif de maintenance : après extraction du résolveur de migrations, suppression d'un bloc conditionnel résiduel et d'une accolade supplémentaire dans `SymSvelModuleMigrationsCompileCommand` qui provoquaient une erreur de syntaxe PHP. Validation attendue : lint PHP, suite PHPUnit et CI verte avant CT de production.
 
 Correctif de syntaxe des tests de rollback : les deux clauses `catch` utilisent désormais le nom PHP `\\RuntimeException` avec un seul antislash dans le code source (ancien échappement doublé invalide). Validation CI à confirmer.
+
+## Participer et soutenir le projet
+
+SymSvel est un projet en cours de développement. Pour contribuer, proposer une amélioration ou échanger avec le mainteneur : **[xavier@xavier-tezza.fr](mailto:xavier@xavier-tezza.fr)**.
+
+SymSvel vous est utile et vous souhaitez me remercier ? **Offrez-moi une bière ! 🍺** (lien PayPal à compléter avant l'ouverture publique).
