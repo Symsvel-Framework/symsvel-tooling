@@ -147,6 +147,29 @@ final class ComponentUpdaterTest extends TestCase
         $this->assertNoPendingTransactions();
     }
 
+    public function testSuccessfulUpdateExecutesAndReportsRealBuild(): void
+    {
+        $this->seed([
+            'package.json' => '{"name":"symsvel-test","version":"1.0.0","scripts":{"build":"node build.cjs"}}',
+            'package-lock.json' => '{"name":"symsvel-test","version":"1.0.0","lockfileVersion":3,"requires":true,"packages":{"":{"name":"symsvel-test","version":"1.0.0"}}}',
+            'build.cjs' => 'const fs=require("node:fs"); fs.mkdirSync("build",{recursive:true}); fs.writeFileSync("build/index.html",fs.readFileSync("README.md")); console.log("BUILD EXECUTED");',
+            'README.md' => 'baseline',
+            'src/routes/+page.svelte' => '<h1>Test</h1>',
+            'src/lib/fixture.ts' => 'export const fixture = true;',
+        ]);
+        $this->publish(['README.md' => 'upstream']);
+        $messages = '';
+        $this->updater()->update($this->workspace.'/backend', 'app', static function (string $line) use (&$messages): void {
+            $messages .= $line;
+        });
+        self::assertSame('upstream', file_get_contents($this->component.'/build/index.html'));
+        self::assertStringContainsString('[app] npm ci : OK', $messages);
+        self::assertStringContainsString('[app] npm run build', $messages);
+        self::assertStringContainsString('BUILD EXECUTED', $messages);
+        self::assertStringContainsString('[app] npm run build : OK', $messages);
+        $this->assertNoPendingTransactions();
+    }
+
     public function testRemoteAdditionAndLocalCommittedRouteCoexistEvenWhenBuildFails(): void
     {
         $this->seed([

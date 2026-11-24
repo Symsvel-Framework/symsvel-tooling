@@ -20,7 +20,8 @@ final class ComponentUpdater
     ) {
     }
 
-    public function update(string $backend, string $component): void
+    /** @param null|callable(string):void $progress */
+    public function update(string $backend, string $component, ?callable $progress = null): void
     {
         if (!in_array($component, ['bo', 'app', 'front'], true)) {
             throw new \InvalidArgumentException('Composant inconnu : '.$component);
@@ -114,9 +115,12 @@ final class ComponentUpdater
         }
         try {
             $this->applier->apply($directory, $upstream, $plan, $baselineFiles);
-            $this->run(['npm', 'ci'], $directory);
+            $this->run(['npm', 'ci'], $directory, $progress);
+            if ($progress !== null) {
+                $progress('['.$component.'] Synchronisation des modules'.PHP_EOL);
+            }
             $this->synchronizer->sync($backend);
-            $this->run(['npm', 'run', 'build'], $directory);
+            $this->run(['npm', 'run', 'build'], $directory, $progress);
             $manifest->set($component, $revision, $incoming);
         } catch (\Throwable $failure) {
             $errors = [];
@@ -154,10 +158,18 @@ final class ComponentUpdater
     }
 
     /** @param list<string> $command */
-    private function run(array $command, string $cwd): void
+    private function run(array $command, string $cwd, ?callable $progress): void
     {
+        if ($progress !== null) {
+            $progress('['.basename($cwd).'] '.implode(' ', $command).PHP_EOL);
+        }
         $process = new Process($command, $cwd);
         $process->setTimeout(600);
-        $process->mustRun();
+        $process->mustRun($progress === null ? null : static function (string $type, string $buffer) use ($progress): void {
+            $progress($buffer);
+        });
+        if ($progress !== null) {
+            $progress('['.basename($cwd).'] '.implode(' ', $command).' : OK'.PHP_EOL);
+        }
     }
 }
