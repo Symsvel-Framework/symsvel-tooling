@@ -62,7 +62,7 @@ final class PhpCliExecutableResolverTest extends TestCase
 
     public function testMissingExecutableProvidesExplicitDiagnostic(): void
     {
-        $finder = $this->createMock(PhpExecutableFinder::class);
+        $finder = $this->createStub(PhpExecutableFinder::class);
         $finder->method('find')->willReturn(false);
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Unable to resolve an executable PHP CLI');

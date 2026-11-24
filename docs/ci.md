@@ -39,3 +39,5 @@ Après résolution et installation Composer, `composer audit --locked` doit réu
 ## Notices PHPUnit
 
 La configuration PHPUnit commune affiche le détail des notices (`displayDetailsOnPhpunitNotices`) et rend leur présence bloquante (`failOnPhpunitNotice`). Ce contrôle s'applique aussi aux exécutions locales et à `composer qa`, sans masquer ni exclure de notice. La suite doit être propre avant validation du CT et publication.
+
+Les doubles de test qui fournissent uniquement une valeur de retour utilisent `createStub()` ; les mocks sont réservés aux tests qui vérifient explicitement les interactions (`expects()`). Le scénario de résolution PHP CLI sans exécutable utilise ainsi un stub, sans modifier ses assertions ni le résolveur.
