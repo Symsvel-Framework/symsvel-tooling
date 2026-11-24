@@ -163,6 +163,7 @@ final class ComposerTransactionRunner
             $composerArguments = array_merge(['composer'], $arguments, $deferScripts ? ['--no-scripts'] : []);
             $this->execute($composerArguments, $backend, $progress);
             if ($deferScripts) {
+                (new ComposerInterfaceHookPublisher())->publish($backend);
                 // Pure PHP metadata writers: never boot Symfony with stale module paths.
                 (new \SymSvel\Tooling\Module\ComposerModuleBundleMapWriter())->write($backend);
                 (new \SymSvel\Tooling\Module\ComposerModuleInventoryWriter())->write($backend);
