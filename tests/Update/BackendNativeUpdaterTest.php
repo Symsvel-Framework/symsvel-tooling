@@ -104,6 +104,48 @@ final class BackendNativeUpdaterTest extends TestCase
         (new BackendComposerMerge())->merge('{"require":{"symfony/yaml":"8.1.*"}}', '{"require":{"symfony/yaml":"~8.1.11"}}', '{"require":{"symfony/yaml":"8.2.*"}}', 'stable');
     }
 
+    public function testRecordsExactGitBaselineWithoutDeletingCheckout(): void
+    {
+        $fresh = $this->root.'/fresh/backend';
+        mkdir(dirname($fresh), 0700, true);
+        $this->git($this->root, ['clone', '--branch', 'dev', '--', $this->upstream, $fresh]);
+        $this->git($fresh, ['remote', 'set-url', 'origin', 'https://github.com/Symsvel-Framework/symsvel-back.git']);
+        $native = (string) file_get_contents($fresh.'/composer.json');
+        file_put_contents($fresh.'/composer.json', '{"require":{"local/package":"1.0"}}');
+        file_put_contents($fresh.'/native.txt', 'local customization');
+        (new BackendNativeUpdater())->recordInstalled($fresh);
+        $entry = (new ComponentManifest($fresh))->get('back');
+        self::assertSame($native, $entry['composer']);
+        self::assertSame(hash('sha256', 'new'), $entry['files']['native.txt']);
+        self::assertArrayNotHasKey('composer.lock', $entry['files']);
+        self::assertDirectoryExists($fresh.'/.git');
+    }
+
+    public function testMissingBackProvenanceRefusesBeforeFetching(): void
+    {
+        unlink($this->backend.'/.symsvel/components.json');
+        $this->expectExceptionMessage('Provenance native Back absente');
+        (new BackendNativeUpdater())->update($this->backend);
+    }
+
+    public function testAuditFailureAlsoRestoresNativeSources(): void
+    {
+        $provenance = file_get_contents($this->backend.'/.symsvel/components.json');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command): void {
+            if ($command[1] === 'audit') {
+                throw new \RuntimeException('Security audit failed');
+            }
+        });
+        try {
+            $this->updater($runner)->update($this->backend);
+            self::fail('Expected audit rollback');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('Security audit failed', $error->getMessage());
+        }
+        self::assertSame('old', file_get_contents($this->backend.'/native.txt'));
+        self::assertSame($provenance, file_get_contents($this->backend.'/.symsvel/components.json'));
+    }
+
     private function updater(ComposerTransactionRunner $runner): BackendNativeUpdater
     {
         return new BackendNativeUpdater(new ComponentNativeSource(['back' => $this->upstream]), $runner);

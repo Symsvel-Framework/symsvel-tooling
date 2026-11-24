@@ -33,12 +33,8 @@ final class BackendNativeUpdater
         }
         $revision = trim($this->git($backend, ['rev-parse', 'HEAD']));
         $manifest->set('back', $revision, $this->nativeFiles($backend), $this->git($backend, ['show', 'HEAD:composer.json']));
-        // Only a freshly installed, verified upstream checkout is removed.
-        // An update never reads or changes application Git metadata.
-        (new Process(['rm', '-rf', '--', $backend.'/.git']))->mustRun();
-        if (file_exists($backend.'/.git') || is_link($backend.'/.git')) {
-            throw new \RuntimeException('Suppression du Git natif Back impossible.');
-        }
+        // The CLI alone removes the upstream Git in its freshly created directory.
+        // The recorder never removes Git metadata from a caller's checkout.
     }
 
     /** @param null|callable(string):void $progress */
