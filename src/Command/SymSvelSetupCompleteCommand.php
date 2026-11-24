@@ -10,6 +10,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use Symfony\Component\Process\Process;
 
 /** Complete the two-phase wizard only after the administrator and static builds are ready. */
@@ -42,14 +43,15 @@ final class SymSvelSetupCompleteCommand extends Command
             if (file_exists($recovery) || is_link($recovery)) {
                 throw new \RuntimeException('Pending migration recovery must be resolved first.');
             }
+            $php = PhpCliExecutableResolver::resolve();
             // Temporary setup diagnostic, without credentials or full environment.
             $trace = static function (string $line) use ($workspace): void {
                 @file_put_contents($workspace.'/.symsvel/npm-trace.log',
                     gmdate('c').' [tooling pid='.getmypid().'] '.$line."\n", FILE_APPEND | LOCK_EX);
             };
             $trace('start npm='.var_export(getenv('SYMSVEL_SETUP_NPM'), true)
-                .' PATH='.var_export(getenv('PATH'), true).' php='.PHP_BINARY);
-            $verify = new Process([PHP_BINARY, 'bin/console', 'symsvel:admins:bootstrap:verify', '--no-interaction'], $this->projectDir);
+                .' PATH='.var_export(getenv('PATH'), true).' php='.$php);
+            $verify = new Process([$php, 'bin/console', 'symsvel:admins:bootstrap:verify', '--no-interaction'], $this->projectDir);
             $verify->setTimeout(60);
             $verify->run();
             if (!$verify->isSuccessful()) {

@@ -10,6 +10,8 @@ use SymSvel\Tooling\Module\ModuleMigrationCompiler;
 use SymSvel\Tooling\Module\ModuleMigrationDiff;
 use SymSvel\Tooling\Module\ModuleMigrationRegistry;
 use SymSvel\Tooling\Module\ModuleMigrationExecutor;
+use SymSvel\Tooling\Installation\SetupState;
+use SymSvel\Tooling\Module\InitialSetupMigrationResolver;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -38,6 +40,7 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
         $this->addOption('workspace', null, InputOption::VALUE_REQUIRED, 'Workspace root');
         $this->addOption('source', null, InputOption::VALUE_REQUIRED, 'Migration sources: workspace or composer', 'workspace');
         $this->addOption('execute', null, InputOption::VALUE_NONE, 'Execute compiled migrations using Doctrine and record receipts');
+        $this->addOption('setup-initial', null, InputOption::VALUE_NONE, 'Reuse versioned module migrations during the initial database setup');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -61,28 +64,45 @@ final class SymSvelModuleMigrationsCompileCommand extends Command
             if ($changes['removed'] !== []) {
                 throw new \DomainException('Sources intégrées absentes : '.implode(', ', $changes['removed']).'. Utilisez le cycle de désinstallation.');
             }
+            $execute = (bool) $input->getOption('execute');
+            $initialSetup = (bool) $input->getOption('setup-initial');
+            if ($initialSetup && (!$execute || $source !== 'composer'
+                || (new SetupState())->read((string) $workspace) !== SetupState::RUNNING)) {
+                throw new \DomainException('Réutilisation des migrations réservée au Setup initial en cours.');
+            }
+            if ($execute && !$initialSetup && ($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV')) === 'prod') {
+                throw new \DomainException('Exécution de migrations interdite en production.');
+            }
             if ($changes['pending'] === []) {
                 $io->success('Aucune nouvelle migration.');
                 return Command::SUCCESS;
-            }
-            $execute = (bool) $input->getOption('execute');
-            if ($execute && ($_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? getenv('APP_ENV')) === 'prod') {
-                throw new \DomainException('Exécution de migrations interdite en production.');
             }
             // Compile every source before touching the database. The executor
             // commits receipts only when the complete batch succeeds.
             $compiled = [];
             try {
                 foreach ($changes['pending'] as $source) {
-                    $migration = $this->compiler->compile($this->projectDir, [$source]);
+                    if ($initialSetup) {
+                        $migration = (new InitialSetupMigrationResolver())->resolve($this->projectDir, $source, $this->compiler);
+                        if (!$migration['created']) {
+                            $io->text('Réutilisée : '.$migration['path']);
+                        }
+                    } else {
+                        $migration = $this->compiler->compile($this->projectDir, [$source]);
+                        if ($migration !== null) {
+                            $migration['created'] = true;
+                        }
+                    }
                     if ($migration !== null) {
                         $compiled[] = $migration;
-                        $io->text('Compilée : '.$migration['path']);
+                        if (!$initialSetup || ($migration['created'] ?? true)) {
+                            $io->text('Compilée : '.$migration['path']);
+                        }
                     }
                 }
             } catch (\Throwable $compileFailure) {
                 foreach ($compiled as $migration) {
-                    if (is_file($migration['path'])) {
+                    if (($migration['created'] ?? true) && is_file($migration['path'])) {
                         unlink($migration['path']);
                     }
                 }

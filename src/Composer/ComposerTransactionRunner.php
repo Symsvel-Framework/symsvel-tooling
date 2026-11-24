@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Composer;
 
+use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\RuntimeArtifactSnapshot;
+use SymSvel\Tooling\Update\BackendNativeUpdatePlan;
 use SymSvel\Tooling\Update\ProjectChannel;
 use SymSvel\Tooling\Update\WorkspaceDatabaseBackup;
 use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
@@ -36,7 +38,7 @@ final class ComposerTransactionRunner
      * @param list<string> $arguments Composer arguments, starting with require/update/remove
      * @param null|callable(string):void $progress
      */
-    public function run(string $backend, array $arguments, ?callable $progress = null, bool $bootstrap = false): void
+    public function run(string $backend, array $arguments, ?callable $progress = null, bool $bootstrap = false, ?BackendNativeUpdatePlan $backUpdate = null): void
     {
         if (!in_array($arguments[0] ?? '', ['require', 'update', 'remove'], true)) {
             throw new \InvalidArgumentException('Opération Composer non prise en charge.');
@@ -51,6 +53,9 @@ final class ComposerTransactionRunner
             }
         }
         $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
+        if ($backUpdate !== null && ($bootstrap || $arguments[0] !== 'update' || $backUpdate->backend !== $backend)) {
+            throw new \InvalidArgumentException('Plan natif Back incompatible avec la transaction.');
+        }
         if ($arguments[0] === 'remove') {
             $this->preventNativeModuleRemoval($backend, $arguments);
         }
@@ -152,6 +157,7 @@ final class ComposerTransactionRunner
             );
         }
         try {
+            $backUpdate?->apply();
             $removedVersions = [];
             if ($arguments[0] === 'remove') {
                 $removedVersions = $this->removeModuleMigrations($backend, $arguments, $databaseUrl, $progress);
@@ -163,6 +169,7 @@ final class ComposerTransactionRunner
             $composerArguments = array_merge(['composer'], $arguments, $deferScripts ? ['--no-scripts'] : []);
             $this->execute($composerArguments, $backend, $progress);
             if ($deferScripts) {
+                (new ComposerInterfaceHookPublisher())->publish($backend);
                 // Pure PHP metadata writers: never boot Symfony with stale module paths.
                 (new \SymSvel\Tooling\Module\ComposerModuleBundleMapWriter())->write($backend);
                 (new \SymSvel\Tooling\Module\ComposerModuleInventoryWriter())->write($backend);
@@ -171,18 +178,22 @@ final class ComposerTransactionRunner
             // Ownership compilation consumes the refreshed Composer module inventory.
             // Publish it before booting the container for migrations or settings.
             if (is_file($backend.'/bin/console')) {
-                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backend, $progress);
+                $this->execute([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backend, $progress);
             }
             $this->applyComposerMigrations($backend, $databaseUrl, $progress, $bootstrap);
             if ($databaseUrl !== null && is_file($backend.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
-                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $backend, $progress);
+                $this->execute([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $backend, $progress);
             }
             // The bundle owns its tables and import logic. Tooling only invokes
             // the post-migration operation while the Composer rollback is active.
             if ($databaseUrl !== null && is_file($backend.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
-                $this->execute([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backend, $progress);
+                $this->execute([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backend, $progress);
             }
             $this->removeCompiledMigrations($backend, $removedVersions);
+            if ($backUpdate !== null) {
+                $this->execute(['composer', 'audit', '--locked'], $backend, $progress);
+                $backUpdate->commit();
+            }
         } catch (\Throwable $failure) {
             $recoveryErrors = [];
             if ($databaseCheckpoint !== null) {
@@ -518,7 +529,7 @@ final class ComposerTransactionRunner
             $progress('Compilation et exécution des migrations Composer...'.PHP_EOL);
         }
         $this->execute([
-            PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile',
+            PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:module:migrations:compile',
             '--source=composer', '--execute', '--no-interaction',
         ], $backend, $progress);
     }

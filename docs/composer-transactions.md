@@ -122,3 +122,7 @@ Un test de non-régression injecte un `vendor/` symbolique refusé par `RuntimeA
 Pour les projets disposant de `bin/console`, Tooling exécute `composer require/update/remove` avec `--no-scripts`, republie directement l'inventaire Composer vérifié (`backend/.symsvel/modules.json`) et la carte des Bundles (`bundles.php`) sans démarrer Symfony, puis rejoue `composer run-script post-update-cmd`. Ce séquencement empêche `cache:clear` de charger des chemins de modules déjà supprimés lors d'un `remove` ; il fonctionne également sur les projets existants dont le `composer.json` racine ne contient pas encore le nouveau hook de précache de Back. Les scripts Symfony habituels restent exécutés et le rollback de la transaction couvre leur échec.
 
 Un test de non-régression contrôle l'ordre et la publication avant exécution des scripts. La CI et le crash-test de suppression Mails sur XT restent à confirmer.
+
+## Hook de synchronisation des interfaces
+
+Le point d'entrée `scripts/symsvel-module-sync.php` délègue à `ComposerInterfaceSynchronizer` dans Tooling. Le service ignore la production et les clones Backend sans sources Svelte. En développement, il conserve la synchronisation, les builds sélectifs et le report des builds du bootstrap. Le publisher transactionnel remplace uniquement les anciennes versions natives reconnues par leur empreinte ; les personnalisations sont protégées.

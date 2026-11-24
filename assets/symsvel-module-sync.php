@@ -2,52 +2,11 @@
 
 declare(strict_types=1);
 
-use Symfony\Component\Process\Process;
-use SymSvel\Tooling\Module\SvelteBuildScopeDetector;
-
-require dirname(__DIR__).'/vendor/autoload.php';
-
 $backend = dirname(__DIR__);
-if (!is_file($backend.'/vendor/symsvel-framework/tooling/src/Command/SymSvelModuleSyncCommand.php')) {
-    // Tooling is a development dependency and may be absent in production.
+require $backend.'/vendor/autoload.php';
+
+if (!class_exists(\SymSvel\Tooling\Module\ComposerInterfaceSynchronizer::class)) {
     exit(0);
 }
 
-$detector = new SvelteBuildScopeDetector();
-$before = $detector->readInventory($backend);
-$environment = getenv('APP_ENV') ?: 'dev';
-$sync = new Process([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--env='.$environment], $backend);
-$sync->setTimeout(900);
-$sync->run(static function (string $type, string $output): void {
-    echo $output;
-});
-if (!$sync->isSuccessful()) {
-    fwrite(STDERR, "SymSvel module synchronization failed.\n");
-    exit(1);
-}
-
-$changedScopes = $detector->changedScopes(dirname($backend), $before, $detector->readInventory($backend));
-foreach (['bo', 'app', 'front'] as $scope) {
-    $directory = dirname($backend).'/'.$scope;
-    if (!is_dir($directory)) {
-        continue;
-    }
-    if (!is_file($directory.'/package.json')) {
-        fwrite(STDERR, "Invalid Svelte component: ".$scope." (package.json missing).\n");
-        exit(1);
-    }
-    if (!in_array($scope, $changedScopes, true)) {
-        echo 'SymSvel: '.strtoupper($scope)." unchanged, skipping build.\n";
-        continue;
-    }
-    echo 'SymSvel: building '.strtoupper($scope)."\n";
-    $build = new Process(['npm', 'run', 'build'], $directory);
-    $build->setTimeout(900);
-    $build->run(static function (string $type, string $output): void {
-        echo $output;
-    });
-    if (!$build->isSuccessful()) {
-        fwrite(STDERR, 'SymSvel: '.strtoupper($scope)." build failed.\n");
-        exit(1);
-    }
-}
+exit((new \SymSvel\Tooling\Module\ComposerInterfaceSynchronizer())->run($backend));

@@ -30,16 +30,14 @@ final class SvelteModuleSynchronizer
                 throw new \RuntimeException('Application Svelte symbolique interdite : '.$scope);
             }
             if (!is_dir($app)) {
-                // BO is mandatory. App and Front are optional project
-                // components: a reusable module may support them without
-                // forcing their installation on a BO-only project.
-                if ($scope === 'bo') {
-                    foreach ($plan as $module) {
-                        if (isset($module['components'][$scope])) {
-                            throw new \RuntimeException('Application Svelte requise mais absente : '.$scope);
-                        }
-                    }
-                }
+                // Production may host BO, App and Front on independent servers.
+                // Composer metadata remains valid without their local sources.
+                continue;
+            }
+            if (!is_dir($app.'/src/routes') && !is_dir($app.'/src/lib')
+                && !is_file($app.'/package.json')) {
+                // A provider-created empty document root is not a Svelte source.
+                // A partially installed Svelte component is still rejected below.
                 continue;
             }
             if (is_link($app) || !is_dir($app.'/src/routes') || !is_dir($app.'/src/lib')) {

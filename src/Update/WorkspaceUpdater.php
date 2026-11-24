@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Update;
 
+use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Composer\ComposerTransactionSnapshot;
 use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
@@ -134,10 +135,10 @@ final class WorkspaceUpdater
         if (is_file($backendDir.'/bin/console')) {
             $componentInProgress = 'BACK';
             $stepInProgress = 'Synchronisation des dictionnaires Svelte';
-            $this->run([PHP_BINARY, 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backendDir);
+            $this->run([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:module:sync', '--source=composer', '--no-interaction'], $backendDir);
             if ($effectiveDatabaseUrl !== null && is_file($backendDir.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
                 $stepInProgress = 'Persistance des traductions';
-                $this->run([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backendDir);
+                $this->run([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backendDir);
             }
         }
         foreach (['bo', 'app', 'front'] as $component) {
@@ -306,9 +307,7 @@ final class WorkspaceUpdater
         $destination = $destinationDir.'/symsvel-module-sync.php';
         $existing = is_file($destination) ? file_get_contents($destination) : null;
         $expected = file_get_contents($source);
-        if ($existing !== null && $existing !== $expected) {
-            throw new \RuntimeException('Script Composer SymSvel modifié localement : '.$destination);
-        }
+        (new \SymSvel\Tooling\Composer\ComposerInterfaceHookPublisher())->publish($backendDir);
         $encoded = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
         if (!is_dir($destinationDir) && !mkdir($destinationDir, 0775, true) && !is_dir($destinationDir)) {
             throw new \RuntimeException('Impossible de créer '.$destinationDir);

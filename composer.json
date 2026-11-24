@@ -4,14 +4,15 @@
     "type": "symfony-bundle",
     "license": "MIT",
     "require": {
+        "composer/semver": "^3.4",
         "php": ">=8.4",
         "symfony/framework-bundle": "^8.1",
         "symfony/console": "^8.1",
-        "symfony/process": "^8.1"
+        "symfony/process": "^8.1",
+        "symfony/dotenv": "^8.1"
     },
     "require-dev": {
-        "phpunit/phpunit": "^13.4",
-        "symfony/dotenv": "^8.1",
+        "phpunit/phpunit": "^13.4.4",
         "doctrine/dbal": "^4.3",
         "doctrine/orm": "^3.5"
     },
@@ -52,6 +53,8 @@
             "@php -l src/Module/ModuleMigrationCompiler.php",
             "@php -l src/Command/SymSvelModuleMigrationsCompileCommand.php",
             "@php -l src/Module/ModuleMigrationExecutor.php",
+            "@php -l src/Module/InitialSetupMigrationResolver.php",
+            "@php -l tests/Module/InitialSetupMigrationResolverTest.php",
             "@php -l tests/Module/ModuleMigrationExecutorTest.php",
             "@php -l src/Module/ModuleMigrationRecovery.php",
             "@php -l src/Command/SymSvelModuleMigrationRecoverCommand.php",

@@ -54,7 +54,9 @@ final class SymSvelComponentUpdateCommand extends Command
         $target = $workspace.'/'.$component;
         if (file_exists($target) || is_link($target)) {
             try {
-                $this->updater->update($this->projectDir, $component);
+                $this->updater->update($this->projectDir, $component, static function (string $message) use ($output): void {
+                    $output->write($message, false, OutputInterface::OUTPUT_RAW);
+                });
                 $io->success('Composant '.$component.' mis à jour.');
                 return Command::SUCCESS;
             } catch (\Throwable $exception) {

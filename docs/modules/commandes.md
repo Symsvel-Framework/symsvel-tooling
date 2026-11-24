@@ -49,6 +49,14 @@ Depuis une racine contenant les dépôts frères `symsvel-cli/` et `symsvel-tool
 
 Après les migrations d'une transaction Composer disposant d'une base configurée et du module Settings, `ComposerTransactionRunner` rafraîchit l'inventaire Composer via `symsvel:module:sync --source=composer`, puis appelle la commande interne `symsvel:settings:sync`. Cette dernière est fournie par Settings et gère les lignes de `symsvel_settings` et `backend/.symsvel/modules-params.json`. Ce branchement ne couvre pas encore la finalisation du Setup initial sans `DATABASE_URL` lors du bootstrap, ni tous les scénarios de récupération. La commande Symfony interne n'est pas une nouvelle interface utilisateur publique. Validation CI et CT XT requise.
 
+### Exécutable PHP des sous-processus
+
+Tooling utilise `SymSvel\Tooling\Process\PhpCliExecutableResolver`. Le réglage serveur facultatif `SYMSVEL_PHP_CLI` (chemin absolu recommandé, ou nom d'exécutable résolu via PATH) est prioritaire. Sans réglage explicite, `Symfony\Component\Process\PhpExecutableFinder::find(false)` fournit le binaire, notamment via PHP_BINDIR quand PHP_BINARY et PATH sont indisponibles. Le résultat doit être un fichier exécutable absolu et un CLI PHP >= 8.4 ; un réglage invalide est refusé sans repli silencieux. Les arguments sont transmis séparément, sans interprétation shell.
+
+Ce contrat s'applique à la préparation et à la finalisation du Setup, aux migrations, aux transactions Composer, à la synchronisation des interfaces et aux mises à jour. La préparation résout le binaire avant toute transition ou opération sur la BDD. Un Setup déjà en `running` conserve cet état si la résolution échoue et peut être repris.
+
+En cas d'échec, `symsvel:setup:database` indique l'étape, le SAPI, le binaire PHP et la classe et localisation de l'exception dans sa sortie de diagnostic. En production, consulter le journal privé du Setup, sans publier de secrets.
+
 La préparation initiale de la base (`symsvel:setup:database`) synchronise les paramètres après les migrations Doctrine natives, avant `DATABASE_READY`. La finalisation historique (`symsvel:setup:finalize`) les synchronise après les migrations. Pour Composer, l'inventaire des modules est rafraîchi avant le chargement du conteneur Symfony, puis les paramètres après les migrations. La synchronisation reste conditionnelle à Settings et à une BDD configurée. Les CI et les crash-tests XT restent requis avant validation.
 
 Les tests de transaction Composer vérifient maintenant l'appel explicite de rafraîchissement de l'inventaire après Composer, y compris lorsque la transaction ne comporte pas de migration. Les attentes historiques qui ne comptaient que l'appel Composer ont été ajustées. La commande de synchronisation des paramètres reste conditionnelle à la présence du module Settings et à une connexion BDD configurée.

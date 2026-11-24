@@ -124,3 +124,27 @@ remplace pas une publication MkDocs : tout build MkDocs ultérieur sera
 également une maintenance hors installation. Test d'inventaire, de
 régénération, de retrait, de collision et de protection du document
 requis en CI ; CT XT et accès authentifié BO restent indispensables.
+
+## Premier déploiement : backend et interfaces sur des hébergements distincts (22/11/2026)
+
+Le backend applicatif peut être déployé sur un hébergement sans les sources BO,
+App ou Front, qui appartiennent aux dépôts et CD du **projet utilisateur**.
+Les hébergeurs peuvent aussi créer des répertoires BO/App/Front vides avant
+leur publication. Le simple nom du dossier ne signifie pas qu'un projet
+SvelteKit y a été cloné.
+
+`SvelteModuleSynchronizer::sync()` ignore donc un composant absent ou un
+répertoire cible créé par l'hébergeur sans `package.json`, `src/lib` ni
+`src/routes`. En revanche, un composant contenant des sources Svelte
+partielles reste invalide et provoque une erreur. Les protections
+anti-écrasement et le registre d'empreintes restent inchangés.
+
+Cette tolérance concerne **la synchronisation Composer sur le backend** :
+elle ne signifie pas qu'une interface Svelte est livrée, opérationnelle
+ou valide. En installation locale, le Setup final continue de compiler les
+composants réellement présents et de signaler un composant incomplet.
+En production, chaque CD du projet reste responsable de publier et de
+vérifier les builds sur son propre hébergement.
+
+Tests automatisés Tooling, CI et crash-test Choralys (`--dev` puis VPS)
+sont requis avant d'en déclarer la validation opérationnelle.

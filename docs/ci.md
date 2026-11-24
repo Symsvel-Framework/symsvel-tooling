@@ -31,3 +31,13 @@ blocs `try/catch` pouvaient aboutir sans assertion enregistrée par
 PHPUnit 13, entraînant trois tests `risky` malgré un comportement de
 production correct. Le contrat I18n n'est pas modifié. Les validations
 restent : CI verte, exécution PHPUnit sans ces risques, puis CT XT.
+
+## Audit des dépendances
+
+Après résolution et installation Composer, `composer audit --locked` doit réussir sans exception dans la CI et dans la validation des releases qui installent les dépendances. PHPUnit doit être au minimum en 13.4.4. Un audit vert ne remplace ni les tests ni le CT.
+
+## Notices PHPUnit
+
+La configuration PHPUnit commune affiche le détail des notices (`displayDetailsOnPhpunitNotices`) et rend leur présence bloquante (`failOnPhpunitNotice`). Ce contrôle s'applique aussi aux exécutions locales et à `composer qa`, sans masquer ni exclure de notice. La suite doit être propre avant validation du CT et publication.
+
+Les doubles de test qui fournissent uniquement une valeur de retour utilisent `createStub()` ; les mocks sont réservés aux tests qui vérifient explicitement les interactions (`expects()`). Le scénario de résolution PHP CLI sans exécutable utilise ainsi un stub, sans modifier ses assertions ni le résolveur.

@@ -133,8 +133,6 @@ Les runners auto-hébergés du mainteneur restent réservés à `symsvel-package
 
 Le Setup détecte une `DATABASE_URL` SQLite de la forme `sqlite:///%kernel.project_dir%/chemin/relatif.db`, crée son répertoire parent si nécessaire et **n'exécute pas** `doctrine:database:create --if-not-exists` : DBAL ne prend pas en charge `listDatabases()` sur SQLite. La première connexion aux migrations ouvre/crée le fichier SQLite. PostgreSQL, MySQL et MariaDB conservent la commande Doctrine existante. Un test automatisé vérifie la sélection du parcours SQLite et la préparation du dossier (fixture `.env.local` avec guillemets et retour à la ligne réels, corrigée après un échec CI) ; le CT XT SQLite reste à confirmer avant release. Ne jamais considérer la CI seule comme validation du CT.
 
----
-
 ## Licence MIT et contributions
 
 Ce dépôt est distribué sous [licence MIT](LICENSE). Le code peut être utilisé, modifié et redistribué, y compris dans des projets commerciaux ou propriétaires, dans les conditions de cette licence (notamment la conservation de la notice de copyright et de licence).
@@ -142,6 +140,20 @@ Ce dépôt est distribué sous [licence MIT](LICENSE). Le code peut être utilis
 **Contribuer :** créer un fork, puis proposer une pull request vers `dev` lorsque cette branche existe, sinon vers la branche par défaut. Expliquer la modification et fournir les tests et la documentation concernés. Les mainteneurs conservent la maîtrise des revues, des validations (CI et crash-tests), de l'intégration et des releases officielles. Une PR ne garantit pas son acceptation.
 
 **Versions officielles :** seules les versions diffusées par l'organisation [Symsvel-Framework](https://github.com/Symsvel-Framework) sont officielles. Les forks sont libres sous MIT, mais ne doivent pas être présentés comme officiellement approuvés par les mainteneurs. Cette distinction n'ajoute aucune restriction aux droits accordés par la licence MIT sur le code.
+
+### Setup initial : migrations de modules déjà versionnées
+
+Lors de `symsvel:setup:database`, Tooling lance la découverte Composer avec `--setup-initial` (réservé à l'état `running` du Setup et à `--execute`). Pour chaque source de module non encore enregistrée, un fichier `backend/migrations/Version*.php` déjà présent et reconnu comme compilation SymSvel est **réutilisé** sans être écrasé ; un fichier absent est compilé. Une collision avec un fichier de provenance non reconnue est refusée. Doctrine exécute les migrations et le registre `.symsvel/migrations.json` est écrit seulement après succès. En cas d'échec, les fichiers versionnés réutilisés ne sont jamais supprimés par le rollback ; seuls les nouveaux fichiers générés peuvent être nettoyés. Les migrations propres au projet sont préservées.
+
+Le Setup reste en `APP_ENV=prod` en production. La commande ordinaire `symsvel:module:migrations:compile --execute` demeure interdite en production hors Setup initial. Les migrations Schema compilées utilisent la plateforme DBAL de la connexion au moment de leur exécution et ne nécessitent pas de recompilation spécifique pour PostgreSQL ou MySQL. Ce mécanisme concerne **uniquement la première installation**, pas la mise à jour d'une base existante. Validation CI et crash-tests sur les SGBD cibles requis avant promotion stable.
+
+Tests de non-régression ajoutés à `ModuleMigrationExecutorTest` : échec avec migration en cours (journal conservé et fichiers intacts), puis échec d'écriture du registre après exécution (compensation Doctrine, conservation d'un fichier versionné réutilisé et suppression du seul fichier nouvellement compilé). Ces tests restent à exécuter et à confirmer en CI ; la couverture de la découverte/réutilisation par la commande elle-même doit encore être complétée.
+
+La résolution des migrations du Setup initial est isolée dans `InitialSetupMigrationResolver` et couverte par cinq tests : compilation si absente, réutilisation sans réécriture, collision avec une migration étrangère, collision entre modules, refus d'un dossier `migrations/` symbolique. Les tests de compensation du rollback sont dans `ModuleMigrationExecutorTest`. Le script Composer `qa` inclut le lint des nouveaux fichiers et PHPUnit. L'exécution CI et le CT PostgreSQL restent des validations distinctes.
+
+Correctif de maintenance : après extraction du résolveur de migrations, suppression d'un bloc conditionnel résiduel et d'une accolade supplémentaire dans `SymSvelModuleMigrationsCompileCommand` qui provoquaient une erreur de syntaxe PHP. Validation attendue : lint PHP, suite PHPUnit et CI verte avant CT de production.
+
+Correctif de syntaxe des tests de rollback : les deux clauses `catch` utilisent désormais le nom PHP `\\RuntimeException` avec un seul antislash dans le code source (ancien échappement doublé invalide). Validation CI à confirmer.
 
 ## Participer et soutenir le projet
 

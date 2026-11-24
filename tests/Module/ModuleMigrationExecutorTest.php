@@ -73,6 +73,114 @@ PHP;
             rmdir($root);
         }
     }
+
+    public function testRollbackPreservesReusedMigrationAndDeletesOnlyNewCompilation(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-reused-'.bin2hex(random_bytes(6));
+        $backend = $root.'/backend';
+        mkdir($backend.'/bin', 0775, true);
+        mkdir($root.'/.symsvel');
+        file_put_contents($backend.'/bin/console', <<<'PHP'
+<?php
+$version = $argv[2] ?? '';
+$direction = $argv[3] ?? '';
+if (str_ends_with($version, 'Version003') && $direction === '--up') {
+    fwrite(STDERR, 'Simulated failure');
+    exit(1);
+}
+PHP);
+        $compiled = [];
+        foreach (['001', '002', '003'] as $number) {
+            $path = $backend.'/Version'.$number.'.php';
+            file_put_contents($path, '<?php // migration '.$number);
+            $compiled[] = [
+                'version' => 'DoctrineMigrations\\Version'.$number,
+                'path' => $path,
+                'entries' => ['test/'.$number.'.php' => [
+                    'sha256' => str_repeat('a', 64),
+                    'doctrine' => 'DoctrineMigrations\\Version'.$number,
+                ]],
+                'created' => $number !== '001',
+            ];
+        }
+        try {
+            try {
+                (new ModuleMigrationExecutor())->install($backend, $root, $compiled, [], new ModuleMigrationRegistry());
+                self::fail('Expected simulated failure.');
+            } catch (\RuntimeException $exception) {
+                self::assertStringContainsString('rollback incomplet', $exception->getMessage());
+            }
+            // An in-flight failure requires manual recovery: no file may be removed.
+            foreach ($compiled as $migration) {
+                self::assertFileExists($migration['path']);
+            }
+        } finally {
+            foreach ($compiled as $migration) {
+                @unlink($migration['path']);
+            }
+            @unlink($backend.'/bin/console');
+            @rmdir($backend.'/bin');
+            @rmdir($backend);
+            foreach (glob($root.'/.symsvel/*') ?: [] as $path) {
+                @unlink($path);
+            }
+            @rmdir($root.'/.symsvel');
+            @rmdir($root);
+        }
+    }
+
+
+    public function testCompensatedRegistryFailurePreservesReusedFileAndDeletesGeneratedFile(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-compensate-'.bin2hex(random_bytes(6));
+        $backend = $root.'/backend';
+        mkdir($backend.'/bin', 0775, true);
+        mkdir($root.'/.symsvel');
+        mkdir($root.'/.symsvel/migrations.json');
+        file_put_contents($backend.'/bin/console', '<?php exit(0);');
+        $migrations = [];
+        foreach (['001', '002'] as $number) {
+            $path = $backend.'/Version'.$number.'.php';
+            file_put_contents($path, '<?php // '.$number);
+            $migrations[] = [
+                'version' => 'DoctrineMigrations\\Version'.$number,
+                'path' => $path,
+                'entries' => ['test/'.$number.'.php' => [
+                    'sha256' => str_repeat('a', 64),
+                    'doctrine' => 'DoctrineMigrations\\Version'.$number,
+                ]],
+                'created' => $number !== '001',
+            ];
+        }
+        try {
+            try {
+                (new ModuleMigrationExecutor())->install($backend, $root, $migrations, [], new ModuleMigrationRegistry());
+                self::fail('Registry write must fail.');
+            } catch (\RuntimeException $exception) {
+                self::assertStringContainsString('Installation annulée', $exception->getMessage());
+            }
+            self::assertFileExists($migrations[0]['path']);
+            self::assertSame('<?php // 001', file_get_contents($migrations[0]['path']));
+            self::assertFileDoesNotExist($migrations[1]['path']);
+            self::assertFileDoesNotExist($root.'/.symsvel/migration-recovery.json');
+        } finally {
+            foreach ($migrations as $migration) {
+                @unlink($migration['path']);
+            }
+            @unlink($backend.'/bin/console');
+            @rmdir($backend.'/bin');
+            @rmdir($backend);
+            @rmdir($root.'/.symsvel/migrations.json');
+            foreach (glob($root.'/.symsvel/*') ?: [] as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
+            @rmdir($root.'/.symsvel');
+            @rmdir($root);
+        }
+    }
+
     public function testSymlinkedRecoveryDirectoryPreventsDoctrineExecution(): void
     {
         $root = sys_get_temp_dir().'/symsvel-executor-link-'.bin2hex(random_bytes(6));

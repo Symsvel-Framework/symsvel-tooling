@@ -41,6 +41,32 @@ final class SvelteModuleSynchronizerTest extends TestCase
         rmdir($this->workspace);
     }
 
+    public function testBackendHostedSeparatelyIgnoresAbsentAndEmptyInterfaceDocumentRoots(): void
+    {
+        foreach (['bo', 'app', 'front'] as $scope) {
+            rmdir($this->workspace.'/'.$scope.'/src/lib');
+            rmdir($this->workspace.'/'.$scope.'/src/routes');
+            rmdir($this->workspace.'/'.$scope.'/src');
+        }
+        // Hosts can create these directories before any interface CD runs.
+        $sync = new SvelteModuleSynchronizer();
+        self::assertSame(['written' => 0, 'removed' => 0], $sync->sync($this->backend));
+        foreach (['bo', 'app', 'front'] as $scope) {
+            self::assertDirectoryDoesNotExist($this->workspace.'/'.$scope.'/src');
+            rmdir($this->workspace.'/'.$scope);
+        }
+        // Nothing prevents deploying BO and the other interfaces elsewhere.
+        self::assertSame(['written' => 0, 'removed' => 0], $sync->sync($this->backend));
+    }
+
+    public function testPartiallyInstalledSvelteSourcesStillFail(): void
+    {
+        rmdir($this->workspace.'/bo/src/lib');
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Application Svelte invalide');
+        (new SvelteModuleSynchronizer())->sync($this->backend);
+    }
+
     public function testInstallIdempotentUpdateAndUninstallAcrossScopes(): void
     {
         foreach (['bo', 'app', 'front'] as $scope) {

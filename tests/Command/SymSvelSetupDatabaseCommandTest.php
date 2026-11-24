@@ -64,7 +64,7 @@ exit('.$exitExpression.');
         self::assertFileDoesNotExist($this->root.'/.symsvel/native-migration-setup.json');
         self::assertSame([
             'doctrine:database:create --if-not-exists --no-interaction',
-            'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
+            'symsvel:module:migrations:compile --source=composer --execute --setup-initial --no-interaction',
             'doctrine:migrations:migrate --no-interaction',
         ], file($this->root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
     }
@@ -76,7 +76,7 @@ exit('.$exitExpression.');
         self::assertSame(0, $this->command()->execute([]));
         self::assertDirectoryExists($this->root.'/backend/var/data');
         self::assertSame([
-            'symsvel:module:migrations:compile --source=composer --execute --no-interaction',
+            'symsvel:module:migrations:compile --source=composer --execute --setup-initial --no-interaction',
             'doctrine:migrations:migrate --no-interaction',
         ], file($this->root.'/backend/commands.log', FILE_IGNORE_NEW_LINES));
         self::assertSame(SetupState::DATABASE_READY, (new SetupState())->read($this->root));
@@ -136,6 +136,23 @@ exit('.$exitExpression.');
         self::assertStringContainsString('symsvel:module:migrations:compile', $tester->getDisplay());
         self::assertStringContainsString('Invalid module migration source', $tester->getDisplay());
         self::assertSame(SetupState::RUNNING, (new SetupState())->read($this->root));
+    }
+
+    public function testInvalidPhpOverrideStopsBeforeChangingStateOrRunningCommands(): void
+    {
+        $previous = getenv('SYMSVEL_PHP_CLI');
+        putenv('SYMSVEL_PHP_CLI='.$this->root.'/missing-php');
+        try {
+            $this->fakeConsole();
+            $tester = $this->command();
+            self::assertSame(1, $tester->execute([]));
+            self::assertStringContainsString('SYMSVEL_PHP_CLI must designate', $tester->getDisplay());
+            self::assertStringContainsString('stage=php:resolve', $tester->getDisplay());
+            self::assertSame(SetupState::PENDING, (new SetupState())->read($this->root));
+            self::assertFileDoesNotExist($this->root.'/backend/commands.log');
+        } finally {
+            putenv($previous === false ? 'SYMSVEL_PHP_CLI' : 'SYMSVEL_PHP_CLI='.$previous);
+        }
     }
 
     public function testRecoveryJournalBlocksExecution(): void
