@@ -31,3 +31,7 @@ blocs `try/catch` pouvaient aboutir sans assertion enregistrée par
 PHPUnit 13, entraînant trois tests `risky` malgré un comportement de
 production correct. Le contrat I18n n'est pas modifié. Les validations
 restent : CI verte, exécution PHPUnit sans ces risques, puis CT XT.
+
+## Audit des dépendances
+
+Après résolution et installation Composer, `composer audit --locked` doit réussir sans exception dans la CI et dans la validation des releases qui installent les dépendances. PHPUnit doit être au minimum en 13.4.4. Un audit vert ne remplace ni les tests ni le CT.
