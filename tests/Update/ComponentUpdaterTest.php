@@ -149,6 +149,8 @@ final class ComponentUpdaterTest extends TestCase
 
     public function testSuccessfulUpdateExecutesAndReportsRealBuild(): void
     {
+        // An installed backend without modules still has Composer's package inventory.
+        $this->write($this->workspace.'/backend/vendor/composer/installed.json', '{"packages":[]}');
         $this->seed([
             'package.json' => '{"name":"symsvel-test","version":"1.0.0","scripts":{"build":"node build.cjs"}}',
             'package-lock.json' => '{"name":"symsvel-test","version":"1.0.0","lockfileVersion":3,"requires":true,"packages":{"":{"name":"symsvel-test","version":"1.0.0"}}}',

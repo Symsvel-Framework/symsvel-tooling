@@ -336,4 +336,4 @@ La transaction Composer existante possède le snapshot sources/vendor/npm/BDD, a
 
 ### Visibilité des builds unitaires
 
-`symsvel update bo|app|front` relaie désormais la sortie des commandes npm et annonce leurs étapes et leur réussite. Le build existant reste obligatoire dans la transaction, après synchronisation des modules et avant validation de la provenance. Le test d'intégration exécute un vrai `npm ci` et un vrai `npm run build` sur une source Git locale, puis vérifie le contenu du fichier construit et les messages. Un échec conserve le comportement de rollback existant.
+`symsvel update bo|app|front` relaie désormais la sortie des commandes npm et annonce leurs étapes et leur réussite. Le build existant reste obligatoire dans la transaction, après synchronisation des modules et avant validation de la provenance. Le test d'intégration exécute un vrai `npm ci` et un vrai `npm run build` sur une source Git locale avec un inventaire Composer valide (aucun module installé), puis vérifie le contenu du fichier construit et les messages. Un échec conserve le comportement de rollback existant.
