@@ -24,6 +24,7 @@ final class SymSvelSetupDatabaseCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $stage = 'preflight';
         try {
             if (basename($this->projectDir) !== 'backend') {
                 throw new \RuntimeException('Backend directory required.');
@@ -79,6 +80,7 @@ final class SymSvelSetupDatabaseCommand extends Command
             // Module-owned migrations must run before Doctrine computes the residual diff.
             $commands[] = [PHP_BINARY, 'bin/console', 'symsvel:module:migrations:compile', '--source=composer', '--execute', '--setup-initial', '--no-interaction'];
             foreach ($commands as $arguments) {
+                $stage = $arguments[2];
                 $process = new Process($arguments, $this->projectDir);
                 $process->setTimeout(null);
                 $process->run();
@@ -94,6 +96,7 @@ final class SymSvelSetupDatabaseCommand extends Command
 
             // Native framework migrations are versioned in the backend skeleton.
             // Never generate a global ORM diff here: it would drop module-owned tables.
+            $stage = 'doctrine:migrations:migrate';
             $migrate = new Process([PHP_BINARY, 'bin/console', 'doctrine:migrations:migrate', '--no-interaction'], $this->projectDir);
             $migrate->setTimeout(null);
             $migrate->run();
@@ -103,6 +106,7 @@ final class SymSvelSetupDatabaseCommand extends Command
             // Settings rows are provisioned only after all module and native migrations.
             // The Settings module owns this command; Tooling only orchestrates it.
             if (is_file($this->projectDir.'/vendor/symsvel-framework/module-settings/back/src/SettingsBundle.php')) {
+                $stage = 'symsvel:settings:sync';
                 $sync = new Process([PHP_BINARY, 'bin/console', 'symsvel:settings:sync', '--no-interaction'], $this->projectDir);
                 $sync->setTimeout(null);
                 $sync->run();
@@ -112,6 +116,7 @@ final class SymSvelSetupDatabaseCommand extends Command
             }
             // Persist source dictionaries only after Languages migrations and Settings sync.
             if (is_file($this->projectDir.'/vendor/symsvel-framework/module-languages/back/src/LanguagesBundle.php')) {
+                $stage = 'symsvel:languages:translations:sync';
                 $translations = new Process([PHP_BINARY, 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $this->projectDir);
                 $translations->setTimeout(null);
                 $translations->run();
@@ -124,6 +129,9 @@ final class SymSvelSetupDatabaseCommand extends Command
             return Command::SUCCESS;
         } catch (\Throwable $exception) {
             $output->writeln('<error>'.$exception->getMessage().'</error>');
+            $output->writeln(sprintf('Setup diagnostic: stage=%s sapi=%s binary=%s exception=%s at %s:%d',
+                $stage, PHP_SAPI, PHP_BINARY === '' ? '[empty]' : PHP_BINARY,
+                get_class($exception), $exception->getFile(), $exception->getLine()));
             return Command::FAILURE;
         }
     }
