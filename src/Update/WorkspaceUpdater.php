@@ -306,14 +306,16 @@ final class WorkspaceUpdater
         $destination = $destinationDir.'/symsvel-module-sync.php';
         $existing = is_file($destination) ? file_get_contents($destination) : null;
         $expected = file_get_contents($source);
-        if ($existing !== null && $existing !== $expected) {
+        $legacyHooks = ['598f0b40b6bff9a093e39e521b6d2a52e6d51025', 'faf1950f1d59ee6bc07682a6704fcbf3657d986f', 'fd1c818615dcb452df4a9c22c8ad03bd09b3fd30'];
+        $legacy = $existing !== null && in_array(sha1('blob '.strlen($existing)."\0".$existing), $legacyHooks, true);
+        if ($existing !== null && $existing !== $expected && !$legacy) {
             throw new \RuntimeException('Script Composer SymSvel modifié localement : '.$destination);
         }
         $encoded = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
         if (!is_dir($destinationDir) && !mkdir($destinationDir, 0775, true) && !is_dir($destinationDir)) {
             throw new \RuntimeException('Impossible de créer '.$destinationDir);
         }
-        if ($existing === null && file_put_contents($destination, $expected) === false) {
+        if (($existing === null || $legacy) && file_put_contents($destination, $expected) === false) {
             throw new \RuntimeException('Impossible de publier '.$destination);
         }
         if (file_get_contents($manifestPath) !== $encoded && file_put_contents($manifestPath, $encoded) === false) {
