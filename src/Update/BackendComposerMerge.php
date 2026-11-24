@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Update;
 
+use Composer\Semver\Intervals;
+use Composer\Semver\VersionParser;
+
 /** Three-way merge of the root Composer document; lists are atomic. */
 final class BackendComposerMerge
 {
@@ -68,8 +71,52 @@ final class BackendComposerMerge
             }
             return $result;
         }
+        // Composer bump-after-update may independently tighten a version range.
+        // Merge only nested restrictions of the original range; never broaden
+        // either side or silently reinterpret aliases, stability or commit refs.
+        if (preg_match('~^require(?:-dev)?\.[a-z0-9_.-]+/[a-z0-9_.-]+$~D', $path)
+            && is_string($before) && is_string($next) && is_string($local)) {
+            $constraint = $this->nestedConstraint($before, $next, $local);
+            if ($constraint !== null) {
+                return $constraint;
+            }
+        }
         $this->conflicts[] = $path;
         return $local;
+    }
+
+    private function nestedConstraint(string $before, string $next, string $local): ?string
+    {
+        foreach ([$before, $next, $local] as $range) {
+            // VersionParser strips stability flags and aliases; do not use
+            // interval comparison for these, branches or nonnumeric versions.
+            if (preg_match('~^[0-9vV.*^<>=!|, +\~\-]+$~D', $range) !== 1) {
+                return null;
+            }
+        }
+        $parser = new VersionParser();
+        try {
+            $original = $parser->parseConstraints($before);
+            $upstream = $parser->parseConstraints($next);
+            $project = $parser->parseConstraints($local);
+            if (!Intervals::isSubsetOf($upstream, $original)
+                || !Intervals::isSubsetOf($project, $original)
+                || !Intervals::haveIntersections($upstream, $project)) {
+                return null;
+            }
+            if (Intervals::isSubsetOf($project, $upstream)) {
+                return $local;
+            }
+            if (Intervals::isSubsetOf($upstream, $project)) {
+                return $next;
+            }
+        } catch (\UnexpectedValueException) {
+            // Keep the ordinary conflict for an unparseable range.
+            return null;
+        } finally {
+            Intervals::clear();
+        }
+        return null;
     }
 
     private function same(mixed $a, mixed $b): bool

@@ -4,6 +4,7 @@
     "type": "symfony-bundle",
     "license": "MIT",
     "require": {
+        "composer/semver": "^3.4",
         "php": ">=8.4",
         "symfony/framework-bundle": "^8.1",
         "symfony/console": "^8.1",

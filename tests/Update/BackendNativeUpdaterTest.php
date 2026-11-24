@@ -138,6 +138,46 @@ final class BackendNativeUpdaterTest extends TestCase
         (new BackendComposerMerge())->merge('{"require":{"symfony/yaml":"8.1.*"}}', '{"require":{"symfony/yaml":"~8.1.11"}}', '{"require":{"symfony/yaml":"8.2.*"}}', 'stable');
     }
 
+    public function testComposerBumpAndUpstreamSecurityFloorMergeWithoutWeakeningEither(): void
+    {
+        $merge = new BackendComposerMerge();
+        foreach ([
+            ['^2.12|^3.30', '^3.31.1', '^2.12|^3.30.0', '^3.31.1'],
+            ['^2.12|^3.30', '^3.31.1', '^3.30.0', '^3.31.1'],
+            ['^2.12|^3.30', '^3.31.1', '^3.31.2', '^3.31.2'],
+            ['^3.30', '^3.31.1', '>=3.31.1 <4.0', '>=3.31.1 <4.0'],
+            ['8.1.*', '~8.1.11', '8.1.12', '8.1.12'],
+        ] as [$before, $next, $local, $expected]) {
+            $document = static fn (string $constraint): string => json_encode([
+                'require' => ['twig/twig' => $constraint],
+            ], JSON_THROW_ON_ERROR);
+            $merged = $merge->merge($document($before), $document($next), $document($local), 'dev');
+            self::assertSame($expected, json_decode($merged, true, 512, JSON_THROW_ON_ERROR)['require']['twig/twig']);
+        }
+    }
+
+    public function testComposerConstraintConflictsRemainBlocking(): void
+    {
+        foreach ([
+            ['^3.30', '^3.31.1', '3.30.0'],
+            ['^3.30', '^3.31.1', '^4.0'],
+            ['^3.30', '^3.31.1', '>=3.30 <3.32'],
+            ['^3.30', '^3.31.1', '^3.30@dev'],
+            ['^3.30', '^3.31.1', 'dev-main as 3.31.1'],
+            ['^3.30', '^3.31.1', '^3.0'],
+        ] as [$before, $next, $local]) {
+            $document = static fn (string $constraint): string => json_encode([
+                'require-dev' => ['twig/twig' => $constraint],
+            ], JSON_THROW_ON_ERROR);
+            try {
+                (new BackendComposerMerge())->merge($document($before), $document($next), $document($local), 'dev');
+                self::fail('An incompatible or ambiguous constraint was accepted.');
+            } catch (\RuntimeException $e) {
+                self::assertStringContainsString('require-dev.twig/twig', $e->getMessage());
+            }
+        }
+    }
+
     public function testRecordsExactGitBaselineWithoutDeletingCheckout(): void
     {
         $fresh = $this->root.'/fresh/backend';
