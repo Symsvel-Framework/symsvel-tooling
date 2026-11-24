@@ -46,6 +46,10 @@ final class BackendNativeUpdater
         if ($baseline === null || !is_string($baseline['composer'] ?? null)) {
             throw new \RuntimeException('Provenance native Back absente : mise à jour automatique refusée.');
         }
+        // Older manifests tracked .env as a native file. Flex and the project
+        // own it after creation; drop only that legacy entry from the plan,
+        // not from the persisted manifest until the transaction succeeds.
+        unset($baseline['files']['.env']);
         foreach (array_keys($baseline['files']) as $path) {
             if (!$this->managed($path)) {
                 throw new \RuntimeException('Chemin Back protégé dans la provenance : '.$path);
@@ -150,7 +154,7 @@ final class BackendNativeUpdater
             }
         }
         $first = explode('/', $path, 2)[0];
-        return !in_array($first, ['.git', '.symsvel', 'vendor', 'var', 'secrets', 'backups', 'auth.json', 'composer.json', 'composer.lock', 'symfony.lock', '.env.local', '.env.local.php', '.env.prod.local.php'], true)
+        return !in_array($first, ['.git', '.symsvel', 'vendor', 'var', 'secrets', 'backups', 'auth.json', 'composer.json', 'composer.lock', 'symfony.lock', '.env', '.env.local', '.env.local.php', '.env.prod.local.php'], true)
             && !preg_match('~^\.env\..*\.local(?:\.php)?$~D', $path)
             && !str_starts_with($path, 'public/bundles/')
             && !str_starts_with($path, 'config/secrets/');

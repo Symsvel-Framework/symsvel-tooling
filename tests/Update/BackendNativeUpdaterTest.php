@@ -29,6 +29,8 @@ final class BackendNativeUpdaterTest extends TestCase
         mkdir($this->upstream, 0700, true);
         file_put_contents($this->upstream.'/composer.json', '{"require":{"symfony/yaml":"8.1.*","symsvel-framework/core":"^1.2"}}');
         file_put_contents($this->upstream.'/native.txt', 'old');
+        file_put_contents($this->upstream.'/.env', "APP_ENV=dev\nMAILER_DSN=null://null\n");
+        file_put_contents($this->upstream.'/.env.example', "MAILER_DSN=null://null\n");
         file_put_contents($this->upstream.'/composer.lock', 'skeleton lock');
         $this->git($this->upstream, ['init', '-b', 'dev']);
         $this->git($this->upstream, ['add', '.']);
@@ -43,6 +45,8 @@ final class BackendNativeUpdaterTest extends TestCase
         file_put_contents($this->backend.'/native.txt', 'old');
         file_put_contents($this->backend.'/local.txt', 'keep');
         file_put_contents($this->upstream.'/native.txt', 'new');
+        file_put_contents($this->upstream.'/.env', "APP_ENV=dev\nMAILER_DSN=\nMAILTRAP_DSN=\n");
+        file_put_contents($this->upstream.'/.env.example', "MAILER_DSN=\nMAILTRAP_DSN=\n");
         file_put_contents($this->upstream.'/composer.json', '{"require":{"symfony/yaml":"~8.1.11","symsvel-framework/core":"^1.3"}}');
         $this->git($this->upstream, ['add', '.']);
         $this->git($this->upstream, ['-c', 'user.name=Test', '-c', 'user.email=test@example.test', 'commit', '-m', 'new']);
@@ -72,6 +76,36 @@ final class BackendNativeUpdaterTest extends TestCase
         self::assertSame('new', file_get_contents($this->backend.'/native.txt'));
         self::assertContains(['composer', 'audit', '--locked'], $commands);
         self::assertSame(trim($this->git($this->upstream, ['rev-parse', 'HEAD'])), (new ComponentManifest($this->backend))->get('back')['revision']);
+    }
+
+    public function testLegacyEnvProvenanceDoesNotConflictWithProjectConfiguration(): void
+    {
+        $manifest = new ComponentManifest($this->backend);
+        $entry = $manifest->get('back');
+        // Simulate the previous recorder, when .env was still tracked.
+        $files = $entry['files'] + [
+            '.env' => hash('sha256', "APP_ENV=dev\nMAILER_DSN=null://null\n"),
+            '.env.example' => hash('sha256', "MAILER_DSN=null://null\n"),
+        ];
+        $manifest->set('back', $entry['revision'], $files, $entry['composer']);
+        $local = "APP_ENV=dev\nPROJECT_CUSTOM=keep\n";
+        file_put_contents($this->backend.'/.env', $local);
+        file_put_contents($this->backend.'/.env.example', "MAILER_DSN=null://null\n");
+        file_put_contents($this->backend.'/.env.local', "PROJECT_PRIVATE=keep\n");
+        chmod($this->backend.'/.env.local', 0600);
+        $runner = new ComposerTransactionRunner(commandRunner: function (array $command) use ($local): void {
+            if ($command[1] === 'update') {
+                self::assertSame($local, file_get_contents($this->backend.'/.env'));
+                self::assertSame("MAILER_DSN=\nMAILTRAP_DSN=\n", file_get_contents($this->backend.'/.env.example'));
+            }
+        });
+        $this->updater($runner)->update($this->backend);
+        self::assertSame($local, file_get_contents($this->backend.'/.env'));
+        self::assertSame("PROJECT_PRIVATE=keep\n", file_get_contents($this->backend.'/.env.local'));
+        self::assertSame(0600, fileperms($this->backend.'/.env.local') & 0777);
+        self::assertArrayNotHasKey('.env', $manifest->get('back')['files']);
+        self::assertArrayHasKey('.env.example', $manifest->get('back')['files']);
+        self::assertSame('new', file_get_contents($this->backend.'/native.txt'));
     }
 
     public function testConflictStopsBeforeComposer(): void
@@ -118,6 +152,8 @@ final class BackendNativeUpdaterTest extends TestCase
         self::assertSame($native, $entry['composer']);
         self::assertSame(hash('sha256', 'new'), $entry['files']['native.txt']);
         self::assertArrayNotHasKey('composer.lock', $entry['files']);
+        self::assertArrayNotHasKey('.env', $entry['files']);
+        self::assertArrayHasKey('.env.example', $entry['files']);
         self::assertDirectoryExists($fresh.'/.git');
     }
 
