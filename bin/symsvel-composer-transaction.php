@@ -6,6 +6,26 @@ declare(strict_types=1);
 // rollback, verification and deferred cleanup.
 $operation = $argv[1] ?? '';
 $args = array_slice($argv, 2);
+if (in_array($operation, ['record-back', 'update-back'], true)) {
+    if ($args !== []) {
+        fwrite(STDERR, "[symsvel] $operation does not accept arguments\n");
+        exit(2);
+    }
+    $backend = getcwd();
+    require_once $backend.'/vendor/autoload.php';
+    try {
+        $updater = new \SymSvel\Tooling\Update\BackendNativeUpdater();
+        if ($operation === 'record-back') {
+            $updater->recordInstalled($backend);
+        } else {
+            $updater->update($backend, static function (string $output): void { echo $output; });
+        }
+        exit(0);
+    } catch (Throwable $error) {
+        fwrite(STDERR, "[symsvel] ".$error->getMessage().PHP_EOL);
+        exit(1);
+    }
+}
 if (!in_array($operation, ['require', 'update', 'remove'], true)) {
     fwrite(STDERR, "[symsvel] Unknown transaction: $operation\n");
     exit(2);

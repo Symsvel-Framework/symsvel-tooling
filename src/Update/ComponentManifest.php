@@ -11,7 +11,7 @@ final class ComponentManifest
     {
     }
 
-    /** @return array{revision: string, files: array<string, string>}|null */
+    /** @return array{revision: string, files: array<string, string>, composer?: string}|null */
     public function get(string $component): ?array
     {
         $all = $this->read();
@@ -31,9 +31,9 @@ final class ComponentManifest
     }
 
     /** @param array<string, string> $files */
-    public function set(string $component, string $revision, array $files): void
+    public function set(string $component, string $revision, array $files, ?string $nativeComposer = null): void
     {
-        if (!in_array($component, ['bo', 'app', 'front'], true)) {
+        if (!in_array($component, ['back', 'bo', 'app', 'front'], true)) {
             throw new \InvalidArgumentException('Composant inconnu.');
         }
         foreach ($files as $path => $hash) {
@@ -43,6 +43,12 @@ final class ComponentManifest
         }
         $all = $this->read();
         $all[$component] = ['revision' => $revision, 'files' => $files];
+        if ($component === 'back') {
+            if ($nativeComposer === null || !json_decode($nativeComposer, false, 512, JSON_THROW_ON_ERROR) instanceof \stdClass) {
+                throw new \InvalidArgumentException('Référence Composer native de Back obligatoire.');
+            }
+            $all[$component]['composer'] = $nativeComposer;
+        }
         $directory = $this->backend.'/.symsvel';
         if (is_link($directory) || (is_dir($directory) === false && !mkdir($directory, 0700, true))) {
             throw new \RuntimeException('Répertoire manifeste inaccessible.');

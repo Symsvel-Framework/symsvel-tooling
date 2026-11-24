@@ -325,3 +325,11 @@ Régression : vérification des copies de travail accessibles aux hooks,
 d'un original déplacé intact et du rollback des builds **et**
 des modifications simulées dans `node_modules` pour BO/App/Front.
 La clôture nécessite la CI verte et un crash-test XT.
+
+## Mise à jour du squelette Back (24/11/2026)
+
+`symsvel update back` est une cible native distincte des packages Composer et des interfaces. La CLI délègue au lanceur Tooling sans démarrer le Kernel. À la création, Composer conserve temporairement le checkout source officiel ; Tooling enregistre la révision exacte et les empreintes Git natives de Back dans `backend/.symsvel/components.json`, ainsi que le manifeste Composer natif de référence, puis retire ce Git upstream. Les projets sans provenance fiable sont refusés, sans assimilation de leurs fichiers à une version officielle.
+
+Le canal enregistré sélectionne la branche dev ou le dernier tag stable. Le préflight réutilise le planificateur natif à trois états, sans scanner vendor ni les fichiers projet non gérés. Les configurations privées, les métadonnées .symsvel, le Git applicatif, les artefacts runtime et les locks Composer/Flex ne sont jamais importés depuis le squelette. Le manifeste Composer est comparé à trois états par clé (listes atomiques) ; les contraintes et dépôts locaux sont conservés lorsqu'ils ne sont pas en conflit, notamment les contraintes dev-dev de Core/Tooling. Tout conflit bloque l'opération avant mutation.
+
+La transaction Composer existante possède le snapshot sources/vendor/npm/BDD, applique le plan natif après capture, résout le lock du projet par `composer update --minimal-changes --no-interaction`, exécute les hooks, migrations et synchronisations existants, puis exige `composer audit --locked` avant publication de la nouvelle provenance. Les dépendances autorisées par les contraintes du projet peuvent évoluer. Un échec restaure fichiers, lock, artefacts et provenance ; aucun Git applicatif n'est modifié. Une même révision est un no-op. Tests automatisés : mise à jour réelle d'une source Git locale, préflight conflictuel, fusion Composer, rollback. CT local obligatoire avant release.

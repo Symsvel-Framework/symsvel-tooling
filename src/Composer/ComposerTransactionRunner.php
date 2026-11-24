@@ -7,6 +7,7 @@ namespace SymSvel\Tooling\Composer;
 use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\RuntimeArtifactSnapshot;
+use SymSvel\Tooling\Update\BackendNativeUpdatePlan;
 use SymSvel\Tooling\Update\ProjectChannel;
 use SymSvel\Tooling\Update\WorkspaceDatabaseBackup;
 use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
@@ -37,7 +38,7 @@ final class ComposerTransactionRunner
      * @param list<string> $arguments Composer arguments, starting with require/update/remove
      * @param null|callable(string):void $progress
      */
-    public function run(string $backend, array $arguments, ?callable $progress = null, bool $bootstrap = false): void
+    public function run(string $backend, array $arguments, ?callable $progress = null, bool $bootstrap = false, ?BackendNativeUpdatePlan $backUpdate = null): void
     {
         if (!in_array($arguments[0] ?? '', ['require', 'update', 'remove'], true)) {
             throw new \InvalidArgumentException('Opération Composer non prise en charge.');
@@ -52,6 +53,9 @@ final class ComposerTransactionRunner
             }
         }
         $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
+        if ($backUpdate !== null && ($bootstrap || $arguments[0] !== 'update' || $backUpdate->backend !== $backend)) {
+            throw new \InvalidArgumentException('Plan natif Back incompatible avec la transaction.');
+        }
         if ($arguments[0] === 'remove') {
             $this->preventNativeModuleRemoval($backend, $arguments);
         }
@@ -153,6 +157,7 @@ final class ComposerTransactionRunner
             );
         }
         try {
+            $backUpdate?->apply();
             $removedVersions = [];
             if ($arguments[0] === 'remove') {
                 $removedVersions = $this->removeModuleMigrations($backend, $arguments, $databaseUrl, $progress);
@@ -185,6 +190,10 @@ final class ComposerTransactionRunner
                 $this->execute([PhpCliExecutableResolver::resolve(), 'bin/console', 'symsvel:languages:translations:sync', '--no-interaction'], $backend, $progress);
             }
             $this->removeCompiledMigrations($backend, $removedVersions);
+            if ($backUpdate !== null) {
+                $this->execute(['composer', 'audit', '--locked'], $backend, $progress);
+                $backUpdate->commit();
+            }
         } catch (\Throwable $failure) {
             $recoveryErrors = [];
             if ($databaseCheckpoint !== null) {
