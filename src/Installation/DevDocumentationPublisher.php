@@ -153,13 +153,34 @@ final class DevDocumentationPublisher
         }
 
         $home = $docs.'/index.md';
-        if (!is_link($home) && (!file_exists($home) || file_get_contents($home) === self::INITIAL_PLACEHOLDER)) {
-            file_put_contents($home,
-                "# Documentation développeur SymSvel\n\n".
+        if (!is_link($home)) {
+            $previous = is_file($home) ? file_get_contents($home) : null;
+            $oldLanding = "# Documentation développeur SymSvel\n\n".
                 "Du premier projet au déploiement : guides pratiques et références pour les composants installés.\n\n".
-                "**[Parcourir les guides et références SymSvel](symsvel/index.md)**\n",
-                LOCK_EX,
-            );
+                "**[Parcourir les guides et références SymSvel](symsvel/index.md)**\n";
+            $owned = $previous === null || $previous === self::INITIAL_PLACEHOLDER || $previous === $oldLanding;
+            if (is_string($previous) && preg_match('/^<!-- symsvel-home: ([a-f0-9]{64}) -->\n/', $previous, $match)) {
+                $owned = hash_equals($match[1], hash('sha256', substr($previous, strlen($match[0]))));
+            }
+            if ($owned) {
+                $landing = "# Documentation développeur SymSvel\n\n".
+                    "Du premier projet au déploiement : guides pratiques et références pour les composants installés.\n\n".
+                    "**[Parcourir les guides et références SymSvel](symsvel/index.md)**\n\n";
+                foreach (self::SECTIONS as $section => $title) {
+                    if ($sections[$section] === []) {
+                        continue;
+                    }
+                    $landing .= '## '.$title."\n\n";
+                    foreach ($sections[$section] as $relative => $pageTitle) {
+                        $href = implode('/', array_map('rawurlencode', explode('/', $relative)));
+                        $landing .= '- ['.$pageTitle.'](symsvel/'.$href.")\n";
+                    }
+                    $landing .= "\n";
+                }
+                if (file_put_contents($home, '<!-- symsvel-home: '.hash('sha256', $landing)." -->\n".$landing, LOCK_EX) === false) {
+                    throw new \RuntimeException('Impossible de publier l’accueil documentaire.');
+                }
+            }
         }
 
         // Older generated workspaces explicitly restrict the nav to one page.

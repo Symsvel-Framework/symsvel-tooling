@@ -80,6 +80,8 @@ final class DevDocumentationPublisherTest extends TestCase
         self::assertStringContainsString('Installer le Back', (string) file_get_contents($generated.'/index.md'));
         self::assertStringContainsString('Parcourir les guides', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
         self::assertStringNotContainsString('À compléter.', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
+        self::assertStringContainsString('## Getting Started', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
+        self::assertStringContainsString('symsvel/01-getting-started/setup.md', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
         self::assertStringNotContainsString('nav:', (string) file_get_contents($this->workspace.'/dev-doc/mkdocs.yml'));
         self::assertStringContainsString('/docs/symsvel/', (string) file_get_contents($this->workspace.'/dev-doc/.gitignore'));
         self::assertFileDoesNotExist($generated.'/03-modules/catalogue/secret.md');
@@ -91,6 +93,11 @@ final class DevDocumentationPublisherTest extends TestCase
         file_put_contents($this->workspace.'/backend/docs/guides/01-getting-started/setup.md', '# Mise à jour du guide');
         $publisher->synchronize($this->workspace);
         self::assertStringContainsString('Mise à jour du guide', (string) file_get_contents($generated.'/01-getting-started/setup.md'));
+        self::assertStringContainsString('Mise à jour du guide', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
+        file_put_contents($this->workspace.'/dev-doc/docs/index.md', "\nMa note personnelle.\n", FILE_APPEND);
+        $customized = file_get_contents($this->workspace.'/dev-doc/docs/index.md');
+        $publisher->synchronize($this->workspace);
+        self::assertSame($customized, file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
     }
 
     public function testRemovingModulePrunesItsDeveloperPagesButKeepsFrameworkDocs(): void
