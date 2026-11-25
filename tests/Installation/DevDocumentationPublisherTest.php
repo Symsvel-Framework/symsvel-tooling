@@ -24,6 +24,13 @@ final class DevDocumentationPublisherTest extends TestCase
         mkdir($this->workspace.'/bo/docs/guides/06-reference', 0775, true);
         (new WorkspaceInitializer())->initialize($this->workspace);
         file_put_contents($this->workspace.'/backend/docs/ci.md', '# Historique CI réservé aux mainteneurs');
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+XlZsAAAAASUVORK5CYII=', true);
+        mkdir($this->workspace.'/backend/docs/guides/01-getting-started/images');
+        file_put_contents($this->workspace.'/backend/docs/guides/01-getting-started/images/setup.png', $png);
+        mkdir($this->workspace.'/backend/docs/images');
+        file_put_contents($this->workspace.'/backend/docs/images/maintainer.png', $png);
+        mkdir($this->workspace.'/admin-doc/docs/images');
+        file_put_contents($this->workspace.'/admin-doc/docs/images/private.png', $png);
         file_put_contents($this->workspace.'/backend/docs/guides/01-getting-started/setup.md', "# Installer le Back\n\nLe vrai guide.\n");
         file_put_contents($this->workspace.'/backend/vendor/symsvel-framework/core/docs/guides/06-reference/core.md', '# Contrat Core');
         file_put_contents($this->workspace.'/backend/vendor/symsvel-framework/tooling/docs/guides/02-development/tooling.md', '# Tooling');
@@ -63,6 +70,9 @@ final class DevDocumentationPublisherTest extends TestCase
         self::assertFileDoesNotExist($generated.'/ci.md');
         self::assertStringNotContainsString('Historique CI', (string) file_get_contents($generated.'/index.md'));
         self::assertFileExists($generated.'/01-getting-started/index.md');
+        self::assertFileEquals($this->workspace.'/backend/docs/guides/01-getting-started/images/setup.png', $generated.'/01-getting-started/images/setup.png');
+        self::assertFileDoesNotExist($generated.'/images/maintainer.png');
+        self::assertFileDoesNotExist($generated.'/images/private.png');
         self::assertStringContainsString('Getting Started', (string) file_get_contents($generated.'/index.md'));
         self::assertFileExists($generated.'/02-development/tooling.md');
         self::assertFileExists($generated.'/06-reference/bo.md');
@@ -113,6 +123,22 @@ final class DevDocumentationPublisherTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('personnalisé');
         $publisher->synchronize($this->workspace);
+    }
+
+    public function testRejectsInvalidImageBeforeReplacingGeneratedGuides(): void
+    {
+        $publisher = new DevDocumentationPublisher();
+        $publisher->synchronize($this->workspace);
+        $generated = $this->workspace.'/dev-doc/docs/symsvel';
+        $before = file_get_contents($generated.'/index.md');
+        file_put_contents($this->workspace.'/backend/docs/guides/01-getting-started/images/bad.png', '<script>not an image</script>');
+        try {
+            $publisher->synchronize($this->workspace);
+            self::fail('Invalid image must not be published.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('Image documentaire invalide', $e->getMessage());
+            self::assertSame($before, file_get_contents($generated.'/index.md'));
+        }
     }
 
     public function testRefusesSymbolicGeneratedDirectory(): void

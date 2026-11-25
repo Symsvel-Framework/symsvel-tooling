@@ -46,6 +46,7 @@ final class DevDocumentationPublisher
             throw new \RuntimeException('Aucune source documentaire développeur détectée dans le framework installé.');
         }
 
+        $assets = is_dir($backend) ? $this->assembler->developerAssets($backend) : [];
         $stage = $docs.'/.symsvel-docs-'.bin2hex(random_bytes(6));
         if (!mkdir($stage, 0775)) {
             throw new \RuntimeException('Impossible de préparer les pages MkDocs.');
@@ -87,6 +88,24 @@ final class DevDocumentationPublisher
                 }
                 $title = str_replace(["\r", "\n", '[', ']'], [' ', ' ', '', ''], $page['title']);
                 $sections[$section][$relative] = $title;
+            }
+            foreach ($assets as $asset) {
+                $relative = $asset['source'] === 'module'
+                    ? '03-modules/'.$asset['owner'].'/'.$asset['file']
+                    : $asset['file'];
+                $section = explode('/', $relative, 2)[0];
+                if (!isset(self::SECTIONS[$section]) || isset($destinations[$relative])) {
+                    throw new \RuntimeException('Image de guide invalide ou en collision : '.$relative);
+                }
+                $destinations[$relative] = true;
+                $destination = $stage.'/'.$relative;
+                $directory = dirname($destination);
+                if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+                    throw new \RuntimeException('Impossible de créer '.$directory);
+                }
+                if (file_put_contents($destination, $asset['bytes'], LOCK_EX) === false) {
+                    throw new \RuntimeException('Impossible de publier '.$relative);
+                }
             }
             foreach (self::SECTIONS as $section => $title) {
                 if ($sections[$section] === []) {

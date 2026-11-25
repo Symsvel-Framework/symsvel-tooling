@@ -37,6 +37,14 @@ final class ComposerDocumentationAssembler
     /** @param array<string, array<string, string>> $pages */
     private function collectDeveloperPages(array &$pages, string $backend): void
     {
+        foreach ($this->developerSources($backend) as [$root, $source, $owner]) {
+            $this->collect($pages, $root, 'dev', $source, $owner);
+        }
+    }
+
+    /** @return iterable<array{string, string, string}> */
+    private function developerSources(string $backend): iterable
+    {
         $workspace = dirname($backend);
         foreach ([
             'back' => $backend.'/docs',
@@ -46,20 +54,15 @@ final class ComposerDocumentationAssembler
             'core' => $backend.'/vendor/symsvel-framework/core/docs',
             'tooling' => $backend.'/vendor/symsvel-framework/tooling/docs',
         ] as $owner => $source) {
-            if (is_dir($source) || is_link($source)) {
-                // Only curated developer guides are published, never repository history.
-                if (is_link($source)) {
-                    throw new \RuntimeException('Source documentaire invalide : '.$owner);
-                }
-                $guides = $source.'/guides';
-                if (is_dir($guides) || is_link($guides)) {
-                    $this->collect($pages, $guides, 'dev', 'host', $owner);
-                }
+            if (is_link($source)) {
+                throw new \RuntimeException('Source documentaire invalide : '.$owner);
+            }
+            $guides = $source.'/guides';
+            if (is_dir($guides) || is_link($guides)) {
+                yield [$guides, 'host', $owner];
             }
         }
 
-        // During early bootstrap Composer metadata can be absent from a
-        // partial project; the next build after module installation adds it.
         if (!is_file($backend.'/vendor/composer/installed.json')) {
             return;
         }
@@ -70,12 +73,63 @@ final class ComposerDocumentationAssembler
                 if (is_link($root)) {
                     throw new \RuntimeException('Source documentaire invalide : '.$module);
                 }
-                // Older project modules retain their manifest-declared dev guides.
-                // Migrated modules use an explicit guides subdirectory.
                 $guides = $root.'/guides';
-                $this->collect($pages, is_dir($guides) || is_link($guides) ? $guides : $root, 'dev', 'module', $module);
+                yield [is_dir($guides) || is_link($guides) ? $guides : $root, 'module', $module];
             }
         }
+    }
+
+    /**
+     * Static raster images only, from explicit images directories in dev guides.
+     * Never include binary data or filesystem paths in the private JSON index.
+     *
+     * @return list<array{source:string,owner:string,file:string,bytes:string}>
+     */
+    public function developerAssets(string $backend): array
+    {
+        $backend = realpath($backend) ?: throw new \RuntimeException('Backend introuvable.');
+        $assets = [];
+        $total = 0;
+        $types = ['png' => IMAGETYPE_PNG, 'jpg' => IMAGETYPE_JPEG, 'jpeg' => IMAGETYPE_JPEG, 'webp' => IMAGETYPE_WEBP];
+        foreach ($this->developerSources($backend) as [$root, $source, $owner]) {
+            if (!is_dir($root) || is_link($root)) {
+                throw new \RuntimeException('Source documentaire invalide : '.$owner);
+            }
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+            );
+            foreach ($files as $file) {
+                if ($file->isLink()) {
+                    throw new \RuntimeException('Lien symbolique interdit dans la documentation : '.$owner);
+                }
+                if (!$file->isFile()) {
+                    continue;
+                }
+                $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($root) + 1));
+                $extension = strtolower(pathinfo($relative, PATHINFO_EXTENSION));
+                if (!in_array('images', explode('/', dirname($relative)), true) || !isset($types[$extension])) {
+                    continue;
+                }
+                foreach (explode('/', $relative) as $segment) {
+                    if (!preg_match('/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/D', $segment)) {
+                        throw new \RuntimeException('Chemin d’image documentaire invalide : '.$relative);
+                    }
+                }
+                $size = $file->getSize();
+                if ($size < 1 || $size > 2097152 || $total + $size > self::MAX_BYTES) {
+                    throw new \RuntimeException('Volume des images documentaires trop important.');
+                }
+                $bytes = file_get_contents($file->getPathname());
+                $info = is_string($bytes) ? @getimagesizefromstring($bytes) : false;
+                if ($info === false || $info[2] !== $types[$extension]
+                    || $info[0] > 8192 || $info[1] > 8192) {
+                    throw new \RuntimeException('Image documentaire invalide : '.$relative);
+                }
+                $assets[] = ['source' => $source, 'owner' => $owner, 'file' => $relative, 'bytes' => $bytes];
+                $total += $size;
+            }
+        }
+        return $assets;
     }
 
     /** @return array{path:string, pages:int, changed:bool} */
