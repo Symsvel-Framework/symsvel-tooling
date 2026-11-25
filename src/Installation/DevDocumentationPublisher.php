@@ -13,6 +13,14 @@ use SymSvel\Tooling\Documentation\ComposerDocumentationAssembler;
 final class DevDocumentationPublisher
 {
     private const GENERATED_MARKER = '.generated-by-symsvel';
+    private const SECTIONS = [
+        '01-getting-started' => 'Getting Started',
+        '02-development' => 'Developing your application',
+        '03-modules' => 'Modules',
+        '04-updating' => 'Updating your application',
+        '05-deployment' => 'Deploying your application',
+        '06-reference' => 'Reference',
+    ];
     private const INITIAL_PLACEHOLDER = "# Documentation développeur SymSvel\n\nÀ compléter.\n";
 
     public function __construct(
@@ -44,16 +52,31 @@ final class DevDocumentationPublisher
         }
         try {
             $index = [
-                '# Guides développeur SymSvel',
+                '# SymSvel Framework',
                 '',
-                'Documentation issue des composants et modules effectivement installés.',
-                'Ce répertoire est généré automatiquement. Pour modifier un guide, éditer sa source.',
+                'Installez votre environnement, développez votre application et déployez-la.',
                 '',
             ];
-            $owner = null;
+            $sections = array_fill_keys(array_keys(self::SECTIONS), []);
+            $destinations = [];
             foreach ($pages as $page) {
-                $group = $page['source'] === 'module' ? 'modules' : 'framework';
-                $relative = $group.'/'.$page['owner'].'/'.$page['file'];
+                if ($page['source'] === 'module') {
+                    $section = '03-modules';
+                    $relative = $section.'/'.$page['owner'].'/'.$page['file'];
+                } else {
+                    $section = explode('/', $page['file'], 2)[0];
+                    if (!isset(self::SECTIONS[$section]) || !str_contains($page['file'], '/')) {
+                        throw new \RuntimeException('Rubrique de guide inconnue : '.$page['file']);
+                    }
+                    $relative = $page['file'];
+                    if ($relative === $section.'/index.md') {
+                        throw new \RuntimeException('Index de rubrique réservé : '.$relative);
+                    }
+                }
+                if (isset($destinations[$relative])) {
+                    throw new \RuntimeException('Collision de guides développeur : '.$relative);
+                }
+                $destinations[$relative] = true;
                 $destination = $stage.'/'.$relative;
                 $directory = dirname($destination);
                 if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
@@ -62,18 +85,30 @@ final class DevDocumentationPublisher
                 if (file_put_contents($destination, $page['markdown'], LOCK_EX) === false) {
                     throw new \RuntimeException('Impossible de publier '.$relative);
                 }
-                $section = $group.'/'.$page['owner'];
-                if ($section !== $owner) {
-                    $index[] = '## '.($group === 'modules' ? 'Module ' : 'Composant ').$page['owner'];
-                    $index[] = '';
-                    $owner = $section;
-                }
-                $href = implode('/', array_map('rawurlencode', explode('/', $relative)));
                 $title = str_replace(["\r", "\n", '[', ']'], [' ', ' ', '', ''], $page['title']);
-                $index[] = '- ['.$title.']('.$href.')';
+                $sections[$section][$relative] = $title;
+            }
+            foreach (self::SECTIONS as $section => $title) {
+                if ($sections[$section] === []) {
+                    continue;
+                }
+                ksort($sections[$section], SORT_STRING);
+                $index[] = '## '.$title;
+                $index[] = '';
+                $sectionIndex = ['# '.$title, ''];
+                foreach ($sections[$section] as $relative => $pageTitle) {
+                    $href = implode('/', array_map('rawurlencode', explode('/', $relative)));
+                    $index[] = '- ['.$pageTitle.']('.$href.')';
+                    $sectionIndex[] = '- ['.$pageTitle.']('.substr($href, strlen($section) + 1).')';
+                }
+                $index[] = '';
+                $sectionIndex[] = '';
+                if (file_put_contents($stage.'/'.$section.'/index.md', implode("\n", $sectionIndex), LOCK_EX) === false) {
+                    throw new \RuntimeException('Impossible de publier l’index de rubrique.');
+                }
             }
             if ($pages === []) {
-                $index[] = 'Aucune documentation source disponible dans ce workspace.';
+                $index[] = 'Aucun guide disponible. Installez les composants de la distribution correspondante.';
             }
             $index[] = '';
             if (file_put_contents($stage.'/index.md', implode("\n", $index), LOCK_EX) === false
@@ -102,7 +137,7 @@ final class DevDocumentationPublisher
         if (!is_link($home) && (!file_exists($home) || file_get_contents($home) === self::INITIAL_PLACEHOLDER)) {
             file_put_contents($home,
                 "# Documentation développeur SymSvel\n\n".
-                "Documentation locale de développement, issue des sources du framework et des modules installés.\n\n".
+                "Du premier projet au déploiement : guides pratiques et références pour les composants installés.\n\n".
                 "**[Parcourir les guides et références SymSvel](symsvel/index.md)**\n",
                 LOCK_EX,
             );

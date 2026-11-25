@@ -23,13 +23,15 @@ final class ComposerDocumentationAssemblerTest extends TestCase
         mkdir($this->backend.'/vendor/composer', 0775, true);
         mkdir($this->backend.'/vendor/symsvel-framework', 0775, true);
         mkdir($this->backend.'/docs/adr', 0775, true);
-        mkdir($this->workspace.'/bo/docs', 0775, true);
+        mkdir($this->workspace.'/bo/docs/guides/06-reference', 0775, true);
+        mkdir($this->backend.'/docs/guides/01-getting-started', 0775, true);
         mkdir($this->workspace.'/admin-doc/docs', 0775, true);
         mkdir($this->workspace.'/user-doc/docs', 0775, true);
         file_put_contents($this->workspace.'/admin-doc/docs/aide.md', '# Paramétrer Choralys');
         file_put_contents($this->workspace.'/user-doc/docs/aide.md', '# Utiliser Choralys');
         file_put_contents($this->backend.'/docs/adr/0001.md', "# Architecture interne\nAucun secret.");
-        file_put_contents($this->workspace.'/bo/docs/bo.md', '# BO hôte');
+        file_put_contents($this->workspace.'/bo/docs/guides/06-reference/bo.md', '# BO hôte');
+        file_put_contents($this->backend.'/docs/guides/01-getting-started/setup.md', '# Installation');
         $this->module = (new ModuleMaker())->create($this->workspace, 'catalogue', 'symsvel-framework', 'bo');
         file_put_contents($this->module.'/docs/admin/guide.md', "# Gestion du catalogue\nLecture seule.");
         symlink($this->module, $this->backend.'/vendor/symsvel-framework/module-catalogue');
@@ -67,8 +69,9 @@ final class ComposerDocumentationAssemblerTest extends TestCase
         $pages = array_column($doc['pages'], null, 'id');
         self::assertArrayHasKey('admin:module:catalogue:guide.md', $pages);
         self::assertArrayHasKey('dev:module:catalogue:index.md', $pages);
-        self::assertArrayHasKey('dev:host:back:adr/0001.md', $pages);
-        self::assertArrayHasKey('dev:host:bo:bo.md', $pages);
+        self::assertArrayNotHasKey('dev:host:back:adr/0001.md', $pages);
+        self::assertArrayHasKey('dev:host:back:01-getting-started/setup.md', $pages);
+        self::assertArrayHasKey('dev:host:bo:06-reference/bo.md', $pages);
         self::assertArrayHasKey('admin:host:admin-doc:aide.md', $pages);
         self::assertArrayHasKey('user:host:user-doc:aide.md', $pages);
         self::assertSame('Paramétrer Choralys', $pages['admin:host:admin-doc:aide.md']['title']);
@@ -90,7 +93,7 @@ final class ComposerDocumentationAssemblerTest extends TestCase
         self::assertTrue($assembler->assemble($this->backend)['changed']);
         $after = json_decode((string) file_get_contents($path), true, 32, JSON_THROW_ON_ERROR);
         self::assertNotContains('admin:module:catalogue:guide.md', array_column($after['pages'], 'id'));
-        self::assertContains('dev:host:back:adr/0001.md', array_column($after['pages'], 'id'));
+        self::assertContains('dev:host:back:01-getting-started/setup.md', array_column($after['pages'], 'id'));
     }
 
     public function testModifiedPublicationIsNeverOverwritten(): void

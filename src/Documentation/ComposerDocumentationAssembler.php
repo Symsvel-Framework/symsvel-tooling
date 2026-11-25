@@ -47,7 +47,14 @@ final class ComposerDocumentationAssembler
             'tooling' => $backend.'/vendor/symsvel-framework/tooling/docs',
         ] as $owner => $source) {
             if (is_dir($source) || is_link($source)) {
-                $this->collect($pages, $source, 'dev', 'host', $owner);
+                // Only curated developer guides are published, never repository history.
+                if (is_link($source)) {
+                    throw new \RuntimeException('Source documentaire invalide : '.$owner);
+                }
+                $guides = $source.'/guides';
+                if (is_dir($guides) || is_link($guides)) {
+                    $this->collect($pages, $guides, 'dev', 'host', $owner);
+                }
             }
         }
 
@@ -59,7 +66,14 @@ final class ComposerDocumentationAssembler
         foreach ($this->registry->discover($backend) as $module => $installed) {
             $relative = $installed['manifest']['documentation']['dev'] ?? null;
             if (is_string($relative)) {
-                $this->collect($pages, $installed['path'].'/'.$relative, 'dev', 'module', $module);
+                $root = $installed['path'].'/'.$relative;
+                if (is_link($root)) {
+                    throw new \RuntimeException('Source documentaire invalide : '.$module);
+                }
+                // Older project modules retain their manifest-declared dev guides.
+                // Migrated modules use an explicit guides subdirectory.
+                $guides = $root.'/guides';
+                $this->collect($pages, is_dir($guides) || is_link($guides) ? $guides : $root, 'dev', 'module', $module);
             }
         }
     }
