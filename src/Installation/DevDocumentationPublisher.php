@@ -158,7 +158,13 @@ final class DevDocumentationPublisher
             $oldLanding = "# Documentation développeur SymSvel\n\n".
                 "Du premier projet au déploiement : guides pratiques et références pour les composants installés.\n\n".
                 "**[Parcourir les guides et références SymSvel](symsvel/index.md)**\n";
-            $owned = $previous === null || $previous === self::INITIAL_PLACEHOLDER || $previous === $oldLanding;
+            $legacyLanding = str_replace(
+                'Du premier projet au déploiement : guides pratiques et références pour les composants installés.',
+                'Documentation locale de développement, issue des sources du framework et des modules installés.',
+                $oldLanding,
+            );
+            $owned = $previous === null || $previous === self::INITIAL_PLACEHOLDER
+                || $previous === $oldLanding || $previous === $legacyLanding;
             if (is_string($previous) && preg_match('/^<!-- symsvel-home: ([a-f0-9]{64}) -->\n/', $previous, $match)) {
                 $owned = hash_equals($match[1], hash('sha256', substr($previous, strlen($match[0]))));
             }

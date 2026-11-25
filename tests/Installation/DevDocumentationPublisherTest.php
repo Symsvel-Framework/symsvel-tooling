@@ -100,6 +100,16 @@ final class DevDocumentationPublisherTest extends TestCase
         self::assertSame($customized, file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
     }
 
+    public function testUpgradesUnmodifiedLegacyLandingPage(): void
+    {
+        $home = $this->workspace.'/dev-doc/docs/index.md';
+        file_put_contents($home, "# Documentation développeur SymSvel\n\n".
+            "Documentation locale de développement, issue des sources du framework et des modules installés.\n\n".
+            "**[Parcourir les guides et références SymSvel](symsvel/index.md)**\n");
+        (new DevDocumentationPublisher())->synchronize($this->workspace);
+        self::assertStringContainsString('## Getting Started', (string) file_get_contents($home));
+    }
+
     public function testRemovingModulePrunesItsDeveloperPagesButKeepsFrameworkDocs(): void
     {
         $publisher = new DevDocumentationPublisher();
