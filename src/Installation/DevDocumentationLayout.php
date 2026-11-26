@@ -105,7 +105,6 @@ YAML;
 
         $nav = [
             '  - Accueil: index.md',
-            '  - Guides SymSvel: symsvel/index.md',
         ];
         foreach ($titles as $section => $title) {
             if (($sections[$section] ?? []) === []) {

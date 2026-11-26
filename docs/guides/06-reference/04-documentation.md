@@ -37,3 +37,5 @@ La documentation native propose deux palettes, claire et sombre, sélectionnable
     Après une mise à jour, reconstruisez la documentation avec `symsvel documentation:build-dev` si nécessaire. Les guides et le thème générés seront rafraîchis ensemble.
 
 Les avertissements techniques et de sécurité utilisent toujours les encarts natifs `warning` ou `danger`. Pour personnaliser le thème d'un projet, modifiez sa propre configuration MkDocs ; ne modifiez pas les assets réservés sous `docs/symsvel/assets/theme/`.
+
+L’accueil est l’unique entrée générale du catalogue ; les chapitres restent directement accessibles dans le menu. L’ancien index des guides est conservé pour les liens existants, sans entrée redondante dans la navigation native.

@@ -172,7 +172,6 @@ final class DevDocumentationPublisher
             if ($owned) {
                 $landing = "# Documentation développeur SymSvel\n\n".
                     "Du premier projet au déploiement : guides pratiques et références pour les composants installés.\n\n".
-                    "**[Parcourir les guides et références SymSvel](symsvel/index.md)**\n\n".
                     '<aside class="symsvel-welcome" aria-label="Conseil de Zeko"><strong>Un conseil de Zeko :</strong> commencez par la prise en main, puis explorez les modules installés à votre rythme.</aside>'."\n\n";
                 foreach (self::SECTIONS as $section => $title) {
                     if ($sections[$section] === []) {

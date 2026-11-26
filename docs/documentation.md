@@ -131,7 +131,7 @@ Les composants contribuent uniquement leurs Markdown sous docs/guides/<rubrique>
 
 Les captures locales sont placées dans un sous-répertoire images des guides dev. Le Publisher copie PNG, JPEG et WebP valides (2 Mio par fichier, limite totale 12 Mio), sans liens symboliques ni SVG/HTML. Les liens Markdown relatifs restent valides, par exemple ![Setup](images/local-config.png). Les images ne sont pas injectées dans le JSON privé. Les sources hors guides ne sont pas copiées. Aucun document de maintenance ni historique de CT ne doit être ajouté à docs/guides.
 
-L’accueil développeur généré affiche directement les rubriques et leurs guides. Un checksum identifie le contenu généré : toute personnalisation de l’accueil est conservée lors des reconstructions suivantes.
+L’accueil développeur généré affiche directement les rubriques et leurs guides : il est l’unique entrée de catalogue du menu natif. L’ancien index `docs/symsvel/index.md` reste généré pour préserver les liens existants et les configurations personnalisées, mais le menu natif et l’accueil ne le proposent plus en doublon. Un checksum identifie le contenu généré : toute personnalisation de l’accueil est conservée lors des reconstructions suivantes.
 
 ## Identité graphique de la documentation développeur
 

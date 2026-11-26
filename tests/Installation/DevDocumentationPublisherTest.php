@@ -78,7 +78,7 @@ final class DevDocumentationPublisherTest extends TestCase
         self::assertFileExists($generated.'/06-reference/bo.md');
         self::assertFileExists($generated.'/03-modules/catalogue/index.md');
         self::assertStringContainsString('Installer le Back', (string) file_get_contents($generated.'/index.md'));
-        self::assertStringContainsString('Parcourir les guides', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
+        self::assertStringNotContainsString('](symsvel/index.md)', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
         self::assertStringNotContainsString('À compléter.', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
         self::assertStringContainsString('## Prise en main', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
         self::assertStringContainsString('symsvel/01-getting-started/setup.md', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
@@ -94,6 +94,8 @@ final class DevDocumentationPublisherTest extends TestCase
         }
         self::assertStringContainsString('title: Sommaire', $configuration);
         self::assertStringContainsString('nav:', $configuration);
+        self::assertStringNotContainsString('Guides SymSvel: symsvel/index.md', $configuration);
+        self::assertFileExists($generated.'/index.md');
         self::assertStringContainsString('"Prise en main":', $configuration);
         self::assertStringContainsString('"Installer le Back": "symsvel/01-getting-started/setup.md"', $configuration);
         self::assertStringContainsString('"Catalogue : guide": "symsvel/03-modules/catalogue/index.md"', $configuration);

@@ -17,6 +17,9 @@ with sync_playwright() as playwright:
     expect(page.locator("body")).to_have_attribute("data-md-color-scheme", "default")
     sidebar = page.locator(".md-sidebar--primary")
     expect(sidebar).to_be_visible()
+    expect(sidebar.get_by_role("link", name="Accueil", exact=True)).to_have_count(1)
+    expect(sidebar.get_by_role("link", name="Guides SymSvel", exact=True)).to_have_count(0)
+    expect(page.locator(".md-content a[href='symsvel/index.html']")).to_have_count(0)
     chapter = sidebar.locator(".md-nav__item--nested").filter(has_text="Prise en main")
     link = chapter.get_by_role("link", name="Installer le Back", exact=True)
     toggle = chapter.locator("input.md-nav__toggle").first
