@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Composer;
 
+use SymSvel\Tooling\Filesystem\LocalMetadata;
+
 /**
  * Restore source files across the workspace after a failed Composer operation.
  * Runtime dependencies and database state are deliberately outside this scope.
@@ -171,7 +173,16 @@ final class WorkspaceFileSnapshot
             $directories = $this->scanDirectories($root);
             uksort($directories, static fn (string $a, string $b): int => substr_count($b, '/') <=> substr_count($a, '/'));
             foreach ($directories as $relative => $directory) {
-                if (!isset($this->directories[$component.'/'.$relative]) && !@rmdir($directory)) {
+                if (isset($this->directories[$component.'/'.$relative])) {
+                    continue;
+                }
+                // A desktop metadata file must not prevent removal of a directory
+                // created by the failed operation. Never follow a symbolic link.
+                $metadata = new \SplFileInfo($directory.'/.DS_Store');
+                if (LocalMetadata::isIgnored($metadata) && !@unlink($metadata->getPathname())) {
+                    throw new \RuntimeException('Rollback sources : métadonnée locale impossible à supprimer : '.$metadata->getPathname());
+                }
+                if (!@rmdir($directory)) {
                     throw new \RuntimeException('Rollback sources : répertoire créé non vide ou impossible à supprimer : '.$directory);
                 }
             }
@@ -273,7 +284,7 @@ final class WorkspaceFileSnapshot
         });
         $files = [];
         foreach (new \RecursiveIteratorIterator($filtered) as $entry) {
-            if (!$entry->isFile() && !$entry->isLink()) {
+            if (LocalMetadata::isIgnored($entry) || (!$entry->isFile() && !$entry->isLink())) {
                 continue;
             }
             $relative = substr($entry->getPathname(), strlen($root) + 1);

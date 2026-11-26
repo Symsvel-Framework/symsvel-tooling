@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Composer;
 
+use SymSvel\Tooling\Filesystem\LocalMetadata;
+
 use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\RuntimeArtifactSnapshot;
@@ -615,7 +617,7 @@ final class ComposerTransactionRunner
         );
         $iterator = new \RecursiveIteratorIterator($filtered, \RecursiveIteratorIterator::LEAVES_ONLY);
         foreach ($iterator as $file) {
-            if (!$file->isFile() && !$file->isLink()) {
+            if (LocalMetadata::isIgnored($file) || (!$file->isFile() && !$file->isLink())) {
                 continue;
             }
             $relative = substr($file->getPathname(), strlen($backend) + 1);

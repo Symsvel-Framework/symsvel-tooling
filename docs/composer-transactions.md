@@ -126,3 +126,8 @@ Un test de non-régression contrôle l'ordre et la publication avant exécution 
 ## Hook de synchronisation des interfaces
 
 Le point d'entrée `scripts/symsvel-module-sync.php` délègue à `ComposerInterfaceSynchronizer` dans Tooling. Le service ignore la production et les clones Backend sans sources Svelte. En développement, il conserve la synchronisation, les builds sélectifs et le report des builds du bootstrap. Le publisher transactionnel remplace uniquement les anciennes versions natives reconnues par leur empreinte ; les personnalisations sont protégées.
+
+
+## Métadonnées Finder pendant les transactions (26/11/2026)
+
+Les fichiers ordinaires nommés exactement `.DS_Store` sont exclus des copies et empreintes de snapshot des sources et des artefacts runtime (dont `vendor`), ainsi que de la vérification finale des sources après rollback. Une modification de ces métadonnées par Finder ne doit pas interrompre le bootstrap ni le rollback. Les liens symboliques et répertoires du même nom restent soumis aux contrôles habituels ; aucun autre fichier masqué n'est exclu par cette règle. Les métadonnées existantes du workspace ne sont pas restaurées ni supprimées par le snapshot des sources ; celles présentes dans un répertoire créé par l'opération échouée peuvent être supprimées pour retirer ce répertoire. Les artefacts reconstruits à partir d'une copie ne conservent pas ces métadonnées ; un artefact déplacé peut les conserver. Les empreintes SHA-256, permissions et contrôles des liens des fichiers applicatifs restent inchangés. Les tests couvrent la copie de vendor, le déplacement avec copie de travail et le rollback Composer avec métadonnées modifiées. CI et CT macOS restent requis.

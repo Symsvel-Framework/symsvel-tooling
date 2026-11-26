@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Update;
 
+use SymSvel\Tooling\Filesystem\LocalMetadata;
+
 /**
  * Transaction checkpoint for npm dependencies and generated Svelte outputs.
  * Kept separate from source snapshots because node_modules and build are excluded there.
@@ -174,6 +176,9 @@ final class RuntimeArtifactSnapshot
             \RecursiveIteratorIterator::SELF_FIRST,
         );
         foreach ($iterator as $entry) {
+            if (LocalMetadata::isIgnored($entry)) {
+                continue;
+            }
             $path = substr($entry->getPathname(), strlen($directory) + 1);
             if ($entry->isLink()) {
                 $entries[$path] = 'link:'.readlink($entry->getPathname());
@@ -200,6 +205,9 @@ final class RuntimeArtifactSnapshot
             throw new \RuntimeException('Création snapshot runtime impossible : '.$destination);
         }
         foreach (new \FilesystemIterator($source) as $entry) {
+            if (LocalMetadata::isIgnored($entry)) {
+                continue;
+            }
             $target = $destination.'/'.$entry->getFilename();
             if ($entry->isLink()) {
                 if (!symlink((string) readlink($entry->getPathname()), $target)) {

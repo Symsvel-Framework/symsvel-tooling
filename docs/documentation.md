@@ -124,3 +124,11 @@ la documentation elle-même reste différée.
 CI Tooling, tests d'accès HTTP BO, contrôle des droits sur les scopes et
 CT utilisateur. Le Setup Wizard n'exécute aucune étape documentaire supplémentaire :
 les builds sont réalisés à la création de projet, avant son ouverture.
+
+## Séparation des guides et des notes mainteneur
+
+Les composants contribuent uniquement leurs Markdown sous docs/guides/<rubrique>/. Les rubriques ordonnées sont 01-getting-started, 02-development, 03-modules, 04-updating, 05-deployment, 06-reference. Les fichiers historiques hors de ce périmètre restent consultables sur GitHub, sans être assemblés. Les modules utilisent le scope dev de leur manifeste ; un sous-dossier guides, lorsqu'il existe, devient leur source exclusive, les anciens modules personnalisés conservant leur comportement. Admin et user restent inchangés et privés. Le Publisher fusionne les guides des composants par rubrique, conserve les guides des modules sous 03-modules/<slug> et génère les index. Les collisions sont bloquantes. Les pages personnelles et la configuration MkDocs personnalisée sont préservées. Les composants anciens dépourvus de guides ne contribuent plus leurs historiques ; publier la refonte de Back et des modules de façon coordonnée avec Tooling.
+
+Les captures locales sont placées dans un sous-répertoire images des guides dev. Le Publisher copie PNG, JPEG et WebP valides (2 Mio par fichier, limite totale 12 Mio), sans liens symboliques ni SVG/HTML. Les liens Markdown relatifs restent valides, par exemple ![Setup](images/local-config.png). Les images ne sont pas injectées dans le JSON privé. Les sources hors guides ne sont pas copiées. Aucun document de maintenance ni historique de CT ne doit être ajouté à docs/guides.
+
+L’accueil développeur généré affiche directement les rubriques et leurs guides. Un checksum identifie le contenu généré : toute personnalisation de l’accueil est conservée lors des reconstructions suivantes.

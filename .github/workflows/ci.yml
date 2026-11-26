@@ -108,3 +108,26 @@ jobs:
           mysql --host=127.0.0.1 --port=3306 --protocol=tcp --user=root --password="$SYMSVEL_CI_POSTGRES_PASSWORD" --execute='SELECT 1' symsvel_rollback_ci
           mysql --host=127.0.0.1 --port=3307 --protocol=tcp --user=root --password="$SYMSVEL_CI_POSTGRES_PASSWORD" --execute='SELECT 1' symsvel_rollback_ci
           vendor/bin/phpunit --display-warnings --display-skipped --fail-on-warning
+
+  documentation-navigation:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, sodium
+          tools: composer:v2
+          coverage: none
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Build real local MkDocs site
+        run: php tests/Fixtures/build-documentation-site.php "$RUNNER_TEMP/symsvel-docs"
+      - name: Install Chromium for navigation regression test
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Verify accordion, page anchors and project guides in local HTML
+        run: python tests/Fixtures/check-documentation-navigation.py "$RUNNER_TEMP/symsvel-docs"

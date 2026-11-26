@@ -17,9 +17,9 @@ final class WorkspaceInitializer
                 throw new \RuntimeException('Impossible de créer '.$dir);
             }
         }
-        $this->writeIfMissing($docs.'/mkdocs.yml', "site_name: SymSvel - Documentation développeur\nsite_url: ''\ndocs_dir: docs\nsite_dir: site\nuse_directory_urls: false\nplugins: []\n");
+        $this->writeIfMissing($docs.'/mkdocs.yml', DevDocumentationLayout::CONFIG."\n");
         $this->writeIfMissing($docs.'/docs/index.md', "# Documentation développeur SymSvel\n\nÀ compléter.\n");
-        $this->writeIfMissing($docs.'/requirements.txt', "mkdocs>=1.6,<2\n");
+        $this->writeIfMissing($docs.'/requirements.txt', DevDocumentationLayout::REQUIREMENTS);
         // Project-specific admin and user documentation is kept outside
         // BO/App source trees and is not exposed as an independent website.
         // Tooling assembles it into the private authenticated documentation index.

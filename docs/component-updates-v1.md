@@ -345,3 +345,8 @@ Le `.env` versionné du squelette sert à l'initialisation, puis appartient au p
 ### Contraintes resserrées par Composer
 
 Le `bump-after-update` du squelette peut faire évoluer localement les contraintes sans personnalisation volontaire. Dans `require` et `require-dev`, les conflits de chaînes numériques de versions de packages sont comparés via la bibliothèque officielle `composer/semver` (dépendance explicite de Tooling). Si les deux contraintes sont incluses dans celle de référence et que l'une est incluse dans l'autre, la fusion conserve la plus restrictive (la locale si équivalente). Exemple : `^2.12|^3.30` → `^3.31.1` côté Back et `^3.30.0` côté projet donnent `^3.31.1`. Une contrainte locale plus restrictive est conservée. Les intersections partielles, divergences, élargissements simultanés, branches, alias et indicateurs de stabilité restent des conflits à résoudre explicitement. La résolution Composer et l'audit du lock restent obligatoires ; aucun contournement de la sécurité ou du préflight. Tests de régression : plancher Twig, contrainte locale stricte, contraintes incompatibles et ambiguës.
+
+
+### Métadonnées locales Finder (26/11/2026)
+
+Les snapshots runtime et de sources ignorent les fichiers ordinaires `.DS_Store`, y compris dans les sous-répertoires. Ils ne sont ni copiés ni inclus dans les empreintes transactionnelles. Les liens symboliques et répertoires portant ce nom restent contrôlés, comme tous les autres fichiers. Les métadonnées présentes dans un runtime déplacé peuvent être conservées lors de sa restauration ; celles d'une copie ne sont pas garanties. Ce filtrage ne change ni le plan de mise à jour natif ni la protection des sources métier. Voir aussi le contrat des transactions Composer.
