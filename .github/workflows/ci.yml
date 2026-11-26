@@ -4,7 +4,7 @@ on:
   push:
     branches: [dev, main]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 # Each GitHub-hosted job has isolated PostgreSQL, MySQL and MariaDB services.
 # Cancel superseded runs for the same branch or PR.
