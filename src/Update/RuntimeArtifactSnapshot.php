@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Update;
 
 use SymSvel\Tooling\Filesystem\LocalMetadata;
+use SymSvel\Tooling\Filesystem\NativeTreeRemoval;
 
 /**
  * Transaction checkpoint for npm dependencies and generated Svelte outputs.
@@ -143,6 +144,17 @@ final class RuntimeArtifactSnapshot
         }
         foreach ($this->present as $name => $exists) {
             $destination = $this->component.'/'.$name;
+            // Composer runs Tooling from vendor. Windows can keep an open
+            // launcher mapped until the parent PHP process exits. Reconcile
+            // copied checkpoints without deleting identical files.
+            if (PHP_OS_FAMILY === 'Windows' && $exists && !$this->moveOnCapture
+                && is_dir($destination) && !is_link($destination)) {
+                $this->restoreWindowsCopy($this->transaction.'/runtime/'.$name, $destination);
+                if ($this->fingerprint($destination) !== $this->fingerprints[$name]) {
+                    throw new \RuntimeException('Rollback runtime incomplet : intégrité non vérifiée pour '.$name);
+                }
+                continue;
+            }
             $this->removeTree($destination);
             if ($exists) {
                 if ($this->moveOnCapture) {
@@ -221,6 +233,75 @@ final class RuntimeArtifactSnapshot
         }
         if (!chmod($destination, fileperms($source) & 0777)) {
             throw new \RuntimeException('Permissions répertoire runtime impossibles : '.$destination);
+        }
+    }
+
+    /** Reconcile a verified copy, preserving identical files and directories. */
+    private function restoreWindowsCopy(string $source, string $destination): void
+    {
+        $parent = realpath(dirname($destination));
+        $actual = realpath($destination);
+        $expected = $parent === false ? '' : $parent.DIRECTORY_SEPARATOR.basename($destination);
+        if ($actual === false || is_link($destination)
+            || strcasecmp(str_replace('\\', '/', $actual), str_replace('\\', '/', $expected)) !== 0) {
+            throw new \RuntimeException('Rollback runtime : chemin redirigé refusé : '.$destination);
+        }
+        $saved = [];
+        foreach (new \FilesystemIterator($source) as $entry) {
+            if (!LocalMetadata::isIgnored($entry)) {
+                $saved[$entry->getFilename()] = true;
+            }
+        }
+        foreach (new \FilesystemIterator($destination) as $entry) {
+            if (!isset($saved[$entry->getFilename()]) && !LocalMetadata::isIgnored($entry)) {
+                $this->removeWindowsEntry($entry->getPathname());
+            }
+        }
+        foreach (array_keys($saved) as $name) {
+            $from = $source.'/'.$name;
+            $to = $destination.'/'.$name;
+            clearstatcache(true, $to);
+            if (is_link($from)) {
+                if (is_link($to) && readlink($from) === readlink($to)) {
+                    continue;
+                }
+                $this->removeWindowsEntry($to);
+                if (!symlink((string) readlink($from), $to)) {
+                    throw new \RuntimeException('Restauration lien runtime impossible : '.$to);
+                }
+            } elseif (is_dir($from)) {
+                if (!is_dir($to) || is_link($to)) {
+                    $this->removeWindowsEntry($to);
+                    $this->copyTree($from, $to);
+                } else {
+                    $this->restoreWindowsCopy($from, $to);
+                }
+            } else {
+                if (is_file($to) && !is_link($to)
+                    && hash_file('sha256', $from) === hash_file('sha256', $to)
+                    && (fileperms($from) & 0777) === (fileperms($to) & 0777)) {
+                    continue;
+                }
+                $this->removeWindowsEntry($to);
+                if (!copy($from, $to) || !chmod($to, fileperms($from) & 0777)) {
+                    throw new \RuntimeException('Restauration fichier runtime impossible : '.$to);
+                }
+            }
+        }
+        if ((fileperms($source) & 0777) !== (fileperms($destination) & 0777)
+            && !chmod($destination, fileperms($source) & 0777)) {
+            throw new \RuntimeException('Restauration permissions runtime impossible : '.$destination);
+        }
+    }
+
+    private function removeWindowsEntry(string $path): void
+    {
+        if (is_link($path)) {
+            if (!@unlink($path) && !@rmdir($path)) {
+                throw new \RuntimeException('Suppression lien runtime impossible : '.$path);
+            }
+        } elseif (file_exists($path)) {
+            NativeTreeRemoval::remove($path);
         }
     }
 

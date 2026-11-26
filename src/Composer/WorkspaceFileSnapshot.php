@@ -148,6 +148,12 @@ final class WorkspaceFileSnapshot
             if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0775, true) && !is_dir(dirname($target))) {
                 throw new \RuntimeException('Répertoire impossible à restaurer : '.$key);
             }
+            // Avoid replacing an already restored or unchanged file, notably
+            // the currently executing PHP launcher on Windows.
+            clearstatcache(true, $target);
+            if ((is_link($target) || is_file($target)) && $this->fingerprint($target) === $this->fingerprints[$key]) {
+                continue;
+            }
             if (is_link($target) || is_file($target)) {
                 if (!unlink($target)) {
                     throw new \RuntimeException('Remplacement impossible : '.$key);
