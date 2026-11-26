@@ -23,3 +23,17 @@ Le thème Material for MkDocs affiche les chapitres repliables à gauche, les gu
 Les anciennes configurations MkDocs et dépendances Python standard, non modifiées, sont migrées à la reconstruction. Si vous personnalisez `dev-doc/mkdocs.yml` ou `requirements.txt`, Tooling conserve ces fichiers : vous prenez alors en charge le thème, la navigation et leurs dépendances. La configuration générée est reconnaissable à son marqueur `symsvel-layout` ; ne modifiez pas ce marqueur pour forcer une mise à jour.
 
 Les intitulés des rubriques sont en français : Prise en main, Développer son application, Modules, Mettre à jour son application, Déployer son application et Références. Les chemins techniques des guides restent stables, indépendamment de leur intitulé affiché.
+
+## Identité SymSvel et conseils de Zeko
+
+La documentation native propose deux palettes, claire et sombre, sélectionnables dans l'en-tête. Le logo, les couleurs, les blocs de code avec copie et les conseils de Zeko sont fournis par Tooling, sans dépendance externe supplémentaire. Les encarts pédagogiques utilisent la syntaxe Markdown de Material :
+
+~~~markdown
+!!! zeko "Astuce de Zeko"
+    Reconstruisez le site avec symsvel documentation:build-dev.
+~~~
+
+!!! zeko "Astuce de Zeko"
+    Après une mise à jour, reconstruisez la documentation avec `symsvel documentation:build-dev` si nécessaire. Les guides et le thème générés seront rafraîchis ensemble.
+
+Les avertissements techniques et de sécurité utilisent toujours les encarts natifs `warning` ou `danger`. Pour personnaliser le thème d'un projet, modifiez sa propre configuration MkDocs ; ne modifiez pas les assets réservés sous `docs/symsvel/assets/theme/`.
