@@ -65,7 +65,7 @@ final class ComponentInstaller
                     $progress($component);
                 }
                 $created[] = $target;
-                $process = new Process(['git', 'clone', '--depth', '1', '--branch', $channel === ProjectChannel::DEV ? 'dev' : 'main', '--', ($this->repositories ?? self::REPOSITORIES)[$component], $target]);
+                $process = new Process(['git', 'clone', '--no-hardlinks', '--depth', '1', '--branch', $channel === ProjectChannel::DEV ? 'dev' : 'main', '--', ($this->repositories ?? self::REPOSITORIES)[$component], $target]);
                 $process->setTimeout(300);
                 $process->run();
                 if (!$process->isSuccessful()) {

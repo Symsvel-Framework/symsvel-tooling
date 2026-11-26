@@ -52,7 +52,20 @@ final class NativeTreeRemoval
             }
             return;
         }
-        if (!is_file($path) || !@unlink($path)) {
+        if (!is_file($path)) {
+            throw new \RuntimeException('Fichier temporaire non ordinaire : '.$path);
+        }
+        if (@unlink($path)) {
+            return;
+        }
+        // Git marks loose objects read-only on Windows. Retry only on an
+        // ordinary file within the verified temporary tree, never a link.
+        clearstatcache(true, $path);
+        if (is_link($path) || is_writable($path) || !@chmod($path, 0666)) {
+            throw new \RuntimeException('Suppression du fichier impossible : '.$path);
+        }
+        if (!@unlink($path)) {
+            @chmod($path, 0444);
             throw new \RuntimeException('Suppression du fichier impossible : '.$path);
         }
     }
