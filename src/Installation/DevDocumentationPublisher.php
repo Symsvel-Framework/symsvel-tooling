@@ -189,13 +189,7 @@ final class DevDocumentationPublisher
             }
         }
 
-        // Older generated workspaces explicitly restrict the nav to one page.
-        // Upgrade only that exact bootstrap config, never a customized one.
-        $configuration = $root.'/mkdocs.yml';
-        $legacy = "site_name: SymSvel - Documentation développeur\nsite_url: ''\ndocs_dir: docs\nsite_dir: site\nuse_directory_urls: false\nplugins: []\nnav:\n  - Accueil: index.md\n";
-        if (is_file($configuration) && !is_link($configuration) && file_get_contents($configuration) === $legacy) {
-            file_put_contents($configuration, str_replace("nav:\n  - Accueil: index.md\n", '', $legacy), LOCK_EX);
-        }
+        (new DevDocumentationLayout())->synchronize($root, $sections, self::SECTIONS);
 
         $ignore = $root.'/.gitignore';
         if (is_file($ignore) && !is_link($ignore)) {

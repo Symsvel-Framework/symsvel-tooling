@@ -82,7 +82,13 @@ final class DevDocumentationPublisherTest extends TestCase
         self::assertStringNotContainsString('À compléter.', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
         self::assertStringContainsString('## Getting Started', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
         self::assertStringContainsString('symsvel/01-getting-started/setup.md', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
-        self::assertStringNotContainsString('nav:', (string) file_get_contents($this->workspace.'/dev-doc/mkdocs.yml'));
+        $configuration = (string) file_get_contents($this->workspace.'/dev-doc/mkdocs.yml');
+        self::assertStringContainsString('name: material', $configuration);
+        self::assertStringContainsString('title: Sommaire', $configuration);
+        self::assertStringContainsString('nav:', $configuration);
+        self::assertStringContainsString('"Getting Started":', $configuration);
+        self::assertStringContainsString('"Installer le Back": "symsvel/01-getting-started/setup.md"', $configuration);
+        self::assertStringContainsString('"Catalogue : guide": "symsvel/03-modules/catalogue/index.md"', $configuration);
         self::assertStringContainsString('/docs/symsvel/', (string) file_get_contents($this->workspace.'/dev-doc/.gitignore'));
         self::assertFileDoesNotExist($generated.'/03-modules/catalogue/secret.md');
         self::assertFileDoesNotExist($generated.'/03-modules/catalogue/ci.md');
@@ -127,6 +133,44 @@ final class DevDocumentationPublisherTest extends TestCase
         self::assertDirectoryDoesNotExist($generated.'/03-modules/catalogue');
         self::assertFileExists($generated.'/01-getting-started/setup.md');
         self::assertStringNotContainsString('03-modules/catalogue/index.md', (string) file_get_contents($generated.'/index.md'));
+        self::assertStringNotContainsString('03-modules/catalogue/index.md', (string) file_get_contents($this->workspace.'/dev-doc/mkdocs.yml'));
+    }
+
+    public function testMigratesLegacyLayoutAndMaintainsProjectPagesWithoutOverwritingCustomConfiguration(): void
+    {
+        $root = $this->workspace.'/dev-doc';
+        $legacy = "site_name: SymSvel - Documentation développeur\nsite_url: ''\ndocs_dir: docs\nsite_dir: site\nuse_directory_urls: false\nplugins: []\n";
+        file_put_contents($root.'/mkdocs.yml', $legacy."nav:\n  - Accueil: index.md\n");
+        file_put_contents($root.'/requirements.txt', "mkdocs>=1.6,<2\n");
+        mkdir($root.'/docs/project');
+        file_put_contents($root.'/docs/project/notes.md', '# Mes notes');
+        $publisher = new DevDocumentationPublisher();
+        $publisher->synchronize($this->workspace);
+        $config = file_get_contents($root.'/mkdocs.yml');
+        self::assertStringContainsString('name: material', $config);
+        self::assertStringContainsString('Documentation du projet:', $config);
+        self::assertStringContainsString('"project/notes.md"', $config);
+        self::assertStringContainsString('mkdocs-material', (string) file_get_contents($root.'/requirements.txt'));
+        $publisher->synchronize($this->workspace);
+        self::assertSame($config, file_get_contents($root.'/mkdocs.yml'));
+        unlink($root.'/docs/project/notes.md');
+        $publisher->synchronize($this->workspace);
+        self::assertStringNotContainsString('project/notes.md', (string) file_get_contents($root.'/mkdocs.yml'));
+        file_put_contents($root.'/mkdocs.yml', "\n# Custom config\n", FILE_APPEND);
+        $custom = file_get_contents($root.'/mkdocs.yml');
+        $publisher->synchronize($this->workspace);
+        self::assertSame($custom, file_get_contents($root.'/mkdocs.yml'));
+    }
+
+    public function testPreservesCustomPythonRequirementsAndTheirConfiguration(): void
+    {
+        $root = $this->workspace.'/dev-doc';
+        $config = file_get_contents($root.'/mkdocs.yml');
+        $requirements = "mkdocs>=1.6,<2\n# My own requirements\n";
+        file_put_contents($root.'/requirements.txt', $requirements);
+        (new DevDocumentationPublisher())->synchronize($this->workspace);
+        self::assertSame($config, file_get_contents($root.'/mkdocs.yml'));
+        self::assertSame($requirements, file_get_contents($root.'/requirements.txt'));
     }
 
     public function testNeverOverwritesCustomLandingPageOrReservedGeneratedDirectory(): void

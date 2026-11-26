@@ -25,6 +25,8 @@ final class WorkspaceInitializerTest extends TestCase
             self::assertFileDoesNotExist($root.'/dev-doc/site/index.html');
             self::assertDirectoryDoesNotExist($root.'/dev-doc/.venv');
             self::assertFileExists($root.'/dev-doc/mkdocs.yml');
+            self::assertStringContainsString('name: material', (string) file_get_contents($root.'/dev-doc/mkdocs.yml'));
+            self::assertStringContainsString('mkdocs-material', (string) file_get_contents($root.'/dev-doc/requirements.txt'));
             self::assertFileExists($root.'/secrets/.env.example');
             $tokenPath = $root.'/.symsvel/setup-token';
             self::assertFileExists($tokenPath);

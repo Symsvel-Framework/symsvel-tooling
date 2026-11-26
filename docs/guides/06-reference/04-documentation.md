@@ -15,3 +15,9 @@ symsvel documentation:sync
 ~~~
 
 Ces guides ne sont pas exportés dans le site statique développeur. Ne publiez jamais de secrets dans vos documents.
+
+## Navigation et lecture locale
+
+Le thème Material for MkDocs affiche les chapitres repliables à gauche, les guides au centre et le sommaire des titres de la page à droite (sur écran large). La navigation est générée depuis les guides disponibles et les modules installés ; les pages Markdown propres à votre projet sont accessibles dans « Documentation du projet ». La recherche et les liens fonctionnent également en ouvrant `dev-doc/site/index.html` directement, sans serveur web. Aucun chargement de police externe n'est nécessaire.
+
+Les anciennes configurations MkDocs et dépendances Python standard, non modifiées, sont migrées à la reconstruction. Si vous personnalisez `dev-doc/mkdocs.yml` ou `requirements.txt`, Tooling conserve ces fichiers : vous prenez alors en charge le thème, la navigation et leurs dépendances. La configuration générée est reconnaissable à son marqueur `symsvel-layout` ; ne modifiez pas ce marqueur pour forcer une mise à jour.
