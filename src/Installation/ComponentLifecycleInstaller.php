@@ -10,6 +10,7 @@ use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
 use SymSvel\Tooling\Update\ProjectChannel;
 use SymSvel\Tooling\Process\PhpCliExecutableResolver;
 use SymSvel\Tooling\Process\NativeCommand;
+use SymSvel\Tooling\Filesystem\NativeTreeRemoval;
 use Symfony\Component\Process\Process;
 
 /** Installs a new interface and its module files as a single operation. */
@@ -135,10 +136,10 @@ final class ComponentLifecycleInstaller
             }
             $errors = [];
             if (is_dir($target) && !is_link($target)) {
-                $remove = new Process(['rm', '-rf', '--', $target]);
-                $remove->run();
-                if (!$remove->isSuccessful()) {
-                    $errors[] = 'Suppression du composant : '.trim($remove->getErrorOutput());
+                try {
+                    NativeTreeRemoval::remove($target);
+                } catch (\Throwable $error) {
+                    $errors[] = 'Suppression du composant : '.$error->getMessage();
                 }
             }
             try {

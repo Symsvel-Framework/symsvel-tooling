@@ -179,7 +179,7 @@ final class RuntimeArtifactSnapshot
             if (LocalMetadata::isIgnored($entry)) {
                 continue;
             }
-            $path = substr($entry->getPathname(), strlen($directory) + 1);
+            $path = str_replace(DIRECTORY_SEPARATOR, '/', substr($entry->getPathname(), strlen($directory) + 1));
             if ($entry->isLink()) {
                 $entries[$path] = 'link:'.readlink($entry->getPathname());
             } elseif ($entry->isDir()) {

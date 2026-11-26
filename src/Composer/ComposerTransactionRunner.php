@@ -609,7 +609,7 @@ final class ComposerTransactionRunner
             static function (\SplFileInfo $entry) use ($backend): bool {
                 if ($entry->isDir() && !$entry->isLink()) {
                     return !in_array($entry->getFilename(), ['node_modules', '.git', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true)
-                    && !($entry->getFilename() === 'vendor' && $entry->getPath() === $backend)
+                    && !($entry->getFilename() === 'vendor' && str_replace(DIRECTORY_SEPARATOR, '/', $entry->getPath()) === str_replace(DIRECTORY_SEPARATOR, '/', $backend))
                         && !($entry->getFilename() === 'transactions' && basename(dirname($entry->getPathname())) === '.symsvel');
                 }
 
@@ -621,7 +621,7 @@ final class ComposerTransactionRunner
             if (LocalMetadata::isIgnored($file) || (!$file->isFile() && !$file->isLink())) {
                 continue;
             }
-            $relative = substr($file->getPathname(), strlen($backend) + 1);
+            $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($backend) + 1));
             if (preg_match('~^(?:vendor|node_modules|\\.git|\\.symsvel/transactions)/~', $relative)
                 || in_array($relative, ['composer.json', 'composer.lock', 'symfony.lock', '.symsvel/cleanup-pending.json'], true)) {
                 continue;
