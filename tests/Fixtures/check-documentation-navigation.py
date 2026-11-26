@@ -27,7 +27,14 @@ with sync_playwright() as playwright:
     link.click()
     expect(page.locator("h1")).to_contain_text("Installer le Back")
     expect(page.locator(".admonition.zeko")).to_be_visible()
-    expect(page.locator(".md-clipboard")).to_have_count(1)
+    # Material's internal CSS classes changed; verify the native copy control
+    # and the actual code element it targets instead.
+    copy_button = page.locator("button[data-clipboard-target]")
+    expect(copy_button).to_have_count(1)
+    expect(copy_button).to_be_enabled()
+    target = copy_button.get_attribute("data-clipboard-target")
+    assert target, "Missing clipboard target"
+    expect(page.locator(target)).to_have_text("symsvel doctor")
     expect(sidebar.get_by_role("link", name="Setup local", exact=True)).to_be_visible()
     toc = page.locator(".md-sidebar--secondary")
     expect(toc).to_be_visible()
