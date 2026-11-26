@@ -146,8 +146,13 @@ jobs:
         with:
           python-version: '3.12'
       - run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - name: Build real local MkDocs site on Windows
         run: php tests/Fixtures/build-documentation-site.php "$env:RUNNER_TEMP/symsvel docs"
+      - name: Verify native Composer and npm processes
+        run: php tests/Fixtures/check-windows-processes.php "$env:RUNNER_TEMP/symsvel docs"
       - name: Rebuild and verify dependency cache
         run: php tests/Fixtures/check-windows-documentation.php "$env:RUNNER_TEMP/symsvel docs"
       - name: Install Chromium

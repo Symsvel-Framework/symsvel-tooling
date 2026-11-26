@@ -214,7 +214,7 @@ final class SvelteModuleSynchronizer
             if (!$file->isFile()) {
                 continue;
             }
-            $relative = substr($file->getPathname(), strlen($source) + 1);
+            $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($source) + 1));
             if (!str_starts_with($relative, 'lib/') && !str_starts_with($relative, 'routes/')) {
                 throw new \RuntimeException('Fichier Svelte non pris en charge : '.$relative);
             }

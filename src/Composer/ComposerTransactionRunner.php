@@ -7,6 +7,7 @@ namespace SymSvel\Tooling\Composer;
 use SymSvel\Tooling\Filesystem\LocalMetadata;
 
 use SymSvel\Tooling\Process\PhpCliExecutableResolver;
+use SymSvel\Tooling\Process\NativeCommand;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\RuntimeArtifactSnapshot;
 use SymSvel\Tooling\Update\BackendNativeUpdatePlan;
@@ -639,7 +640,7 @@ final class ComposerTransactionRunner
             ($this->commandRunner)($command, $backend, $progress);
             return;
         }
-        $process = new Process($command, $backend);
+        $process = new Process(NativeCommand::resolve($command), $backend);
         $process->setTimeout(900);
         $process->run(static function (string $type, string $output) use ($progress): void {
             if ($progress !== null) {

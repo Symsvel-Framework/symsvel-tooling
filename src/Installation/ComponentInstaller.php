@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Installation;
 
+use SymSvel\Tooling\Process\NativeCommand;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\ComponentManifest;
 use SymSvel\Tooling\Update\ComponentNativeSource;
@@ -94,7 +95,7 @@ final class ComponentInstaller
                     $commands[] = ['npm', 'run', 'build'];
                 }
                 foreach ($commands as $command) {
-                    $step = new Process($command, $target);
+                    $step = new Process(NativeCommand::resolve($command), $target);
                     $step->setTimeout(600);
                     $step->run();
                     if (!$step->isSuccessful()) {

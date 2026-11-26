@@ -70,7 +70,7 @@ final class ComponentNativeSource
                 throw new \RuntimeException('Lien symbolique natif non pris en charge : '.$entry->getPathname());
             }
             if ($entry->isFile()) {
-                $path = substr($entry->getPathname(), strlen($directory) + 1);
+                $path = str_replace(DIRECTORY_SEPARATOR, '/', substr($entry->getPathname(), strlen($directory) + 1));
                 $result[$path] = hash_file('sha256', $entry->getPathname());
             }
         }

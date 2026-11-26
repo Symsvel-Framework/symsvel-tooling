@@ -9,6 +9,7 @@ use SymSvel\Tooling\Module\SvelteModuleSynchronizer;
 use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
 use SymSvel\Tooling\Update\ProjectChannel;
 use SymSvel\Tooling\Process\PhpCliExecutableResolver;
+use SymSvel\Tooling\Process\NativeCommand;
 use Symfony\Component\Process\Process;
 
 /** Installs a new interface and its module files as a single operation. */
@@ -98,7 +99,7 @@ final class ComponentLifecycleInstaller
             // During initial setup, defer all interface builds until the wizard
             // has finished provisioning the database and first administrator.
             if (getenv('SYMSVEL_DEFER_BUILDS') !== '1') {
-                $build = new Process(['npm', 'run', 'build'], $target);
+                $build = new Process(NativeCommand::resolve(['npm', 'run', 'build']), $target);
                 $build->setTimeout(600);
                 $build->run();
                 if (!$build->isSuccessful()) {
