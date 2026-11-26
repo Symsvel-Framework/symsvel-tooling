@@ -10,7 +10,7 @@ final class DevDocumentationLayout
     private const LEGACY_CONFIG = "site_name: SymSvel - Documentation développeur\nsite_url: ''\ndocs_dir: docs\nsite_dir: site\nuse_directory_urls: false\nplugins: []\n";
     private const LEGACY_REQUIREMENTS = "mkdocs>=1.6,<2\n";
     public const REQUIREMENTS = "mkdocs>=1.6,<2\nmkdocs-material>=9.6,<10\n";
-    public const CONFIG = <<<'YAML'
+    private const LEGACY_MATERIAL_CONFIG = <<<'YAML'
 site_name: SymSvel - Documentation développeur
 site_url: ''
 docs_dir: docs
@@ -27,6 +27,49 @@ plugins:
   - search
   - offline
 markdown_extensions:
+  - toc:
+      title: Sommaire
+      permalink: true
+YAML;
+    public const CONFIG = <<<'YAML'
+site_name: SymSvel - Documentation développeur
+site_url: ''
+docs_dir: docs
+site_dir: site
+use_directory_urls: false
+theme:
+  name: material
+  language: fr
+  font: false
+  logo: symsvel/assets/theme/mark.png
+  favicon: symsvel/assets/theme/mark.png
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Passer au mode sombre
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Passer au mode clair
+  features:
+    - toc.follow
+    - navigation.top
+    - content.code.copy
+plugins:
+  - search
+  - offline
+extra_css:
+  - symsvel/assets/theme/symsvel.css
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences
   - toc:
       title: Sommaire
       permalink: true
@@ -48,6 +91,7 @@ YAML;
         $owned = in_array($previous, [
             self::LEGACY_CONFIG,
             self::LEGACY_CONFIG."nav:\n  - Accueil: index.md\n",
+            self::LEGACY_MATERIAL_CONFIG."\n",
             self::CONFIG."\n",
         ], true);
         if (preg_match('/^# symsvel-layout: ([a-f0-9]{64})\n/', $previous, $match)) {

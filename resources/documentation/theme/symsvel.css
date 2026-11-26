@@ -1,0 +1,127 @@
+/* SymSvel developer documentation: native Material tokens, no remote assets. */
+:root {
+  --symsvel-bg: #21192b;
+  --symsvel-dark-panel: #282033;
+  --symsvel-dark-line: #42364e;
+  --symsvel-lime: #c6ee20;
+  --symsvel-violet: #c275ff;
+  --md-text-font: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --md-code-font: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+[data-md-color-scheme] {
+  --md-primary-fg-color: #21192b;
+  --md-primary-fg-color--light: #282033;
+  --md-primary-fg-color--dark: #18121f;
+  --md-primary-bg-color: #f6f3fa;
+  --md-primary-bg-color--light: #c2b8cc;
+  --md-footer-bg-color: #21192b;
+  --md-footer-bg-color--dark: #18121f;
+}
+
+[data-md-color-scheme="default"] {
+  --md-default-bg-color: #fdfcfe;
+  --md-default-fg-color: #21192b;
+  --md-default-fg-color--light: #51465e;
+  --md-default-fg-color--lighter: #6b6076;
+  --md-default-fg-color--lightest: #e0d9e7;
+  --md-typeset-color: #21192b;
+  --md-typeset-a-color: #663192;
+  --md-accent-fg-color: #663192;
+  --md-accent-fg-color--transparent: #6631921a;
+  --md-code-bg-color: #f2eef6;
+  --md-code-fg-color: #21192b;
+  --symsvel-panel: #f5f1f8;
+  --symsvel-border: #ded5e6;
+  --symsvel-active: #663192;
+  --symsvel-active-bg: #eee5f5;
+  --symsvel-focus: #663192;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #21192b;
+  --md-default-fg-color: #f6f3fa;
+  --md-default-fg-color--light: #d4c9df;
+  --md-default-fg-color--lighter: #c2b8cc;
+  --md-default-fg-color--lightest: #42364e;
+  --md-typeset-color: #f6f3fa;
+  --md-typeset-a-color: #c6ee20;
+  --md-accent-fg-color: #c6ee20;
+  --md-accent-fg-color--transparent: #c6ee201a;
+  --md-code-bg-color: #282033;
+  --md-code-fg-color: #f6f3fa;
+  --symsvel-panel: #282033;
+  --symsvel-border: #42364e;
+  --symsvel-active: #c6ee20;
+  --symsvel-active-bg: #322b3c;
+  --symsvel-focus: #c6ee20;
+}
+
+.md-header { background-color: #21192b; border-bottom: 1px solid #42364e; box-shadow: none; }
+.md-header__title { font-weight: 700; }
+.md-header__button.md-logo img { object-fit: contain; }
+.md-header :focus-visible { outline: 2px solid #c6ee20; outline-offset: 3px; }
+.md-main :focus-visible { outline: 2px solid var(--symsvel-focus); outline-offset: 3px; }
+.md-typeset { line-height: 1.7; }
+.md-typeset h1 { color: var(--md-typeset-color); font-weight: 750; letter-spacing: -.035em; }
+.md-typeset h2 { font-weight: 700; letter-spacing: -.02em; }
+.md-typeset h3 { font-weight: 650; }
+.md-typeset a:not(.md-button):hover { text-decoration: underline; }
+.md-nav__link { line-height: 1.45; }
+.md-nav__link--active,
+.md-nav__item .md-nav__link--active { color: var(--symsvel-active); font-weight: 700; }
+.md-nav__link:hover { color: var(--symsvel-active); }
+.md-sidebar--primary .md-nav__link--active {
+  border-inline-start: 2px solid var(--symsvel-active);
+  padding-inline-start: .35rem;
+  background: var(--symsvel-active-bg);
+  border-radius: 0 .15rem .15rem 0;
+}
+.md-sidebar--secondary .md-nav__title { color: var(--md-default-fg-color); }
+.md-typeset pre > code { border: 1px solid var(--symsvel-border); border-radius: .35rem; }
+.md-typeset code { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace; }
+.md-typeset table:not([class]) { border-color: var(--symsvel-border); border-radius: .35rem; }
+.md-typeset table:not([class]) th { background: var(--symsvel-panel); color: var(--md-typeset-color); }
+.md-typeset .admonition, .md-typeset details { border-radius: .35rem; box-shadow: none; }
+
+/* Zeko is an editorial companion, never a replacement for warning icons. */
+.md-typeset .symsvel-welcome {
+  position: relative;
+  min-height: 3rem;
+  padding: .65rem .85rem .65rem 3.65rem;
+  margin: 1.2rem 0;
+  border: 1px solid var(--symsvel-border);
+  border-inline-start: .2rem solid var(--symsvel-active);
+  border-radius: .4rem;
+  background-color: var(--symsvel-panel);
+  color: var(--md-typeset-color);
+}
+.md-typeset .symsvel-welcome::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: .55rem;
+  top: .45rem;
+  width: 2.5rem;
+  height: 2.1rem;
+  border-radius: .35rem;
+  background: #fff url("zeko.webp") center / contain no-repeat;
+}
+.md-typeset .admonition.zeko, .md-typeset details.zeko { border-color: var(--symsvel-active); }
+.md-typeset .zeko > .admonition-title, .md-typeset .zeko > summary {
+  background-color: var(--symsvel-panel);
+  color: var(--md-typeset-color);
+  padding-inline-start: 2.6rem;
+  min-height: 2.2rem;
+}
+.md-typeset .zeko > .admonition-title::before, .md-typeset .zeko > summary::before {
+  background: #fff url("zeko.webp") center / contain no-repeat;
+  border-radius: .25rem;
+  width: 1.65rem;
+  height: 1.4rem;
+  top: .3rem;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+@media screen and (max-width: 44.984375em) {
+  .md-typeset .symsvel-welcome { padding-inline-end: .6rem; }
+}

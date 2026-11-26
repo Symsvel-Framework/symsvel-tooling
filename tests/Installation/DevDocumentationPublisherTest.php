@@ -84,6 +84,14 @@ final class DevDocumentationPublisherTest extends TestCase
         self::assertStringContainsString('symsvel/01-getting-started/setup.md', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
         $configuration = (string) file_get_contents($this->workspace.'/dev-doc/mkdocs.yml');
         self::assertStringContainsString('name: material', $configuration);
+        self::assertStringContainsString('scheme: default', $configuration);
+        self::assertStringContainsString('scheme: slate', $configuration);
+        self::assertStringContainsString('content.code.copy', $configuration);
+        self::assertStringContainsString('symsvel/assets/theme/symsvel.css', $configuration);
+        self::assertStringContainsString('symsvel-welcome', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
+        foreach (['mark.png', 'zeko.webp', 'symsvel.css'] as $file) {
+            self::assertFileEquals(dirname(__DIR__, 2).'/resources/documentation/theme/'.$file, $generated.'/assets/theme/'.$file);
+        }
         self::assertStringContainsString('title: Sommaire', $configuration);
         self::assertStringContainsString('nav:', $configuration);
         self::assertStringContainsString('"Prise en main":', $configuration);
@@ -160,6 +168,40 @@ final class DevDocumentationPublisherTest extends TestCase
         $custom = file_get_contents($root.'/mkdocs.yml');
         $publisher->synchronize($this->workspace);
         self::assertSame($custom, file_get_contents($root.'/mkdocs.yml'));
+    }
+
+    public function testMigratesPreviousUnmarkedMaterialConfiguration(): void
+    {
+        $root = $this->workspace.'/dev-doc';
+        $previous = <<<'YAML'
+site_name: SymSvel - Documentation développeur
+site_url: ''
+docs_dir: docs
+site_dir: site
+use_directory_urls: false
+theme:
+  name: material
+  language: fr
+  font: false
+  features:
+    - toc.follow
+    - navigation.top
+plugins:
+  - search
+  - offline
+markdown_extensions:
+  - toc:
+      title: Sommaire
+      permalink: true
+YAML;
+        file_put_contents($root.'/mkdocs.yml', $previous."\n");
+        file_put_contents($root.'/requirements.txt', "mkdocs>=1.6,<2\nmkdocs-material>=9.6,<10\n");
+        $publisher = new DevDocumentationPublisher();
+        $publisher->synchronize($this->workspace);
+        $config = file_get_contents($root.'/mkdocs.yml');
+        self::assertStringContainsString('symsvel/assets/theme/symsvel.css', $config);
+        $publisher->synchronize($this->workspace);
+        self::assertSame($config, file_get_contents($root.'/mkdocs.yml'));
     }
 
     public function testPreservesCustomPythonRequirementsAndTheirConfiguration(): void

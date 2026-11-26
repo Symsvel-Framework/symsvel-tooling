@@ -107,6 +107,7 @@ final class DevDocumentationPublisher
                     throw new \RuntimeException('Impossible de publier '.$relative);
                 }
             }
+            $this->copyThemeAssets($stage);
             foreach (self::SECTIONS as $section => $title) {
                 if ($sections[$section] === []) {
                     continue;
@@ -171,7 +172,8 @@ final class DevDocumentationPublisher
             if ($owned) {
                 $landing = "# Documentation développeur SymSvel\n\n".
                     "Du premier projet au déploiement : guides pratiques et références pour les composants installés.\n\n".
-                    "**[Parcourir les guides et références SymSvel](symsvel/index.md)**\n\n";
+                    "**[Parcourir les guides et références SymSvel](symsvel/index.md)**\n\n".
+                    '<aside class="symsvel-welcome" aria-label="Conseil de Zeko"><strong>Un conseil de Zeko :</strong> commencez par la prise en main, puis explorez les modules installés à votre rythme.</aside>'."\n\n";
                 foreach (self::SECTIONS as $section => $title) {
                     if ($sections[$section] === []) {
                         continue;
@@ -200,6 +202,22 @@ final class DevDocumentationPublisher
         }
 
         return ['pages' => count($pages), 'path' => $generated];
+    }
+
+    /** The bundled theme is copied only into the reserved, staged guide tree. */
+    private function copyThemeAssets(string $stage): void
+    {
+        $source = dirname(__DIR__, 2).'/resources/documentation/theme';
+        $destination = $stage.'/assets/theme';
+        if (!mkdir($destination, 0775, true)) {
+            throw new \RuntimeException('Impossible de préparer les assets du thème documentaire.');
+        }
+        foreach (['mark.png', 'zeko.webp', 'symsvel.css'] as $file) {
+            $path = $source.'/'.$file;
+            if (!is_file($path) || is_link($path) || !copy($path, $destination.'/'.$file)) {
+                throw new \RuntimeException('Asset du thème documentaire introuvable ou invalide : '.$file);
+            }
+        }
     }
 
     private function removeGeneratedTree(string $directory): void
