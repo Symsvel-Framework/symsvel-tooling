@@ -73,20 +73,20 @@ final class DevDocumentationPublisherTest extends TestCase
         self::assertFileEquals($this->workspace.'/backend/docs/guides/01-getting-started/images/setup.png', $generated.'/01-getting-started/images/setup.png');
         self::assertFileDoesNotExist($generated.'/images/maintainer.png');
         self::assertFileDoesNotExist($generated.'/images/private.png');
-        self::assertStringContainsString('Getting Started', (string) file_get_contents($generated.'/index.md'));
+        self::assertStringContainsString('Prise en main', (string) file_get_contents($generated.'/index.md'));
         self::assertFileExists($generated.'/02-development/tooling.md');
         self::assertFileExists($generated.'/06-reference/bo.md');
         self::assertFileExists($generated.'/03-modules/catalogue/index.md');
         self::assertStringContainsString('Installer le Back', (string) file_get_contents($generated.'/index.md'));
         self::assertStringContainsString('Parcourir les guides', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
         self::assertStringNotContainsString('À compléter.', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
-        self::assertStringContainsString('## Getting Started', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
+        self::assertStringContainsString('## Prise en main', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
         self::assertStringContainsString('symsvel/01-getting-started/setup.md', (string) file_get_contents($this->workspace.'/dev-doc/docs/index.md'));
         $configuration = (string) file_get_contents($this->workspace.'/dev-doc/mkdocs.yml');
         self::assertStringContainsString('name: material', $configuration);
         self::assertStringContainsString('title: Sommaire', $configuration);
         self::assertStringContainsString('nav:', $configuration);
-        self::assertStringContainsString('"Getting Started":', $configuration);
+        self::assertStringContainsString('"Prise en main":', $configuration);
         self::assertStringContainsString('"Installer le Back": "symsvel/01-getting-started/setup.md"', $configuration);
         self::assertStringContainsString('"Catalogue : guide": "symsvel/03-modules/catalogue/index.md"', $configuration);
         self::assertStringContainsString('/docs/symsvel/', (string) file_get_contents($this->workspace.'/dev-doc/.gitignore'));
@@ -113,7 +113,7 @@ final class DevDocumentationPublisherTest extends TestCase
             "Documentation locale de développement, issue des sources du framework et des modules installés.\n\n".
             "**[Parcourir les guides et références SymSvel](symsvel/index.md)**\n");
         (new DevDocumentationPublisher())->synchronize($this->workspace);
-        self::assertStringContainsString('## Getting Started', (string) file_get_contents($home));
+        self::assertStringContainsString('## Prise en main', (string) file_get_contents($home));
     }
 
     public function testRemovingModulePrunesItsDeveloperPagesButKeepsFrameworkDocs(): void

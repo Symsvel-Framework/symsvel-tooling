@@ -14,12 +14,12 @@ final class DevDocumentationPublisher
 {
     private const GENERATED_MARKER = '.generated-by-symsvel';
     private const SECTIONS = [
-        '01-getting-started' => 'Getting Started',
-        '02-development' => 'Developing your application',
+        '01-getting-started' => 'Prise en main',
+        '02-development' => 'Développer son application',
         '03-modules' => 'Modules',
-        '04-updating' => 'Updating your application',
-        '05-deployment' => 'Deploying your application',
-        '06-reference' => 'Reference',
+        '04-updating' => 'Mettre à jour son application',
+        '05-deployment' => 'Déployer son application',
+        '06-reference' => 'Références',
     ];
     private const INITIAL_PLACEHOLDER = "# Documentation développeur SymSvel\n\nÀ compléter.\n";
 

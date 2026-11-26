@@ -9,7 +9,7 @@ with sync_playwright() as playwright:
     page.goto((Path(sys.argv[1]) / "dev-doc/site/index.html").resolve().as_uri())
     sidebar = page.locator(".md-sidebar--primary")
     expect(sidebar).to_be_visible()
-    chapter = sidebar.locator(".md-nav__item--nested").filter(has_text="Getting Started")
+    chapter = sidebar.locator(".md-nav__item--nested").filter(has_text="Prise en main")
     link = chapter.get_by_role("link", name="Installer le Back", exact=True)
     toggle = chapter.locator("input.md-nav__toggle").first
     expect(toggle).not_to_be_checked()
