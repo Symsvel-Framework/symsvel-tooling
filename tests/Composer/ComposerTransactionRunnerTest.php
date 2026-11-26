@@ -459,6 +459,43 @@ final class ComposerTransactionRunnerTest extends TestCase
         self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
     }
 
+    public function testFinderMetadataDoesNotPreventComposerRollbackVerification(): void
+    {
+        file_put_contents($this->backend.'/.DS_Store', 'initial workspace metadata');
+        file_put_contents($this->backend.'/vendor/.DS_Store', 'initial vendor metadata');
+        file_put_contents($this->backend.'/source.php', 'original source');
+        $runner = new ComposerTransactionRunner(commandRunner: static function (array $command, string $backend): void {
+            self::assertSame(['composer', 'update'], $command);
+            $checkpoint = glob($backend.'/.symsvel/transactions/*')[0];
+            self::assertFileDoesNotExist($checkpoint.'/workspace/backend/.DS_Store');
+            self::assertFileDoesNotExist($checkpoint.'/backend/runtime/vendor/.DS_Store');
+            file_put_contents($backend.'/.DS_Store', 'updated workspace metadata');
+            file_put_contents($checkpoint.'/backend/runtime/vendor/.DS_Store', 'metadata in snapshot');
+            file_put_contents($backend.'/source.php', 'modified source');
+            mkdir($backend.'/new-directory');
+            file_put_contents($backend.'/new-directory/.DS_Store', 'new directory metadata');
+            throw new \RuntimeException('simulated Composer failure');
+        });
+        try {
+            try {
+                $runner->run($this->backend, ['update']);
+                self::fail('Expected simulated failure.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('dépendances restaurées', $error->getMessage());
+            }
+            self::assertSame('original source', file_get_contents($this->backend.'/source.php'));
+            self::assertSame('updated workspace metadata', file_get_contents($this->backend.'/.DS_Store'));
+            self::assertDirectoryDoesNotExist($this->backend.'/new-directory');
+            self::assertSame([], glob($this->backend.'/.symsvel/transactions/*'));
+        } finally {
+            @unlink($this->backend.'/.DS_Store');
+            @unlink($this->backend.'/source.php');
+            if (is_dir($this->backend.'/new-directory')) {
+                $this->deleteDirectory($this->backend.'/new-directory');
+            }
+        }
+    }
+
     public function testSuccessfulOperationRemovesSnapshot(): void
     {
         $runner = new ComposerTransactionRunner(commandRunner: static function (array $command): void {

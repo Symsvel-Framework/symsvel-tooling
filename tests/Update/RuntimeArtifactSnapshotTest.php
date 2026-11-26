@@ -381,6 +381,82 @@ final class RuntimeArtifactSnapshotTest extends TestCase
         }
     }
 
+    public function testVendorIgnoresOnlyRegularFinderMetadataAndStillRestoresDependencyFiles(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-vendor-finder-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $vendor = $backend.'/vendor';
+        $checkpoint = $root.'/transaction/backend';
+        mkdir($vendor.'/pkg/.DS_Store', 0775, true);
+        mkdir($vendor.'/nested');
+        file_put_contents($vendor.'/.DS_Store', 'Finder metadata');
+        file_put_contents($vendor.'/nested/.DS_Store', 'nested metadata');
+        file_put_contents($vendor.'/pkg/.DS_Store/keep.php', 'real directory content');
+        file_put_contents($vendor.'/dependency.php', 'original');
+        symlink('../dependency.php', $vendor.'/pkg/link.php');
+        symlink('../dependency.php', $vendor.'/pkg/.DS_Store-link');
+        symlink('../dependency.php', $vendor.'/nested/link.php');
+        mkdir($vendor.'/linked');
+        symlink('../dependency.php', $vendor.'/linked/.DS_Store');
+        $snapshot = new RuntimeArtifactSnapshot($backend, $checkpoint, ['vendor']);
+
+        try {
+            $snapshot->capture();
+            self::assertFileDoesNotExist($checkpoint.'/runtime/vendor/.DS_Store');
+            self::assertFileDoesNotExist($checkpoint.'/runtime/vendor/nested/.DS_Store');
+            self::assertSame('real directory content', file_get_contents($checkpoint.'/runtime/vendor/pkg/.DS_Store/keep.php'));
+            self::assertTrue(is_link($checkpoint.'/runtime/vendor/linked/.DS_Store'));
+
+            file_put_contents($vendor.'/dependency.php', 'modified');
+            file_put_contents($vendor.'/.DS_Store', 'changed Finder metadata');
+            file_put_contents($checkpoint.'/runtime/vendor/.DS_Store', 'metadata added after capture');
+            $snapshot->restore();
+
+            self::assertSame('original', file_get_contents($vendor.'/dependency.php'));
+            self::assertFileDoesNotExist($vendor.'/.DS_Store');
+            self::assertSame('real directory content', file_get_contents($vendor.'/pkg/.DS_Store/keep.php'));
+            self::assertSame('../dependency.php', readlink($vendor.'/linked/.DS_Store'));
+
+            unlink($checkpoint.'/runtime/vendor/linked/.DS_Store');
+            file_put_contents($checkpoint.'/runtime/vendor/linked/.DS_Store', 'regular file replacing protected link');
+            file_put_contents($vendor.'/dependency.php', 'keep current');
+            try {
+                $snapshot->restore();
+                self::fail('A replaced symbolic link must invalidate the checkpoint.');
+            } catch (\RuntimeException $error) {
+                self::assertStringContainsString('sauvegarde altérée pour vendor', $error->getMessage());
+                self::assertSame('keep current', file_get_contents($vendor.'/dependency.php'));
+            }
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
+    public function testMovedRuntimeIgnoresFinderMetadataDuringVerification(): void
+    {
+        $root = sys_get_temp_dir().'/symsvel-runtime-finder-'.bin2hex(random_bytes(8));
+        $component = $root.'/app';
+        $transaction = $root.'/transaction';
+        mkdir($component.'/node_modules', 0775, true);
+        mkdir($transaction, 0700, true);
+        file_put_contents($component.'/node_modules/dependency.js', 'original');
+        file_put_contents($component.'/node_modules/.DS_Store', 'initial metadata');
+        $snapshot = new RuntimeArtifactSnapshot($component, $transaction, moveOnCapture: true, keepWorkingCopy: true);
+        try {
+            $snapshot->capture();
+            self::assertFileDoesNotExist($component.'/node_modules/.DS_Store');
+            file_put_contents($transaction.'/runtime/node_modules/.DS_Store', 'changed metadata');
+            file_put_contents($component.'/node_modules/dependency.js', 'modified');
+            $snapshot->restore();
+            self::assertSame('original', file_get_contents($component.'/node_modules/dependency.js'));
+            self::assertFalse($snapshot->hasPendingMoves());
+        } finally {
+            $snapshot->discard();
+            $this->deleteTree($root);
+        }
+    }
+
     private function deleteTree(string $path): void
     {
         if (!is_dir($path) || is_link($path)) {
