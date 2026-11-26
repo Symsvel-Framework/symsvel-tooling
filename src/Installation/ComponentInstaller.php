@@ -14,9 +14,9 @@ use SymSvel\Tooling\Update\ProjectChannel;
 final class ComponentInstaller
 {
     private const REPOSITORIES = [
-        'bo' => 'git@github.com:Symsvel-Framework/symsvel-bo.git',
-        'app' => 'git@github.com:Symsvel-Framework/symsvel-app.git',
-        'front' => 'git@github.com:Symsvel-Framework/symsvel-front.git',
+        'bo' => 'https://github.com/Symsvel-Framework/symsvel-bo.git',
+        'app' => 'https://github.com/Symsvel-Framework/symsvel-app.git',
+        'front' => 'https://github.com/Symsvel-Framework/symsvel-front.git',
     ];
 
     /** @param array<string, string>|null $repositories */

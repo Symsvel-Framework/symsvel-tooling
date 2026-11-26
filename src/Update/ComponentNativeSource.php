@@ -18,9 +18,9 @@ final class ComponentNativeSource
 
     private const REPOSITORIES = [
         'back' => 'https://github.com/Symsvel-Framework/symsvel-back.git',
-        'bo' => 'git@github.com:Symsvel-Framework/symsvel-bo.git',
-        'app' => 'git@github.com:Symsvel-Framework/symsvel-app.git',
-        'front' => 'git@github.com:Symsvel-Framework/symsvel-front.git',
+        'bo' => 'https://github.com/Symsvel-Framework/symsvel-bo.git',
+        'app' => 'https://github.com/Symsvel-Framework/symsvel-app.git',
+        'front' => 'https://github.com/Symsvel-Framework/symsvel-front.git',
     ];
 
     public function fetch(string $component, string $directory, string $channel = ProjectChannel::DEV): string
