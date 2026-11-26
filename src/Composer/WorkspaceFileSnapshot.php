@@ -255,7 +255,7 @@ final class WorkspaceFileSnapshot
         $filtered = new \RecursiveCallbackFilterIterator($directory, static function (\SplFileInfo $entry) use ($root): bool {
             if ($entry->isDir() && !$entry->isLink()) {
                 return !in_array($entry->getFilename(), ['node_modules', '.git', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true)
-                    && !($entry->getFilename() === 'vendor' && $entry->getPath() === $root)
+                    && !($entry->getFilename() === 'vendor' && str_replace(DIRECTORY_SEPARATOR, '/', $entry->getPath()) === str_replace(DIRECTORY_SEPARATOR, '/', $root))
                     && !($entry->getFilename() === 'transactions' && basename(dirname($entry->getPathname())) === '.symsvel');
             }
             return true;
@@ -263,7 +263,7 @@ final class WorkspaceFileSnapshot
         $directories = [];
         foreach (new \RecursiveIteratorIterator($filtered, \RecursiveIteratorIterator::SELF_FIRST) as $entry) {
             if ($entry->isDir() && !$entry->isLink()) {
-                $directories[substr($entry->getPathname(), strlen($root) + 1)] = $entry->getPathname();
+                $directories[str_replace(DIRECTORY_SEPARATOR, '/', substr($entry->getPathname(), strlen($root) + 1))] = $entry->getPathname();
             }
         }
         return $directories;
@@ -276,7 +276,7 @@ final class WorkspaceFileSnapshot
         $filtered = new \RecursiveCallbackFilterIterator($directory, static function (\SplFileInfo $entry) use ($root): bool {
             if ($entry->isDir() && !$entry->isLink()) {
                 return !in_array($entry->getFilename(), ['node_modules', '.git', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true)
-                    && !($entry->getFilename() === 'vendor' && $entry->getPath() === $root)
+                    && !($entry->getFilename() === 'vendor' && str_replace(DIRECTORY_SEPARATOR, '/', $entry->getPath()) === str_replace(DIRECTORY_SEPARATOR, '/', $root))
                     && !($entry->getFilename() === 'transactions' && basename(dirname($entry->getPathname())) === '.symsvel');
             }
 
@@ -287,7 +287,7 @@ final class WorkspaceFileSnapshot
             if (LocalMetadata::isIgnored($entry) || (!$entry->isFile() && !$entry->isLink())) {
                 continue;
             }
-            $relative = substr($entry->getPathname(), strlen($root) + 1);
+            $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($entry->getPathname(), strlen($root) + 1));
             if ($root === $this->backend && in_array($relative, ['composer.json', 'composer.lock', 'symfony.lock', '.symsvel/cleanup-pending.json'], true)) {
                 continue;
             }

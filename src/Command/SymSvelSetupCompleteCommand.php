@@ -11,6 +11,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use SymSvel\Tooling\Process\PhpCliExecutableResolver;
+use SymSvel\Tooling\Process\NativeCommand;
 use Symfony\Component\Process\Process;
 
 /** Complete the two-phase wizard only after the administrator and static builds are ready. */
@@ -66,13 +67,13 @@ final class SymSvelSetupCompleteCommand extends Command
                     throw new \RuntimeException('Invalid interface component: '.$component);
                 }
                 $npm = getenv('SYMSVEL_SETUP_NPM');
-                $executable = is_string($npm) && $npm !== '' && is_file($npm) && is_executable($npm) ? $npm : 'npm';
+                $executable = is_string($npm) && $npm !== '' && is_file($npm) && (PHP_OS_FAMILY === 'Windows' || is_executable($npm)) ? $npm : 'npm';
                 // npm may use /usr/bin/env node; preserve its sibling node directory.
                 $environment = $executable !== 'npm'
                     ? ['PATH' => dirname($executable).PATH_SEPARATOR.(string) getenv('PATH')]
                     : null;
                 $trace('build component='.$component.' npm_env='.var_export($npm, true).' executable='.$executable.' executable_exists='.(is_file($executable) ? 'yes' : 'no').' build_PATH='.var_export($environment['PATH'] ?? getenv('PATH'), true));
-                $build = new Process([$executable, 'run', 'build'], $directory, $environment);
+                $build = new Process(NativeCommand::resolve([$executable, 'run', 'build']), $directory, $environment);
                 $build->setTimeout(600);
                 $build->run();
                 $trace('build component='.$component.' exit='.var_export($build->getExitCode(), true));

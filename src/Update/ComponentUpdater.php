@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Update;
 
+use SymSvel\Tooling\Process\NativeCommand;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
 use SymSvel\Tooling\Module\SvelteModuleSynchronizer;
@@ -163,7 +164,7 @@ final class ComponentUpdater
         if ($progress !== null) {
             $progress('['.basename($cwd).'] '.implode(' ', $command).PHP_EOL);
         }
-        $process = new Process($command, $cwd);
+        $process = new Process(NativeCommand::resolve($command), $cwd);
         $process->setTimeout(600);
         $process->mustRun($progress === null ? null : static function (string $type, string $buffer) use ($progress): void {
             $progress($buffer);

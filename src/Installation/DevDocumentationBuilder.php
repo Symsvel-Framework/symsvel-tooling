@@ -39,11 +39,13 @@ final class DevDocumentationBuilder
         // Populate MkDocs from the actual developer docs, never admin/user guides.
         $this->publisher->synchronize($workspace);
 
-        $python = $venv.'/bin/python';
+        $windows = PHP_OS_FAMILY === 'Windows';
+        $python = $venv.($windows ? '/Scripts/python.exe' : '/bin/python');
+        $mkdocs = $venv.($windows ? '/Scripts/mkdocs.exe' : '/bin/mkdocs');
         if (!is_file($python) || !is_executable($python)) {
             $interpreter = getenv('SYMSVEL_SETUP_PYTHON');
             $interpreter = is_string($interpreter) && $interpreter !== ''
-                && is_file($interpreter) && is_executable($interpreter) ? $interpreter : 'python3';
+                && is_file($interpreter) && is_executable($interpreter) ? $interpreter : ($windows ? 'python' : 'python3');
             $this->run([$interpreter, '-m', 'venv', $venv], $docs, 180);
         }
         if (is_link($python) && !str_starts_with(realpath($python) ?: '', $venv.'/')) {
@@ -67,7 +69,7 @@ final class DevDocumentationBuilder
         if ($requirementsHash === false) {
             throw new \RuntimeException('Impossible de vérifier requirements.txt.');
         }
-        if (!is_file($venv.'/bin/mkdocs') || !is_file($requirementsStamp)
+        if (!is_file($mkdocs) || !is_file($requirementsStamp)
             || trim((string) file_get_contents($requirementsStamp)) !== $requirementsHash) {
             $this->run([$python, '-m', 'pip', 'install', '--disable-pip-version-check',
                 '--no-input', '-r', $requirements], $docs, 600);

@@ -41,7 +41,11 @@ final class WorkspaceCleanupRegistry
                 foreach ($entry['paths'] as $path) {
                     try {
                         $this->validatePath($path);
-                        $this->remove($path);
+                        if (PHP_OS_FAMILY === 'Windows') {
+                            \SymSvel\Tooling\Filesystem\NativeTreeRemoval::remove($path);
+                        } else {
+                            $this->remove($path);
+                        }
                         ++$removed;
                     } catch (\Throwable $failure) {
                         $left[] = $path;
@@ -111,6 +115,8 @@ final class WorkspaceCleanupRegistry
             throw new \RuntimeException('Backend introuvable.');
         }
         $base = $backend.'/.symsvel/transactions';
+        $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
+        $base = str_replace(DIRECTORY_SEPARATOR, '/', $base);
         if (!str_starts_with($path, $base.'/') || str_contains($path, '/../') || str_contains($path, '/./')) {
             throw new \RuntimeException('Chemin de nettoyage hors registre : '.$path);
         }
@@ -123,7 +129,7 @@ final class WorkspaceCleanupRegistry
         }
         // The transaction root must be a real directory, not a missing or
         // redirected path. Never recurse into an unverified cleanup root.
-        if (!is_dir($base) || realpath($base) !== $base) {
+        if (!is_dir($base) || str_replace(DIRECTORY_SEPARATOR, '/', realpath($base) ?: '') !== $base) {
             throw new \RuntimeException('Répertoire de transactions invalide : '.$base);
         }
     }

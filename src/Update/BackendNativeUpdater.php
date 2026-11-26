@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Update;
 
+use SymSvel\Tooling\Filesystem\NativeTreeRemoval;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Composer\ComposerTransactionRunner;
 
@@ -103,7 +104,7 @@ final class BackendNativeUpdater
             // with the project's own constraints, modules and repository set.
             $this->transactions->run($backend, ['update', '--minimal-changes', '--no-interaction'], $progress, backUpdate: $update);
         } finally {
-            (new Process(['rm', '-rf', '--', $temporary]))->mustRun();
+            NativeTreeRemoval::remove($temporary);
         }
     }
 

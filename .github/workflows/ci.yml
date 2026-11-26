@@ -4,7 +4,7 @@ on:
   push:
     branches: [dev, main]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 # Each GitHub-hosted job has isolated PostgreSQL, MySQL and MariaDB services.
 # Cancel superseded runs for the same branch or PR.
@@ -131,3 +131,37 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Verify accordion, page anchors and project guides in local HTML
         run: python tests/Fixtures/check-documentation-navigation.py "$RUNNER_TEMP/symsvel-docs"
+
+  windows-documentation:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, sodium
+          tools: composer:v2
+          coverage: none
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build real local MkDocs site on Windows
+        run: php tests/Fixtures/build-documentation-site.php "$env:RUNNER_TEMP/symsvel docs"
+      - name: Verify native Composer and npm processes
+        run: php tests/Fixtures/check-windows-processes.php "$env:RUNNER_TEMP/symsvel docs"
+      - name: Verify native Git clone and npm component installation
+        run: php tests/Fixtures/check-windows-component-install.php "$env:RUNNER_TEMP/symsvel docs"
+      - name: Verify Windows source and runtime rollback
+        run: php tests/Fixtures/check-windows-transactions.php "$env:RUNNER_TEMP/symsvel docs"
+      - name: Rebuild and verify dependency cache
+        run: php tests/Fixtures/check-windows-documentation.php "$env:RUNNER_TEMP/symsvel docs"
+      - name: Install Chromium
+        run: |
+          python -m pip install playwright
+          python -m playwright install chromium
+      - name: Verify local navigation
+        run: python tests/Fixtures/check-documentation-navigation.py "$env:RUNNER_TEMP/symsvel docs"

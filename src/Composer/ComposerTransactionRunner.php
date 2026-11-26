@@ -7,6 +7,7 @@ namespace SymSvel\Tooling\Composer;
 use SymSvel\Tooling\Filesystem\LocalMetadata;
 
 use SymSvel\Tooling\Process\PhpCliExecutableResolver;
+use SymSvel\Tooling\Process\NativeCommand;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\RuntimeArtifactSnapshot;
 use SymSvel\Tooling\Update\BackendNativeUpdatePlan;
@@ -608,7 +609,7 @@ final class ComposerTransactionRunner
             static function (\SplFileInfo $entry) use ($backend): bool {
                 if ($entry->isDir() && !$entry->isLink()) {
                     return !in_array($entry->getFilename(), ['node_modules', '.git', '.svelte-kit', '.next', 'build', 'dist', '.cache'], true)
-                    && !($entry->getFilename() === 'vendor' && $entry->getPath() === $backend)
+                    && !($entry->getFilename() === 'vendor' && str_replace(DIRECTORY_SEPARATOR, '/', $entry->getPath()) === str_replace(DIRECTORY_SEPARATOR, '/', $backend))
                         && !($entry->getFilename() === 'transactions' && basename(dirname($entry->getPathname())) === '.symsvel');
                 }
 
@@ -620,7 +621,7 @@ final class ComposerTransactionRunner
             if (LocalMetadata::isIgnored($file) || (!$file->isFile() && !$file->isLink())) {
                 continue;
             }
-            $relative = substr($file->getPathname(), strlen($backend) + 1);
+            $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($backend) + 1));
             if (preg_match('~^(?:vendor|node_modules|\\.git|\\.symsvel/transactions)/~', $relative)
                 || in_array($relative, ['composer.json', 'composer.lock', 'symfony.lock', '.symsvel/cleanup-pending.json'], true)) {
                 continue;
@@ -639,7 +640,7 @@ final class ComposerTransactionRunner
             ($this->commandRunner)($command, $backend, $progress);
             return;
         }
-        $process = new Process($command, $backend);
+        $process = new Process(NativeCommand::resolve($command), $backend);
         $process->setTimeout(900);
         $process->run(static function (string $type, string $output) use ($progress): void {
             if ($progress !== null) {

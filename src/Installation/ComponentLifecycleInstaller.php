@@ -9,6 +9,8 @@ use SymSvel\Tooling\Module\SvelteModuleSynchronizer;
 use SymSvel\Tooling\Update\WorkspaceCleanupRegistry;
 use SymSvel\Tooling\Update\ProjectChannel;
 use SymSvel\Tooling\Process\PhpCliExecutableResolver;
+use SymSvel\Tooling\Process\NativeCommand;
+use SymSvel\Tooling\Filesystem\NativeTreeRemoval;
 use Symfony\Component\Process\Process;
 
 /** Installs a new interface and its module files as a single operation. */
@@ -98,7 +100,7 @@ final class ComponentLifecycleInstaller
             // During initial setup, defer all interface builds until the wizard
             // has finished provisioning the database and first administrator.
             if (getenv('SYMSVEL_DEFER_BUILDS') !== '1') {
-                $build = new Process(['npm', 'run', 'build'], $target);
+                $build = new Process(NativeCommand::resolve(['npm', 'run', 'build']), $target);
                 $build->setTimeout(600);
                 $build->run();
                 if (!$build->isSuccessful()) {
@@ -134,10 +136,10 @@ final class ComponentLifecycleInstaller
             }
             $errors = [];
             if (is_dir($target) && !is_link($target)) {
-                $remove = new Process(['rm', '-rf', '--', $target]);
-                $remove->run();
-                if (!$remove->isSuccessful()) {
-                    $errors[] = 'Suppression du composant : '.trim($remove->getErrorOutput());
+                try {
+                    NativeTreeRemoval::remove($target);
+                } catch (\Throwable $error) {
+                    $errors[] = 'Suppression du composant : '.$error->getMessage();
                 }
             }
             try {

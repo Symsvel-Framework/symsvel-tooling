@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SymSvel\Tooling\Update;
 
 use SymSvel\Tooling\Process\PhpCliExecutableResolver;
+use SymSvel\Tooling\Process\NativeCommand;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Composer\ComposerTransactionSnapshot;
 use SymSvel\Tooling\Composer\WorkspaceFileSnapshot;
@@ -343,7 +344,7 @@ final class WorkspaceUpdater
             ($this->runner)($command, $cwd);
             return;
         }
-        $process = new Process($command, $cwd);
+        $process = new Process(NativeCommand::resolve($command), $cwd);
         $process->setTimeout(900);
         $process->run();
         if (!$process->isSuccessful()) {

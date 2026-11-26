@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Installation;
 
+use SymSvel\Tooling\Process\NativeCommand;
+use SymSvel\Tooling\Filesystem\NativeTreeRemoval;
 use Symfony\Component\Process\Process;
 use SymSvel\Tooling\Update\ComponentManifest;
 use SymSvel\Tooling\Update\ComponentNativeSource;
@@ -12,9 +14,9 @@ use SymSvel\Tooling\Update\ProjectChannel;
 final class ComponentInstaller
 {
     private const REPOSITORIES = [
-        'bo' => 'git@github.com:Symsvel-Framework/symsvel-bo.git',
-        'app' => 'git@github.com:Symsvel-Framework/symsvel-app.git',
-        'front' => 'git@github.com:Symsvel-Framework/symsvel-front.git',
+        'bo' => 'https://github.com/Symsvel-Framework/symsvel-bo.git',
+        'app' => 'https://github.com/Symsvel-Framework/symsvel-app.git',
+        'front' => 'https://github.com/Symsvel-Framework/symsvel-front.git',
     ];
 
     /** @param array<string, string>|null $repositories */
@@ -63,7 +65,7 @@ final class ComponentInstaller
                     $progress($component);
                 }
                 $created[] = $target;
-                $process = new Process(['git', 'clone', '--depth', '1', '--branch', $channel === ProjectChannel::DEV ? 'dev' : 'main', '--', ($this->repositories ?? self::REPOSITORIES)[$component], $target]);
+                $process = new Process(['git', 'clone', '--no-hardlinks', '--depth', '1', '--branch', $channel === ProjectChannel::DEV ? 'dev' : 'main', '--', ($this->repositories ?? self::REPOSITORIES)[$component], $target]);
                 $process->setTimeout(300);
                 $process->run();
                 if (!$process->isSuccessful()) {
@@ -82,9 +84,7 @@ final class ComponentInstaller
                 if (!is_dir($upstreamGit) || is_link($upstreamGit)) {
                     throw new \RuntimeException('Métadonnées Git du composant invalides : '.$component);
                 }
-                $removeGit = new Process(['rm', '-rf', '--', $upstreamGit]);
-                $removeGit->setTimeout(60);
-                $removeGit->mustRun();
+                NativeTreeRemoval::remove($upstreamGit);
                 if (file_exists($upstreamGit) || is_link($upstreamGit)) {
                     throw new \RuntimeException('Suppression du Git upstream impossible : '.$component);
                 }
@@ -94,7 +94,7 @@ final class ComponentInstaller
                     $commands[] = ['npm', 'run', 'build'];
                 }
                 foreach ($commands as $command) {
-                    $step = new Process($command, $target);
+                    $step = new Process(NativeCommand::resolve($command), $target);
                     $step->setTimeout(600);
                     $step->run();
                     if (!$step->isSuccessful()) {
@@ -111,7 +111,11 @@ final class ComponentInstaller
         } catch (\Throwable $exception) {
             foreach (array_reverse($created) as $path) {
                 if (is_dir($path) && !is_link($path)) {
-                    (new Process(['rm', '-rf', '--', $path]))->run();
+                    try {
+                        NativeTreeRemoval::remove($path);
+                    } catch (\Throwable $cleanup) {
+                        throw new \RuntimeException('Installation interrompue ; nettoyage impossible : '.$path.' : '.$cleanup->getMessage(), 0, $exception);
+                    }
                 }
             }
             throw $exception;

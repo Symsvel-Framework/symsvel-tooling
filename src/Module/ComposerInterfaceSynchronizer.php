@@ -6,6 +6,7 @@ namespace SymSvel\Tooling\Module;
 
 use Symfony\Component\Dotenv\Dotenv;
 use SymSvel\Tooling\Process\PhpCliExecutableResolver;
+use SymSvel\Tooling\Process\NativeCommand;
 use Symfony\Component\Process\Process;
 
 final class ComposerInterfaceSynchronizer
@@ -73,7 +74,7 @@ final class ComposerInterfaceSynchronizer
                 continue;
             }
             echo 'SymSvel: building '.strtoupper($scope)."\n";
-            $build = new Process(['npm', 'run', 'build'], $directory);
+            $build = new Process(NativeCommand::resolve(['npm', 'run', 'build']), $directory);
             $build->setTimeout(900);
             $build->run(static function (string $type, string $output): void {
                 echo $output;

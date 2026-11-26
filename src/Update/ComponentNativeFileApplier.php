@@ -68,11 +68,13 @@ final class ComponentNativeFileApplier
 
     private function safeParent(string $root, string $parent): bool
     {
+        $root = str_replace(DIRECTORY_SEPARATOR, '/', $root);
+        $parent = str_replace(DIRECTORY_SEPARATOR, '/', $parent);
         while ($parent !== $root) {
             if (is_link($parent) || is_file($parent) || !str_starts_with($parent, $root.'/')) {
                 return false;
             }
-            $parent = dirname($parent);
+            $parent = str_replace(DIRECTORY_SEPARATOR, '/', dirname($parent));
         }
         return true;
     }
