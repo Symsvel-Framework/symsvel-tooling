@@ -41,3 +41,5 @@ Après résolution et installation Composer, `composer audit --locked` doit réu
 La configuration PHPUnit commune affiche le détail des notices (`displayDetailsOnPhpunitNotices`) et rend leur présence bloquante (`failOnPhpunitNotice`). Ce contrôle s'applique aussi aux exécutions locales et à `composer qa`, sans masquer ni exclure de notice. La suite doit être propre avant validation du CT et publication.
 
 Les doubles de test qui fournissent uniquement une valeur de retour utilisent `createStub()` ; les mocks sont réservés aux tests qui vérifient explicitement les interactions (`expects()`). Le scénario de résolution PHP CLI sans exécutable utilise ainsi un stub, sans modifier ses assertions ni le résolveur.
+
+Le job `windows-documentation` est vert sur [le run 45876065831](https://github.com/Symsvel-Framework/symsvel-tooling/actions/runs/45876065831) : Composer/npm, clonage Git, snapshots et rollback, hooks CRLF, build MkDocs et navigation Chromium. Le CT initial Back Windows/SQLite est également vert sur dev ; la qualification indépendante et stable reste ouverte.
