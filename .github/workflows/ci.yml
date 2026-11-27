@@ -165,3 +165,17 @@ jobs:
           python -m playwright install chromium
       - name: Verify local navigation
         run: python tests/Fixtures/check-documentation-navigation.py "$env:RUNNER_TEMP/symsvel docs"
+
+  macos-cleanup:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, sodium
+          tools: composer:v2
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Verify deferred cleanup on native macOS filesystem
+        run: vendor/bin/phpunit tests/Update/WorkspaceCleanupRegistryTest.php --display-warnings --fail-on-warning

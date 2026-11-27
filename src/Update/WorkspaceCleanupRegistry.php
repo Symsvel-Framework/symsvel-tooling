@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SymSvel\Tooling\Update;
 
+use SymSvel\Tooling\Filesystem\NativeTreeRemoval;
+
 /**
  * Deferred cleanup for successfully committed workspace updates only.
  * Failed rollback checkpoints must never be queued here.
@@ -41,10 +43,13 @@ final class WorkspaceCleanupRegistry
                 foreach ($entry['paths'] as $path) {
                     try {
                         $this->validatePath($path);
-                        if (PHP_OS_FAMILY === 'Windows') {
-                            \SymSvel\Tooling\Filesystem\NativeTreeRemoval::remove($path);
-                        } else {
-                            $this->remove($path);
+                        // The registry is the authorization boundary: only
+                        // committed checkpoints with validated names are removed.
+                        // Use the same native cleanup as the other Tooling operations.
+                        NativeTreeRemoval::remove($path);
+                        clearstatcache(true, $path);
+                        if (file_exists($path) || is_link($path)) {
+                            throw new \RuntimeException('Nettoyage incomplet : '.$path);
                         }
                         ++$removed;
                     } catch (\Throwable $failure) {
@@ -134,32 +139,4 @@ final class WorkspaceCleanupRegistry
         }
     }
 
-    private function remove(string $path): void
-    {
-        if (is_link($path)) {
-            throw new \RuntimeException('Lien symbolique interdit.');
-        }
-        if (is_file($path)) {
-            if (!unlink($path)) {
-                throw new \RuntimeException('Suppression impossible.');
-            }
-            return;
-        }
-        if (!is_dir($path)) {
-            return;
-        }
-        foreach (new \FilesystemIterator($path) as $entry) {
-            $target = $entry->getPathname();
-            if ($entry->isLink()) {
-                if (!unlink($target)) {
-                    throw new \RuntimeException('Suppression du lien impossible : '.$target);
-                }
-            } else {
-                $this->remove($target);
-            }
-        }
-        if (!rmdir($path)) {
-            throw new \RuntimeException('Suppression du répertoire impossible : '.$path);
-        }
-    }
 }

@@ -11,7 +11,7 @@ final class WorkspaceCleanupRegistryTest extends TestCase
 {
     public function testEnqueueAndCleanupCommittedTransaction(): void
     {
-        $backend = sys_get_temp_dir().'/symsvel-cleanup-'.bin2hex(random_bytes(8)).'/backend';
+        $backend = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()).'/symsvel-cleanup-'.bin2hex(random_bytes(8)).'/backend';
         mkdir($backend.'/.symsvel/transactions/update-'.str_repeat('a', 24), 0700, true);
         $path = $backend.'/.symsvel/transactions/update-'.str_repeat('a', 24);
         file_put_contents($path.'/snapshot.txt', 'old');
@@ -31,9 +31,41 @@ final class WorkspaceCleanupRegistryTest extends TestCase
         }
     }
 
+    public function testCleanupRemovesDenseRuntimeAndDesktopMetadataWithoutFollowingLinks(): void
+    {
+        $root = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()).'/symsvel-cleanup-runtime-'.bin2hex(random_bytes(8));
+        $backend = $root.'/backend';
+        $base = $backend.'/.symsvel/transactions';
+        $path = $base.'/'.str_repeat('a', 32);
+        $other = $base.'/'.str_repeat('b', 32);
+        $runtime = $path.'/bo/runtime/node_modules';
+        mkdir($runtime.'/@scope/pkg', 0700, true);
+        mkdir($other, 0700, true);
+        mkdir($root.'/outside', 0700, true);
+        file_put_contents($other.'/snapshot.txt', 'unregistered checkpoint');
+        file_put_contents($root.'/outside/important.txt', 'preserve');
+        file_put_contents($runtime.'/.DS_Store', 'desktop metadata');
+        file_put_contents($runtime.'/@scope/pkg/.DS_Store', 'desktop metadata');
+        for ($i = 0; $i < 1024; ++$i) {
+            file_put_contents($runtime.'/dependency-'.$i.'.js', 'fixture');
+        }
+        symlink($root.'/outside', $runtime.'/external-link');
+        symlink($root.'/absent', $runtime.'/dangling-link');
+        try {
+            $registry = new WorkspaceCleanupRegistry($backend);
+            $registry->enqueue([$path]);
+            self::assertSame(['removed' => 1, 'remaining' => 0, 'errors' => []], $registry->cleanup());
+            self::assertDirectoryDoesNotExist($path);
+            self::assertSame('preserve', file_get_contents($root.'/outside/important.txt'));
+            self::assertSame('unregistered checkpoint', file_get_contents($other.'/snapshot.txt'));
+        } finally {
+            $this->remove($root);
+        }
+    }
+
     public function testRejectsArbitraryPaths(): void
     {
-        $backend = sys_get_temp_dir().'/symsvel-cleanup-'.bin2hex(random_bytes(8)).'/backend';
+        $backend = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()).'/symsvel-cleanup-'.bin2hex(random_bytes(8)).'/backend';
         mkdir($backend.'/.symsvel/transactions', 0700, true);
         try {
             $registry = new WorkspaceCleanupRegistry($backend);
@@ -46,7 +78,7 @@ final class WorkspaceCleanupRegistryTest extends TestCase
 
     public function testRegistryWriteFailurePreservesCheckpoint(): void
     {
-        $backend = sys_get_temp_dir().'/symsvel-cleanup-write-'.bin2hex(random_bytes(8)).'/backend';
+        $backend = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()).'/symsvel-cleanup-write-'.bin2hex(random_bytes(8)).'/backend';
         $path = $backend.'/.symsvel/transactions/update-'.str_repeat('b', 24);
         mkdir($path, 0700, true);
         file_put_contents($path.'/snapshot.txt', 'keep');
@@ -70,7 +102,7 @@ final class WorkspaceCleanupRegistryTest extends TestCase
 
     public function testFailedDeletionStaysQueuedAndNextRunRetries(): void
     {
-        $backend = sys_get_temp_dir().'/symsvel-cleanup-retry-'.bin2hex(random_bytes(8)).'/backend';
+        $backend = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()).'/symsvel-cleanup-retry-'.bin2hex(random_bytes(8)).'/backend';
         $path = $backend.'/.symsvel/transactions/update-'.str_repeat('c', 24);
         mkdir($path, 0700, true);
         file_put_contents($path.'/snapshot.txt', 'keep');
@@ -100,7 +132,7 @@ final class WorkspaceCleanupRegistryTest extends TestCase
 
     public function testRejectsSymlinkedTransactionRootWithoutDeletingTarget(): void
     {
-        $root = sys_get_temp_dir().'/symsvel-cleanup-root-'.bin2hex(random_bytes(8));
+        $root = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()).'/symsvel-cleanup-root-'.bin2hex(random_bytes(8));
         $backend = $root.'/backend';
         $outside = $root.'/outside';
         mkdir($backend.'/.symsvel', 0700, true);
@@ -125,7 +157,7 @@ final class WorkspaceCleanupRegistryTest extends TestCase
 
     public function testRejectsMissingTransactionRoot(): void
     {
-        $backend = sys_get_temp_dir().'/symsvel-cleanup-missing-'.bin2hex(random_bytes(8)).'/backend';
+        $backend = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()).'/symsvel-cleanup-missing-'.bin2hex(random_bytes(8)).'/backend';
         mkdir($backend, 0700, true);
         try {
             $registry = new WorkspaceCleanupRegistry($backend);
@@ -138,7 +170,7 @@ final class WorkspaceCleanupRegistryTest extends TestCase
 
     public function testRejectsSymlinkedRegistryDirectory(): void
     {
-        $root = sys_get_temp_dir().'/symsvel-cleanup-link-'.bin2hex(random_bytes(8));
+        $root = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()).'/symsvel-cleanup-link-'.bin2hex(random_bytes(8));
         $backend = $root.'/backend';
         $outside = $root.'/outside';
         mkdir($backend, 0700, true);
@@ -162,7 +194,7 @@ final class WorkspaceCleanupRegistryTest extends TestCase
     public function testRejectsSymlinkedRegistryFilesWithoutTouchingExternalTarget(): void
     {
         foreach (['cleanup.lock', 'cleanup-pending.json'] as $filename) {
-            $root = sys_get_temp_dir().'/symsvel-cleanup-file-link-'.bin2hex(random_bytes(8));
+            $root = (realpath(sys_get_temp_dir()) ?: sys_get_temp_dir()).'/symsvel-cleanup-file-link-'.bin2hex(random_bytes(8));
             $backend = $root.'/backend';
             mkdir($backend.'/.symsvel/transactions', 0700, true);
             file_put_contents($root.'/outside.txt', 'preserve');
