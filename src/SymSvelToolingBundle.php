@@ -44,6 +44,7 @@ use SymSvel\Tooling\Module\ModuleBundleResolver;
 use SymSvel\Tooling\Module\ModuleBundleMapWriter;
 use SymSvel\Tooling\Command\SymSvelUpdateCommand;
 use SymSvel\Tooling\Command\SymSvelComponentUpdateCommand;
+use SymSvel\Tooling\Command\SymSvelCleanupCommand;
 use SymSvel\Tooling\Update\WorkspaceUpdater;
 use SymSvel\Tooling\Installation\ComponentInstaller;
 use SymSvel\Tooling\Installation\DevDocumentationBuilder;
@@ -180,6 +181,9 @@ final class SymSvelToolingBundle extends AbstractBundle
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelUpdateCommand::class)
+            ->autowire()
+            ->autoconfigure()
+            ->set(SymSvelCleanupCommand::class)
             ->autowire()
             ->autoconfigure()
             ->set(SymSvelComponentUpdateCommand::class)

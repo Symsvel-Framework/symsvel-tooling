@@ -21,6 +21,7 @@ Depuis `backend/`, préfixer les commandes par `php bin/console` :
 | --- | --- |
 | `symsvel:make:module <name>` | Génération avec ModuleMaker |
 | `symsvel:module:plan` | Prévisualisation des modules |
+| `symsvel:cleanup` | Reprendre le nettoyage des seuls checkpoints de transactions terminées |
 | `symsvel:module:sync` | Inventaire et carte des Bundles |
 | `symsvel:module:sync:svelte` | Synchronisation des ressources Svelte |
 | `symsvel:module:migrations:compile` | Compilation des migrations |
