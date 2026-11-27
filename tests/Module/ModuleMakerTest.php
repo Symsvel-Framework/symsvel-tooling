@@ -22,6 +22,8 @@ final class ModuleMakerTest extends TestCase
             self::assertSame(1, $manifest['schema']);
             self::assertSame('MyDocuments', $manifest['name']);
             self::assertSame('symsvel-framework/module-my-documents', $composer['name']);
+            self::assertSame('proprietary', $composer['license']);
+            self::assertFileDoesNotExist($path.'/LICENSE');
             self::assertFileExists($path.'/back/src/MyDocumentsBundle.php');
             self::assertFileExists($path.'/back/phpunit.xml.dist');
             $phpunitConfiguration = (string) file_get_contents($path.'/back/phpunit.xml.dist');
@@ -155,6 +157,14 @@ final class ModuleMakerTest extends TestCase
             self::assertFileExists($path.'/bo/tsconfig.json');
             $composer = json_decode((string) file_get_contents($path.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
             self::assertSame('symsvel-framework/module-mail', $composer['name']);
+            self::assertSame('MIT', $composer['license']);
+            self::assertFileExists($path.'/LICENSE');
+            self::assertStringContainsString('MIT License', (string) file_get_contents($path.'/LICENSE'));
+            self::assertStringContainsString('Permission is hereby granted', (string) file_get_contents($path.'/LICENSE'));
+            $thirdParty = (new ModuleMaker())->create($workspace, 'third-party', 'acme');
+            $thirdPartyComposer = json_decode((string) file_get_contents($thirdParty.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame('proprietary', $thirdPartyComposer['license']);
+            self::assertFileDoesNotExist($thirdParty.'/LICENSE');
         } finally {
             $iterator = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($workspace, \FilesystemIterator::SKIP_DOTS),
