@@ -66,12 +66,13 @@ final class ModuleMaker
                 $documentation[$scope] = 'docs/'.$scope;
             }
         }
+        $officialModule = $frameworkWorkspace && $vendor === 'symsvel-framework';
         $files = [
             'composer.json' => json_encode([
                 'name' => $vendor.'/module-'.$name,
                 'description' => 'SymSvel module '.$class,
                 'type' => 'symfony-bundle',
-                'license' => 'proprietary',
+                'license' => $officialModule ? 'MIT' : 'proprietary',
                 'require' => ['php' => '>=8.4', 'symfony/framework-bundle' => '^8.1'],
                 'autoload' => ['psr-4' => [$namespace.'\\' => 'back/src/']],
                 'autoload-dev' => ['psr-4' => [$namespace.'\\Tests\\' => 'back/tests/']],
@@ -120,6 +121,34 @@ final class ModuleMaker
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n",
 
         ];
+
+        if ($officialModule) {
+            $files['LICENSE'] = <<<'LICENSE'
+MIT License
+
+Copyright (c) 2026 Xavier Tezza and SymSvel Framework contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+LICENSE;
+            $files['LICENSE'] .= "\n";
+            $files['README.md'] .= "\nLicence : [MIT](LICENSE).\n";
+        }
 
         foreach (['admin', 'user'] as $scope) {
             if (isset($documentation[$scope])) {
