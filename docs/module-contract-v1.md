@@ -123,3 +123,7 @@ le registre `.symsvel/composer-routes.json` ne sert qu'à vérifier la
 propriété des fichiers générés. La synchronisation précède `cache:clear`
 et n'introduit aucun mécanisme de routage runtime. Les CT XT du ticket #64
 restent requis.
+
+### Licence des modules générés (27/11/2026)
+
+Dans le workspace Framework détecté par la présence des dossiers `symsvel-cli/` et `symsvel-tooling/`, les modules du vendor officiel `symsvel-framework` sont générés sous licence MIT (champ Composer et fichier LICENSE, notice officielle). Les modules générés dans un projet client ou sous un autre vendor gardent `proprietary` par défaut : le développeur choisit leur licence. Aucun module existant n'est modifié. La CLI utilise le Maker de Tooling ; aucune duplication du générateur.
